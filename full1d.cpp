@@ -22,7 +22,7 @@ static const double pi = 3.141592653589793238462643383279502884197;
   //template<> struct type_tag< Eigen::ArrayXd > : public boost::mpl::int_<37> {};
 //};
 
-class DeterminantConfiguration {
+class Configuration {
 	private:
 	int L; // size of the system
 	int V; // volume of the system
@@ -46,13 +46,13 @@ class DeterminantConfiguration {
 	Eigen::VectorXd energies;
 	Eigen::VectorXd freePropagator;
 
-	Eigen::MatrixXcd positionSpace; // current matrix in position space
+	Eigen::MatrixXd positionSpace; // current matrix in position space
 	Eigen::MatrixXcd momentumSpace;
 
 	fftw_plan x2p;
 	fftw_plan p2x;
 
-	Eigen::FullPivHouseholderQR<Eigen::MatrixXcd> decomposer;
+	Eigen::FullPivHouseholderQR<Eigen::MatrixXd> decomposer;
 
 	//Eigen::MatrixXcd n_s; // single particle density matrix
 
@@ -64,12 +64,6 @@ class DeterminantConfiguration {
 
 	public:
 
-	alps::RealObservable measuredEnergy;
-	alps::RealObservable measuredNumber;
-	alps::RealVectorObservable measuredDensity;
-
-	alps::RealVectorObservable eigenvalues;
-
 	double n_up;
 	double n_dn;
 
@@ -79,7 +73,7 @@ class DeterminantConfiguration {
 
 	public:
 
-	DeterminantConfiguration (int l, int n, double Beta, double interaction, double m, double b) : L(l), V(l), N(n), beta(Beta), dt(Beta/n),
+	Configuration (int l, int n, double Beta, double interaction, double m, double b, double t_) : L(l), V(l), N(n), beta(Beta), dt(Beta/n),
 		       			g(interaction), mu(m), B(b), qrnumber(0), distribution(0.5), randomPosition(0, l-1),
 					randomTime(0, n-1), trialDistribution(1.0) {
 		A = sqrt(exp(g*dt)-1.0);
@@ -92,22 +86,22 @@ class DeterminantConfiguration {
 				diagonals[i][j] = distributor()?A:-A;
 			}
 		}
-		positionSpace = Eigen::MatrixXcd::Identity(V, V);
+		positionSpace = Eigen::MatrixXd::Identity(V, V);
 		momentumSpace = Eigen::MatrixXcd::Identity(V, V);
 
 		const int size[] = { L, };
-		x2p = fftw_plan_many_dft(1, size, V, reinterpret_cast<fftw_complex*>(positionSpace.data()),
-				NULL, 1, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()), NULL, 1, V, FFTW_FORWARD, FFTW_PATIENT);
-		p2x = fftw_plan_many_dft(1, size, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()),
-				NULL, 1, V, reinterpret_cast<fftw_complex*>(positionSpace.data()), NULL, 1, V, FFTW_BACKWARD, FFTW_PATIENT);
+		x2p = fftw_plan_many_dft_r2c(1, size, V, positionSpace.data(),
+				NULL, 1, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()), NULL, 1, V, FFTW_PATIENT);
+		p2x = fftw_plan_many_dft_c2r(1, size, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()),
+				NULL, 1, V, positionSpace.data(), NULL, 1, V, FFTW_PATIENT);
 
-		positionSpace = Eigen::MatrixXcd::Identity(V, V);
+		positionSpace = Eigen::MatrixXd::Identity(V, V);
 		momentumSpace = Eigen::MatrixXcd::Identity(V, V);
 
 		energies = Eigen::VectorXd::Zero(V);
 		freePropagator = Eigen::VectorXd::Zero(V);
 		for (int i=0;i<V;i++) {
-			energies[i] = - cos(2.0*i*pi/L) - cos(4.0*i*pi/L) - mu;
+			energies[i] = - cos(2.0*i*pi/L) - t_ * cos(4.0*i*pi/L) - mu;
 			freePropagator[i] = exp(-dt*energies[i]);
 		}
 
@@ -115,10 +109,10 @@ class DeterminantConfiguration {
 	}
 
 	double logProbability (int t = -1, int x = 0) {
-		bool negativeDeterminant = false;
-		Eigen::HouseholderQR<Eigen::MatrixXcd> qrsolver;
-		Eigen::JacobiSVD<Eigen::MatrixXcd> svdsolver;
-		Eigen::MatrixXcd R = Eigen::MatrixXcd::Identity(V, V);
+		bool negative = false;
+		Eigen::HouseholderQR<Eigen::MatrixXd> qrsolver;
+		Eigen::JacobiSVD<Eigen::MatrixXd> svdsolver;
+		Eigen::MatrixXd R = Eigen::MatrixXd::Identity(V, V);
 		int qrperiod = qrnumber>0?N/qrnumber:0;
 
 		positionSpace.setIdentity(V, V);
@@ -149,13 +143,24 @@ class DeterminantConfiguration {
 		}
 		positionSpace.applyOnTheRight(R);
 
-		Eigen::MatrixXd S1 = Eigen::MatrixXd::Identity(V, V) + std::exp(+beta*B)*positionSpace.real();
-		Eigen::MatrixXd S2 = Eigen::MatrixXd::Identity(V, V) + std::exp(-beta*B)*positionSpace.real();
+		Eigen::MatrixXd S1 = Eigen::MatrixXd::Identity(V, V) + std::exp(+beta*B)*positionSpace;
+		Eigen::MatrixXd S2 = Eigen::MatrixXd::Identity(V, V) + std::exp(-beta*B)*positionSpace;
 
 		{
-			std::complex<double> ret = S1.eigenvalues().array().log().sum() + S2.eigenvalues().array().log().sum();
+			std::complex<double> ret = 0.0;
+			//std::complex<double> ret = S1.eigenvalues().array().log().sum() + S2.eigenvalues().array().log().sum();
+			//decomposer.compute(S1);
+			//ret += decomposer.logAbsDeterminant();
+			//decomposer.compute(S2);
+			//ret += decomposer.logAbsDeterminant();
+			ret += (1.0 + std::exp(+beta*B)*positionSpace.eigenvalues().array()).log().sum();
+			ret += (1.0 + std::exp(-beta*B)*positionSpace.eigenvalues().array()).log().sum();
+
 			if (std::cos(ret.imag())<0.99) {
 				if (qrnumber==N) {
+					std::cout << positionSpace.eigenvalues().transpose() << std::endl;
+					std::cout << S1.eigenvalues().transpose() << std::endl;
+					std::cout << S2.eigenvalues().transpose() << std::endl;
 					throw("wtf");
 				} else {
 					qrnumber++;
@@ -224,8 +229,8 @@ class DeterminantConfiguration {
 			plog = trial;
 			//density = std::valarray<double>(n_s.diagonal().real().data(), V);
 			//number = n_s.real().trace();
-			n_up = ( Eigen::MatrixXcd::Identity(V, V) - (Eigen::MatrixXcd::Identity(V, V) + exp(+beta*B) * positionSpace).inverse() ).trace().real();
-			n_dn = ( Eigen::MatrixXcd::Identity(V, V) - (Eigen::MatrixXcd::Identity(V, V) + exp(-beta*B) * positionSpace).inverse() ).trace().real();
+			n_up = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(+beta*B) * positionSpace).inverse() ).trace();
+			n_dn = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(-beta*B) * positionSpace).inverse() ).trace();
 			ret = true;
 		} else {
 			//std::cout << "rejected " << trial-plog << std::endl;
@@ -266,8 +271,8 @@ class DeterminantConfiguration {
 			//std::cout << "accepted " << trial-plog << std::endl;
 			plog = trial;
 			//density = std::valarray<double>(n_s.diagonal().real().data(), V);
-			n_up = ( Eigen::MatrixXcd::Identity(V, V) - (Eigen::MatrixXcd::Identity(V, V) + exp(+beta*B) * positionSpace).inverse() ).trace().real();
-			n_dn = ( Eigen::MatrixXcd::Identity(V, V) - (Eigen::MatrixXcd::Identity(V, V) + exp(-beta*B) * positionSpace).inverse() ).trace().real();
+			n_up = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(+beta*B) * positionSpace).inverse() ).trace();
+			n_dn = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(-beta*B) * positionSpace).inverse() ).trace();
 			//number = n_s.real().trace();
 			ret = true;
 		} else {
@@ -289,7 +294,7 @@ class DeterminantConfiguration {
 		qrnumber = n;
 	}
 
-	~DeterminantConfiguration () { fftw_destroy_plan(x2p); fftw_destroy_plan(p2x); }
+	~Configuration () { fftw_destroy_plan(x2p); fftw_destroy_plan(p2x); }
 	protected:
 };
 
@@ -302,6 +307,7 @@ int main (int argc, char **argv) {
 	double mu = -0.5;
 	double B = 0.0;
 	int qrn = 0;
+	double t_ = -1.0;
 
 	alps::RealObservable density("density");
 	alps::RealObservable magnetization("magnetization");
@@ -333,10 +339,13 @@ int main (int argc, char **argv) {
 				case 'q':
 					qrn = atoi(argv[++i]);
 					break;
+				case 't':
+					t_ = atof(argv[++i]);
+					break;
 			}
 		}
 	}
-	DeterminantConfiguration configuration(L, N, beta, g, mu, B);
+	Configuration configuration(L, N, beta, g, mu, B, t_);
 	configuration.setQRNumber(qrn);
 	//configuration.logProbability();
 	//configuration.print();
