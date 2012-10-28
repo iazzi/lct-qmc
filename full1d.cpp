@@ -158,6 +158,7 @@ class Configuration {
 
 			if (std::cos(ret.imag())<0.99) {
 				if (qrnumber==N) {
+					std::cout << positionSpace << std::endl << std::endl;
 					std::cout << positionSpace.eigenvalues().transpose() << std::endl;
 					std::cout << S1.eigenvalues().transpose() << std::endl;
 					std::cout << S2.eigenvalues().transpose() << std::endl;
