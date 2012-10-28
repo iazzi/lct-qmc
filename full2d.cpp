@@ -18,7 +18,7 @@ extern "C" {
 
 static const double pi = 3.141592653589793238462643383279502884197;
 
-class DeterminantConfiguration {
+class Configuration {
 	private:
 	int L; // size of the system
 	int V; // volume of the system
@@ -46,10 +46,6 @@ class DeterminantConfiguration {
 	fftw_plan x2p;
 	fftw_plan p2x;
 
-	Eigen::FullPivHouseholderQR<Eigen::MatrixXcd> decomposer;
-
-	//Eigen::MatrixXcd n_s; // single particle density matrix
-
 	double plog;
 
 	double energy;
@@ -67,17 +63,15 @@ class DeterminantConfiguration {
 	double n_up;
 	double n_dn;
 
-	double lowestNegativeEV;
-
 	int qrnumber;
 
 	public:
 
-	DeterminantConfiguration (int l, int n, double Beta, double interaction, double m, double b) : L(l), V(l*l), N(n), beta(Beta), dt(Beta/n),
+	Configuration (int l, int n, double Beta, double interaction, double m, double b) : L(l), V(l*l), N(n), beta(Beta), dt(Beta/n),
 		       			g(interaction), mu(m), B(b), qrnumber(0), distribution(0.5), trialDistribution(1.0) {
 		A = sqrt(exp(g*dt)-1.0);
 		D = 2.0 * cosh(beta*B);
-		lowestNegativeEV = 0.0;
+		//lowestNegativeEV = 0.0;
 		auto distributor = std::bind(distribution, generator);
 		diagonals.insert(diagonals.begin(), N, Eigen::VectorXd::Zero(V));
 		for (int i=0;i<diagonals.size();i++) {
@@ -108,9 +102,7 @@ class DeterminantConfiguration {
 	}
 
 	double logProbability () {
-		bool negativeDeterminant = false;
 		Eigen::HouseholderQR<Eigen::MatrixXcd> qrsolver;
-		Eigen::JacobiSVD<Eigen::MatrixXcd> svdsolver;
 		Eigen::MatrixXcd R = Eigen::MatrixXcd::Identity(V, V);
 		int qrperiod = qrnumber>0?N/qrnumber:0;
 
@@ -123,15 +115,9 @@ class DeterminantConfiguration {
 			fftw_execute(p2x);
 			positionSpace /= V;
 			if ((qrperiod>0 && (i+1)%qrperiod==0) || i==N-1) {
-				if (false) {
-					svdsolver.compute(positionSpace, Eigen::ComputeFullU | Eigen::ComputeFullV);
-					R.applyOnTheLeft(svdsolver.matrixV().adjoint());
-					positionSpace = svdsolver.matrixU() * svdsolver.singularValues().asDiagonal();
-				} else {
-					qrsolver.compute(positionSpace);
-					R.applyOnTheLeft(qrsolver.householderQ().inverse()*positionSpace);
-					positionSpace = qrsolver.householderQ();
-				}
+				qrsolver.compute(positionSpace);
+				R.applyOnTheLeft(qrsolver.householderQ().inverse()*positionSpace);
+				positionSpace = qrsolver.householderQ();
 			}
 		}
 		positionSpace.applyOnTheRight(R);
@@ -139,56 +125,17 @@ class DeterminantConfiguration {
 		Eigen::MatrixXd S1 = Eigen::MatrixXd::Identity(V, V) + std::exp(+beta*B)*positionSpace.real();
 		Eigen::MatrixXd S2 = Eigen::MatrixXd::Identity(V, V) + std::exp(-beta*B)*positionSpace.real();
 
-		{
-			std::complex<double> ret = S1.eigenvalues().array().log().sum() + S1.eigenvalues().array().log().sum();
-			if (std::cos(ret.imag())<0.99) {
-				if (qrnumber==N) {
-					throw("wtf");
-				} else {
-					qrnumber++;
-					std::cout << "imaginary part = " << ret.imag() << " increasing qrnumber -> " << qrnumber << std::endl;
-					return logProbability();
-				}
-				return logProbability();
-			}
-			return ret.real();
-		}
-
-		//std::cout << positionSpace.imag().norm() << std::endl; // the imaginary part of U vanishes
-
-		//decomposer.compute(positionSpace);
-		Eigen::ArrayXcd ev = positionSpace.eigenvalues();
-		Eigen::ArrayXd ev1 = ev.real();
-		Eigen::ArrayXd ev2 = ev.imag();
-
-		std::cerr << ev1[0] << ' ' << ev2[0] << ' ' << ev1[1] << ' ' << ev2[1] << ' ' << ev1[2] << ' ' << ev2[2] << ' ' << ev1[3] << ' ' << ev2[3] << std::endl;
-
-		std::complex<double> pl = 0.0;
-		for (int i=0;i<V;i++) {
-			//if (ev1[i]<0.0 && fabs(ev1[i])>lowestNegativeEV && fabs(ev2[i])<1e-15) lowestNegativeEV = fabs(ev1[i]);
-			//if ( (ev1[i]+exp(-beta*B)<0.0 || ev1[i]+exp(+beta*B)<0.0) && fabs(ev2[i])<1e-15 ) {
-				//if (qrnumber==N) {
-					//throw("wtf");
-				//} else {
-					//std::cout << "increasing qrnumber" << std::endl;
-					//qrnumber++;
-					//return logProbability();
-				//}
-			//}
-			pl += std::log(1.0+std::exp(-beta*B)*ev[i]) + std::log(1.0+std::exp(+beta*B));
-		}
-		//return (ev1.square()+D*ev1+1.0).log().sum();
-		if (std::abs(pl.imag())>1e-10) {
+		std::complex<double> ret = S1.eigenvalues().array().log().sum() + S2.eigenvalues().array().log().sum();
+		if (std::cos(ret.imag())<0.99) {
 			if (qrnumber==N) {
 				throw("wtf");
 			} else {
-				std::cout << "increasing qrnumber" << std::endl;
 				qrnumber++;
+				std::cout << "imaginary part = " << ret.imag() << " increasing qrnumber -> " << qrnumber << std::endl;
 				return logProbability();
 			}
-			return logProbability();
 		}
-		return pl.real();
+		return ret.real();
 	}
 
 	void print () {
@@ -226,15 +173,11 @@ class DeterminantConfiguration {
 		}
 		double trial = logProbability();
 		if (-trialDistribution(generator)<trial-plog) {
-			//std::cout << "accepted " << trial-plog << std::endl;
 			plog = trial;
-			//density = std::valarray<double>(n_s.diagonal().real().data(), V);
 			n_up = ( Eigen::MatrixXcd::Identity(V, V) - (Eigen::MatrixXcd::Identity(V, V) + exp(+beta*B) * positionSpace).inverse() ).trace().real();
 			n_dn = ( Eigen::MatrixXcd::Identity(V, V) - (Eigen::MatrixXcd::Identity(V, V) + exp(-beta*B) * positionSpace).inverse() ).trace().real();
-			//number = n_s.real().trace();
 			ret = true;
 		} else {
-			//std::cout << "rejected " << trial-plog << std::endl;
 			for (int i=0;i<M;i++) {
 				int t = index[i]/V;
 				int x = index[i]%V;
@@ -242,9 +185,6 @@ class DeterminantConfiguration {
 			}
 			ret = false;
 		}
-		//std::cout << n_up << ' ' << n_dn << std::endl;
-		//measuredNumber << number;
-		//std::cout << measuredNumber << std::endl;
 		return ret;
 	}
 
@@ -252,7 +192,7 @@ class DeterminantConfiguration {
 		qrnumber = n;
 	}
 
-	~DeterminantConfiguration () { fftw_destroy_plan(x2p); fftw_destroy_plan(p2x); }
+	~Configuration () { fftw_destroy_plan(x2p); fftw_destroy_plan(p2x); }
 	protected:
 };
 
@@ -299,10 +239,8 @@ int main (int argc, char **argv) {
 			}
 		}
 	}
-	DeterminantConfiguration configuration(L, N, beta, g, mu, B);
+	Configuration configuration(L, N, beta, g, mu, B);
 	configuration.setQRNumber(qrn);
-	//configuration.logProbability();
-	//configuration.print();
 	int n = 0;
 	int a = 0;
 	for (int i=0;i<100000;i++) {
@@ -310,9 +248,6 @@ int main (int argc, char **argv) {
 		configuration.metropolis(M);
 	}
 
-	//configuration.measuredNumber.reset(true);
-	//configuration.eigenvalues.reset(true);
-	//std::cout << density.bin_size() << std::endl;
 	density.set_bin_size(128);
 	magnetization.set_bin_size(128);
 	std::chrono::steady_clock::time_point time_start = std::chrono::steady_clock::now();
@@ -330,16 +265,12 @@ int main (int argc, char **argv) {
 			std::cout << "acceptance = " << (double(a)/double(n)) << " spin flips = " << M << std::endl;
 			std::cout << "elapsed: " << std::chrono::duration_cast<std::chrono::duration<double>>(time_end - time_start).count() << " seconds" << std::endl;
 			std::cout << "steps per second = " << n/std::chrono::duration_cast<std::chrono::duration<double>>(time_end - time_start).count() << std::endl;
-			std::cout << "lowest negative eigenvalue = " << configuration.lowestNegativeEV << std::endl;
+			//std::cout << "lowest negative eigenvalue = " << configuration.lowestNegativeEV << std::endl;
 			std::cout << density << std::endl;
 			std::cout << magnetization << std::endl;
-			//std::cout << "particle number" << configuration.measuredNumber << std::endl;
-			//std::cout << configuration.eigenvalues << std::endl;
 			if (a>0.6*n) {
 				M += 1;
 				time_start = std::chrono::steady_clock::now();
-				//configuration.measuredNumber.reset(true);
-				//configuration.eigenvalues.reset(true);
 				density.reset(true);
 				magnetization.reset(true);
 				density.set_bin_size(128);
@@ -356,7 +287,6 @@ int main (int argc, char **argv) {
 			}
 
 		}
-		//configuration.print();
 	}
 	return 0;
 }

@@ -107,7 +107,7 @@ class DeterminantConfiguration {
 		energies = Eigen::VectorXd::Zero(V);
 		freePropagator = Eigen::VectorXd::Zero(V);
 		for (int i=0;i<V;i++) {
-			energies[i] = - cos(2.0*i*pi/L) + cos(4.0*i*pi/L) - mu;
+			energies[i] = - cos(2.0*i*pi/L) - cos(4.0*i*pi/L) - mu;
 			freePropagator[i] = exp(-dt*energies[i]);
 		}
 
@@ -153,7 +153,7 @@ class DeterminantConfiguration {
 		Eigen::MatrixXd S2 = Eigen::MatrixXd::Identity(V, V) + std::exp(-beta*B)*positionSpace.real();
 
 		{
-			std::complex<double> ret = S1.eigenvalues().array().log().sum() + S1.eigenvalues().array().log().sum();
+			std::complex<double> ret = S1.eigenvalues().array().log().sum() + S2.eigenvalues().array().log().sum();
 			if (std::cos(ret.imag())<0.99) {
 				if (qrnumber==N) {
 					throw("wtf");
