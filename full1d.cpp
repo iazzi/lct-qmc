@@ -67,8 +67,6 @@ class Configuration {
 	double n_up;
 	double n_dn;
 
-	double lowestNegativeEV;
-
 	int qrnumber;
 
 	public:
@@ -78,7 +76,6 @@ class Configuration {
 					randomTime(0, n-1), trialDistribution(1.0) {
 		A = sqrt(exp(g*dt)-1.0);
 		D = 2.0 * cosh(beta*B);
-		lowestNegativeEV = 0.0;
 		auto distributor = std::bind(distribution, generator);
 		diagonals.insert(diagonals.begin(), N, Eigen::VectorXd::Zero(V));
 		for (int i=0;i<diagonals.size();i++) {
@@ -108,106 +105,49 @@ class Configuration {
 		plog = logProbability();
 	}
 
-	double logProbability (int t = -1, int x = 0) {
-		bool negative = false;
+	double logProbability () {
 		Eigen::HouseholderQR<Eigen::MatrixXd> qrsolver;
-		Eigen::JacobiSVD<Eigen::MatrixXd> svdsolver;
 		Eigen::MatrixXd R = Eigen::MatrixXd::Identity(V, V);
 		int qrperiod = qrnumber>0?N/qrnumber:0;
 
 		positionSpace.setIdentity(V, V);
 		R.setIdentity(V, V);
 		for (int i=0;i<N;i++) {
-			if (i==t) {
-				Eigen::VectorXd v = diagonals[i];
-				v[x] = - v[x];
-				positionSpace.applyOnTheLeft((Eigen::VectorXd::Constant(V, 1.0)+v).asDiagonal());
-			} else {
-				positionSpace.applyOnTheLeft((Eigen::VectorXd::Constant(V, 1.0)+diagonals[i]).asDiagonal());
-			}
+			positionSpace.applyOnTheLeft((Eigen::VectorXd::Constant(V, 1.0)+diagonals[i]).asDiagonal());
 			fftw_execute(x2p);
 			momentumSpace.applyOnTheLeft(freePropagator.asDiagonal());
 			fftw_execute(p2x);
 			positionSpace /= V;
 			if ((qrperiod>0 && (i+1)%qrperiod==0) || i==N-1) {
-				if (false) {
-					svdsolver.compute(positionSpace, Eigen::ComputeFullU | Eigen::ComputeFullV);
-					R.applyOnTheLeft(svdsolver.matrixV().adjoint());
-					positionSpace = svdsolver.matrixU() * svdsolver.singularValues().asDiagonal();
-				} else {
-					qrsolver.compute(positionSpace);
-					R.applyOnTheLeft(qrsolver.householderQ().inverse()*positionSpace);
-					positionSpace = qrsolver.householderQ();
-				}
+				qrsolver.compute(positionSpace);
+				R.applyOnTheLeft(qrsolver.householderQ().inverse()*positionSpace);
+				positionSpace = qrsolver.householderQ();
 			}
 		}
 		positionSpace.applyOnTheRight(R);
 
-		Eigen::MatrixXd S1 = Eigen::MatrixXd::Identity(V, V) + std::exp(+beta*B)*positionSpace;
-		Eigen::MatrixXd S2 = Eigen::MatrixXd::Identity(V, V) + std::exp(-beta*B)*positionSpace;
+		//Eigen::MatrixXd S1 = Eigen::MatrixXd::Identity(V, V) + std::exp(+beta*B)*positionSpace;
+		//Eigen::MatrixXd S2 = Eigen::MatrixXd::Identity(V, V) + std::exp(-beta*B)*positionSpace;
 
-		{
-			std::complex<double> ret = 0.0;
-			//std::complex<double> ret = S1.eigenvalues().array().log().sum() + S2.eigenvalues().array().log().sum();
-			//decomposer.compute(S1);
-			//ret += decomposer.logAbsDeterminant();
-			//decomposer.compute(S2);
-			//ret += decomposer.logAbsDeterminant();
-			ret += (1.0 + std::exp(+beta*B)*positionSpace.eigenvalues().array()).log().sum();
-			ret += (1.0 + std::exp(-beta*B)*positionSpace.eigenvalues().array()).log().sum();
+		std::complex<double> ret = 0.0;
+		ret += (1.0 + std::exp(+beta*B)*positionSpace.eigenvalues().array()).log().sum();
+		ret += (1.0 + std::exp(-beta*B)*positionSpace.eigenvalues().array()).log().sum();
 
-			if (std::cos(ret.imag())<0.99) {
-				if (qrnumber==N) {
-					std::cout << positionSpace << std::endl << std::endl;
-					std::cout << positionSpace.eigenvalues().transpose() << std::endl;
-					std::cout << S1.eigenvalues().transpose() << std::endl;
-					std::cout << S2.eigenvalues().transpose() << std::endl;
-					throw("wtf");
-				} else {
-					qrnumber++;
-					std::cout << "imaginary part = " << ret.imag() << " increasing qrnumber -> " << qrnumber << std::endl;
-					return logProbability();
-				}
-				return logProbability();
-			}
-			return ret.real();
-		}
-
-		//std::cout << positionSpace.imag().norm() << std::endl; // the imaginary part of U vanishes
-
-		//decomposer.compute(positionSpace);
-		Eigen::ArrayXcd ev = positionSpace.eigenvalues();
-		Eigen::ArrayXd ev1 = ev.real();
-		Eigen::ArrayXd ev2 = ev.imag();
-
-		std::cerr << ev1[0] << ' ' << ev2[0] << ' ' << ev1[1] << ' ' << ev2[1] << ' ' << ev1[2] << ' ' << ev2[2] << ' ' << ev1[3] << ' ' << ev2[3] << std::endl;
-
-		std::complex<double> pl = 0.0;
-		for (int i=0;i<V;i++) {
-			//if (ev1[i]<0.0 && fabs(ev1[i])>lowestNegativeEV && fabs(ev2[i])<1e-15) lowestNegativeEV = fabs(ev1[i]);
-			//if ( (ev1[i]+exp(-beta*B)<0.0 || ev1[i]+exp(+beta*B)<0.0) && fabs(ev2[i])<1e-15 ) {
-				//if (qrnumber==N) {
-					//throw("wtf");
-				//} else {
-					//std::cout << "increasing qrnumber" << std::endl;
-					//qrnumber++;
-					//return logProbability();
-				//}
-			//}
-			pl += std::log(1.0+std::exp(-beta*B)*ev[i]) + std::log(1.0+std::exp(+beta*B));
-		}
-		//return (ev1.square()+D*ev1+1.0).log().sum();
-		if (std::abs(pl.imag())>1e-10) {
+		if (std::cos(ret.imag())<0.99) {
 			if (qrnumber==N) {
+				std::cout << positionSpace << std::endl << std::endl;
+				std::cout << positionSpace.eigenvalues().transpose() << std::endl;
+				//std::cout << S1.eigenvalues().transpose() << std::endl;
+				//std::cout << S2.eigenvalues().transpose() << std::endl;
 				throw("wtf");
 			} else {
-				std::cout << "increasing qrnumber" << std::endl;
 				qrnumber++;
+				std::cout << "imaginary part = " << ret.imag() << " increasing qrnumber -> " << qrnumber << std::endl;
 				return logProbability();
 			}
 			return logProbability();
 		}
-		return pl.real();
+		return ret.real();
 	}
 
 	void print () {
@@ -217,30 +157,6 @@ class Configuration {
 			}
 			std::cout << std::endl;
 		}
-	}
-
-	bool metropolis () {
-		bool ret = false;
-		int t = randomTime(generator);
-		int x = randomPosition(generator);
-		double trial = logProbability(t, x);
-		if (-trialDistribution(generator)<trial-plog) {
-			diagonals[t][x] = -diagonals[t][x];
-			//std::cout << "accepted " << trial-plog << std::endl;
-			plog = trial;
-			//density = std::valarray<double>(n_s.diagonal().real().data(), V);
-			//number = n_s.real().trace();
-			n_up = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(+beta*B) * positionSpace).inverse() ).trace();
-			n_dn = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(-beta*B) * positionSpace).inverse() ).trace();
-			ret = true;
-		} else {
-			//std::cout << "rejected " << trial-plog << std::endl;
-			ret = false;
-		}
-		//std::cout << n_up << ' ' << n_dn << std::endl;
-		//measuredNumber << number;
-		//std::cout << measuredNumber << std::endl;
-		return ret;
 	}
 
 	bool metropolis (int M) {
@@ -348,8 +264,7 @@ int main (int argc, char **argv) {
 	}
 	Configuration configuration(L, N, beta, g, mu, B, t_);
 	configuration.setQRNumber(qrn);
-	//configuration.logProbability();
-	//configuration.print();
+
 	int n = 0;
 	int a = 0;
 	for (int i=0;i<100000;i++) {
@@ -357,9 +272,6 @@ int main (int argc, char **argv) {
 		configuration.metropolis(M);
 	}
 
-	//configuration.measuredNumber.reset(true);
-	//configuration.eigenvalues.reset(true);
-	//std::cout << density.bin_size() << std::endl;
 	density.set_bin_size(128);
 	magnetization.set_bin_size(128);
 	std::chrono::steady_clock::time_point time_start = std::chrono::steady_clock::now();
@@ -377,11 +289,8 @@ int main (int argc, char **argv) {
 			std::cout << "acceptance = " << (double(a)/double(n)) << " spin flips = " << M << std::endl;
 			std::cout << "elapsed: " << std::chrono::duration_cast<std::chrono::duration<double>>(time_end - time_start).count() << " seconds" << std::endl;
 			std::cout << "steps per second = " << n/std::chrono::duration_cast<std::chrono::duration<double>>(time_end - time_start).count() << std::endl;
-			std::cout << "lowest negative eigenvalue = " << configuration.lowestNegativeEV << std::endl;
 			std::cout << density << std::endl;
 			std::cout << magnetization << std::endl;
-			//std::cout << "particle number" << configuration.measuredNumber << std::endl;
-			//std::cout << configuration.eigenvalues << std::endl;
 			if (a>0.6*n) {
 				M += 5;
 				time_start = std::chrono::steady_clock::now();
