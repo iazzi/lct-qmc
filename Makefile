@@ -1,5 +1,5 @@
 CXXFLAGS=$(MYCXXFLAGS) -std=c++11 -I $(HOME)/physics/Eigen -I $(HOME)/local/include -I /usr/include/python2.7 -I /usr/lib/python2.7/site-packages/numpy/core/include
-LDFLAGS=$(MYLDFLAGS) -L $(HOME)/local/lib -lboost_system -lboost_python -lpython2.7 -lalps -lm -lstdc++
+LDFLAGS=$(MYLDFLAGS) -L $(HOME)/local/lib -lboost_system -lboost_python -lpython2.7 -lalps -lm -lstdc++ -llapack
 
 all: main perturbative full1d full2d full2x2 exact2x2
 
