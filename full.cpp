@@ -24,7 +24,7 @@ extern "C" void dggev_ (const char *jobvl, const char *jobvr, const int &N,
 			double *vl, const int &ldvl, double *vr, const int &ldvr,
 			double *work, const int &lwork, int &info);
 
-void ddgev (const Eigen::MatrixXd &A, const Eigen::MatrixXd &B, Eigen::VectorXcd &alpha, Eigen::VectorXd &beta) {
+void dggev (const Eigen::MatrixXd &A, const Eigen::MatrixXd &B, Eigen::VectorXcd &alpha, Eigen::VectorXd &beta) {
 	Eigen::MatrixXd a = A, b = B;
 	int info = 0;
 	int N = a.rows();
@@ -293,6 +293,14 @@ class Configuration {
 			n_up = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(+beta*B) * positionSpace).inverse() ).trace();
 			n_dn = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(-beta*B) * positionSpace).inverse() ).trace();
 			//number = n_s.real().trace();
+			if (std::isnan(n_up) || std::isinf(n_up)) {
+				std::cout << n_up << std::endl;
+				std::cout << n_dn << std::endl;
+				std::cout << positionSpace << std::endl << std::endl;
+				std::cout << positionSpace.eigenvalues().transpose() << std::endl << std::endl;
+				std::cout << (Eigen::MatrixXd::Identity(V, V) + exp(-beta*B) * positionSpace).inverse() << std::endl << std::endl;
+				throw(9);
+			}
 			ret = true;
 		} else {
 			//std::cout << "rejected " << trial-plog << std::endl;
@@ -317,11 +325,13 @@ class Configuration {
 	protected:
 };
 
+using namespace std;
+
 int main (int argc, char **argv) {
 	int D = 1;
 	int L = 4;
 	int N = 1000;
-	int M = 500;
+	int M = 1;
 	double beta = 10.0;
 	double g = 0.1;
 	double mu = -0.5;
@@ -384,6 +394,11 @@ int main (int argc, char **argv) {
 	for (;;) {
 		if (configuration.metropolis(M)) a++;
 		n++;
+		if (std::isnan(configuration.n_up) || std::isnan(configuration.n_dn)) {
+			cout << configuration.n_up << std::endl;
+			cout << configuration.n_dn << std::endl;
+			throw(9);
+		}
 		density << configuration.n_up + configuration.n_dn;
 		magnetization << configuration.n_up - configuration.n_dn;
 		if (n%1024==0) {
@@ -397,8 +412,8 @@ int main (int argc, char **argv) {
 			std::cout << "steps per second = " << n/std::chrono::duration_cast<std::chrono::duration<double>>(time_end - time_start).count() << std::endl;
 			std::cout << density << std::endl;
 			std::cout << magnetization << std::endl;
-			if (a>0.6*n) {
-				M += 1;
+			if (a>0.6*n && M<0.1*N*pow(L, D)) {
+				M += 5;
 				time_start = std::chrono::steady_clock::now();
 				//configuration.measuredNumber.reset(true);
 				//configuration.eigenvalues.reset(true);
@@ -413,7 +428,7 @@ int main (int argc, char **argv) {
 				magnetization.reset(true);
 				density.set_bin_size(128);
 				magnetization.set_bin_size(128);
-				M -= 1;
+				M -= 5;
 				M = M>0?M:1;
 			}
 
