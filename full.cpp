@@ -186,7 +186,7 @@ class Configuration {
 		}
 		Eigen::VectorXcd eva;
 		Eigen::VectorXd evb;
-		ddgev(R, positionSpace.transpose(), eva, evb);
+		dggev(R, positionSpace.transpose(), eva, evb);
 
 		//positionSpace.applyOnTheRight(R);
 		if (std::cos(eva.array().log().sum().imag() - evb.array().log().sum())<0.999) {
@@ -219,7 +219,7 @@ class Configuration {
 		}
 		Eigen::VectorXcd eva;
 		Eigen::VectorXd evb;
-		ddgev(R, positionSpace.transpose(), eva, evb);
+		dggev(R, positionSpace.transpose(), eva, evb);
 
 		positionSpace.applyOnTheRight(R);
 
