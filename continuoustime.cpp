@@ -129,11 +129,21 @@ class Configuration {
 		plog = logProbability();
 	}
 
-	double logProbability () {
+	void computeNumber () {
+		n_up = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(+beta*B) * positionSpace).inverse() ).trace();
+		n_dn = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(-beta*B) * positionSpace).inverse() ).trace();
+	}
+
+	double logProbability (int Q = 1) {
+		Eigen::MatrixXd R;
+		Eigen::HouseholderQR<Eigen::MatrixXd> decomposer;
 		const double F = sqrt(2.0)/2.0;
 		double t = 0.0;
 		double dt;
+		int decomposeNumber = Q;
+		double decomposeStep = beta / (decomposeNumber+1);
 		positionSpace.setIdentity(V, V);
+		R.setIdentity(V, V);
 		for (auto i : diagonals) {
 			fftw_execute(x2p);
 			dt = i.first-t;
@@ -143,6 +153,12 @@ class Configuration {
 			// FIXME needs to take into account 1/2 from the sum??
 			positionSpace.applyOnTheLeft((Eigen::VectorXd::Constant(V, 1.0)+i.second).asDiagonal());
 			t = i.first;
+			if (t>beta-decomposeNumber*decomposeStep) {
+				decomposer.compute(positionSpace);
+				R.applyOnTheLeft(decomposer.householderQ().inverse()*positionSpace);
+				positionSpace = decomposer.householderQ();
+				decomposeNumber--;
+			}
 		}
 		fftw_execute(x2p);
 		dt = beta-t;
@@ -153,12 +169,31 @@ class Configuration {
 		//Eigen::MatrixXd S1 = Eigen::MatrixXd::Identity(V, V) + std::exp(+beta*B)*positionSpace;
 		//Eigen::MatrixXd S2 = Eigen::MatrixXd::Identity(V, V) + std::exp(-beta*B)*positionSpace;
 
+		Eigen::VectorXcd eva;
+		Eigen::VectorXd evb;
+		//dggev(R, positionSpace.inverse(), eva, evb);
+
+		positionSpace.applyOnTheRight(R);
+
 		Eigen::ArrayXcd ev = positionSpace.eigenvalues();
 
-		std::complex<double> ret = 0.0;
-		ret += ( 1.0 + ev*std::exp(-beta*B) ).log().sum() + ( 1.0 + ev*std::exp(+beta*B) ).log().sum();
+		std::complex<double> ret = ( 1.0 + ev*std::exp(-beta*B) ).log().sum() + ( 1.0 + ev*std::exp(+beta*B) ).log().sum();
+		std::complex<double> other = (evb.cast<std::complex<double>>() + std::exp(+beta*B)*eva).array().log().sum() - evb.array().log().sum()
+					   + (evb.cast<std::complex<double>>() + std::exp(-beta*B)*eva).array().log().sum() - evb.array().log().sum();
 
-		if (std::cos(ret.imag())<0.99) {
+		if (std::norm(ret - other)>1e-9 && false) {
+			std::cerr << eva.transpose() << std::endl << std::endl;
+			std::cerr << evb.transpose() << std::endl << std::endl;
+			std::cerr << (eva.array()/evb.array().cast<std::complex<double>>()).transpose() << std::endl << std::endl;
+			std::cerr << ev.transpose()  << std::endl << std::endl;
+			throw("wrong");
+		}
+
+		if (std::cos(other.imag())<0.99 && Q<100) {
+			std::cerr << "increasing number of decompositions: " << Q << " -> " << Q+1 << " (number of slices = " << diagonals.size() << ")" <<  std::endl;
+			return logProbability(Q+1);
+		}
+		if (std::cos(other.imag())<0.99) {
 			Eigen::MatrixXd S1 = Eigen::MatrixXd::Identity(V, V) + std::exp(+beta*B)*positionSpace;
 			Eigen::MatrixXd S2 = Eigen::MatrixXd::Identity(V, V) + std::exp(-beta*B)*positionSpace;
 			std::cerr << positionSpace << std::endl << std::endl;
@@ -167,9 +202,11 @@ class Configuration {
 			std::cerr << S2.eigenvalues().transpose() << std::endl;
 			std::cerr << S1.eigenvalues().array().log().sum() << std::endl;
 			std::cerr << S2.eigenvalues().array().log().sum() << std::endl;
-			std::cerr << ev.transpose() << std::endl;
-			std::cerr << ret << std::endl;
-			std::cerr << diagonals.size() << std::endl;
+			std::cerr << eva.transpose() << std::endl << std::endl;
+			std::cerr << evb.transpose() << std::endl << std::endl;
+			std::cerr << (eva.array()/evb.array().cast<std::complex<double>>()).transpose() << std::endl << std::endl;
+			std::cerr << ev.transpose() << std::endl << std::endl;
+			std::cerr << ret << ' ' << diagonals.size() << std::endl;
 			throw("wtf");
 		}
 		return ret.real();
@@ -207,8 +244,7 @@ class Configuration {
 		double trial = logProbability();
 		if (-trialDistribution(generator)<trial-plog) {
 			plog = trial;
-			n_up = ( Eigen::MatrixXd::Identity(V, V) - sqrt(2.0)*(sqrt(2)*Eigen::MatrixXd::Identity(V, V) + exp(+beta*B) * positionSpace).inverse() ).trace();
-			n_dn = ( Eigen::MatrixXd::Identity(V, V) - sqrt(2.0)*(sqrt(2)*Eigen::MatrixXd::Identity(V, V) + exp(-beta*B) * positionSpace).inverse() ).trace();
+			computeNumber();
 			ret = true;
 		} else {
 			for (int i=0;i<M;i++) {
@@ -233,8 +269,7 @@ class Configuration {
 		if (randomDouble(generator)<std::exp(trial-plog)*beta/diagonals.size()) {
 			//std::cerr << "accepted increase: time steps = " << diagonals.size() << std::endl;
 			plog = trial;
-			n_up = ( Eigen::MatrixXd::Identity(V, V) - sqrt(2.0)*(sqrt(2)*Eigen::MatrixXd::Identity(V, V) + exp(+beta*B) * positionSpace).inverse() ).trace();
-			n_dn = ( Eigen::MatrixXd::Identity(V, V) - sqrt(2.0)*(sqrt(2)*Eigen::MatrixXd::Identity(V, V) + exp(-beta*B) * positionSpace).inverse() ).trace();
+			computeNumber();
 			ret = true;
 		} else {
 			diagonals.erase(diter);
@@ -255,8 +290,7 @@ class Configuration {
 		if (randomDouble(generator)<std::exp(trial-plog)*(diagonals.size()+1)/beta) {
 			//std::cerr << "accepted decrease: time steps = " << diagonals.size() << std::endl;
 			plog = trial;
-			n_up = ( Eigen::MatrixXd::Identity(V, V) - sqrt(2.0)*(sqrt(2)*Eigen::MatrixXd::Identity(V, V) + exp(+beta*B) * positionSpace).inverse() ).trace();
-			n_dn = ( Eigen::MatrixXd::Identity(V, V) - sqrt(2.0)*(sqrt(2)*Eigen::MatrixXd::Identity(V, V) + exp(-beta*B) * positionSpace).inverse() ).trace();
+			computeNumber();
 			ret = true;
 		} else {
 			diagonals[store.first] = store.second;
