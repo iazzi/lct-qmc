@@ -9,11 +9,6 @@
 #include <alps/alea.h>
 #include <alps/alea/mcanalyze.hpp>
 
-
-extern "C" {
-#include <fftw3.h>
-}
-
 static const double pi = 3.141592653589793238462643383279502884197;
 
 class Configuration {
@@ -28,6 +23,7 @@ class Configuration {
 
 	std::default_random_engine generator;
 	std::bernoulli_distribution distribution;
+	std::uniform_real_distribution<double> randomDouble;
 	std::uniform_real_distribution<double> randomTime;
 	std::exponential_distribution<double> trialDistribution;
 
@@ -43,7 +39,7 @@ class Configuration {
 	public:
 
 	Configuration (double Beta, double interaction, double m, double b)
-		: beta(Beta), g(interaction), mu(m), B(b), distribution(0.5),
+		: beta(Beta), g(interaction), mu(m), B(b), distribution(0.5), randomDouble(1.0),
 		randomTime(0, Beta), trialDistribution(1.0) {
 		A = sqrt(g);
 
@@ -93,6 +89,7 @@ class Configuration {
 		if (diagonals.find(t)!=diagonals.end()) return false;
 		std::map<double, double>::iterator diter = diagonals.insert(std::pair<double,double>(t, distribution(generator)?A:-A)).first;
 		double trial = logProbability();
+		//if (randomDouble(generator)<std::exp(trial-plog)*beta/diagonals.size()) {
 		if (-trialDistribution(generator)<trial-plog+std::log(beta)-std::log(diagonals.size())) {
 			//std::cerr << "accepted increase: time steps = " << diagonals.size() << std::endl;
 			plog = trial;
@@ -114,7 +111,8 @@ class Configuration {
 		store = *diter;
 		diagonals.erase(diter);
 		double trial = logProbability();
-		if (-trialDistribution(generator)<trial-plog-std::log(beta)+std::log(diagonals.size()+1)) {
+		//if (randomDouble(generator)<std::exp(trial-plog)*(diagonals.size()+1)/beta) {
+		if (-trialDistribution(generator)<trial-plog+std::log(diagonals.size()+1)-std::log(beta)) {
 			//std::cerr << "accepted decrease: time steps = " << diagonals.size() << std::endl;
 			plog = trial;
 			computeNumber();
