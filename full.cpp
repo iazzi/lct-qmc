@@ -131,8 +131,9 @@ class Configuration {
 		energies = Eigen::VectorXd::Zero(V);
 		freePropagator = Eigen::VectorXd::Zero(V);
 		for (int i=0;i<V;i++) {
-			energies[i] = - cos(2.0*(i%L)*pi/L) - cos(2.0*((i/L)%L)*pi/L) - cos(2.0*(i/L/L)*pi/L) + (3-D) - mu;
-			energies[i] += J * (- cos(4.0*(i%L)*pi/L) - cos(4.0*((i/L)%L)*pi/L) - cos(4.0*(i/L/L)*pi/L) + (3-D) );
+			energies[i] = - cos(2.0*(i%L)*pi/L) - cos(2.0*((i/L)%L)*pi/L) - cos(2.0*(i/L/L)*pi/L) + 3.0;
+			energies[i] += J * (- cos(4.0*(i%L)*pi/L) - cos(4.0*((i/L)%L)*pi/L) - cos(4.0*(i/L/L)*pi/L) + 3.0 );
+			energies[i] -= mu;
 			freePropagator[i] = exp(-dt*energies[i]);
 		}
 
@@ -338,8 +339,9 @@ int main (int argc, char **argv) {
 	double B = 0.0;
 	double J = 0.0;
 	int qrn = 0;
-	alps::RealObservable density("density");
-	alps::RealObservable magnetization("magnetization");
+
+	alps::RealObservable d_up("d_up");
+	alps::RealObservable d_dn("d_dn");
 
 	for (int i=1;i<argc;i++) {
 		if (argv[i][0]=='-') {
@@ -377,6 +379,20 @@ int main (int argc, char **argv) {
 			}
 		}
 	}
+
+	double p_00 = 1;
+	double p_01 = exp(-beta*(-mu+B));
+	double p_10 = exp(-beta*(-mu-B));
+	double p_11 = exp(-beta*(-2.0*mu-g));
+	double Z = p_00 + p_01 + p_10 + p_11;
+	p_00 /= Z;
+	p_01 /= Z;
+	p_10 /= Z;
+	p_11 /= Z;
+
+	double n_up = p_10+p_11;
+	double n_dn = p_01+p_11;
+
 	Configuration configuration(D, L, N, beta, g, mu, B, J);
 	configuration.setQRNumber(qrn);
 
@@ -387,8 +403,6 @@ int main (int argc, char **argv) {
 		configuration.metropolis(M);
 	}
 
-	density.set_bin_size(128);
-	magnetization.set_bin_size(128);
 	std::chrono::steady_clock::time_point time_start = std::chrono::steady_clock::now();
 	std::chrono::steady_clock::time_point time_end = std::chrono::steady_clock::now();
 	for (;;) {
@@ -399,8 +413,8 @@ int main (int argc, char **argv) {
 			cout << configuration.n_dn << std::endl;
 			throw(9);
 		}
-		density << configuration.n_up + configuration.n_dn;
-		magnetization << configuration.n_up - configuration.n_dn;
+		d_up << configuration.n_up;
+		d_dn << configuration.n_dn;
 		if (n%1024==0) {
 			time_end = std::chrono::steady_clock::now();
 			std::cout << "dimension = " << D << ", size = " << L << std::endl;
@@ -410,24 +424,20 @@ int main (int argc, char **argv) {
 			std::cout << "acceptance = " << (double(a)/double(n)) << " spin flips = " << M << std::endl;
 			std::cout << "elapsed: " << std::chrono::duration_cast<std::chrono::duration<double>>(time_end - time_start).count() << " seconds" << std::endl;
 			std::cout << "steps per second = " << n/std::chrono::duration_cast<std::chrono::duration<double>>(time_end - time_start).count() << std::endl;
-			std::cout << density << std::endl;
-			std::cout << magnetization << std::endl;
+			std::cout << "n_up = " << n_up << std::endl;
+			std::cout << "n_dn = " << n_dn << std::endl;
+			std::cout << d_up << std::endl;
+			std::cout << d_dn << std::endl;
 			if (a>0.6*n && M<0.1*N*pow(L, D)) {
 				M += 5;
 				time_start = std::chrono::steady_clock::now();
-				//configuration.measuredNumber.reset(true);
-				//configuration.eigenvalues.reset(true);
-				density.reset(true);
-				magnetization.reset(true);
-				density.set_bin_size(128);
-				magnetization.set_bin_size(128);
+				d_up.reset(true);
+				d_dn.reset(true);
 				n = 0;
 				a = 0;
 			} else if (a<0.4*n) {
-				density.reset(true);
-				magnetization.reset(true);
-				density.set_bin_size(128);
-				magnetization.set_bin_size(128);
+				d_up.reset(true);
+				d_dn.reset(true);
 				M -= 5;
 				M = M>0?M:1;
 			}
