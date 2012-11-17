@@ -19,6 +19,8 @@ continuoustime: continuoustime.o
 
 ctsingle: ctsingle.o
 
+continuoustime.o: continuoustime.cpp ct_aux.hpp
+
 parallel:
 	$(MAKE) all MYCXXFLAGS="-O3 -march=native -DEIGEN_NO_DEBUG -fopenmp" MYLDFLAGS="-fopenmp -lfftw3 -lfftw3_threads"
 
