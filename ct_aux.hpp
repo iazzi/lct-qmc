@@ -119,7 +119,6 @@ class ctaux_sim : public alps::mcbase_ng {
 	double logProbability (int Q = 1) {
 		Eigen::MatrixXd R;
 		Eigen::HouseholderQR<Eigen::MatrixXd> decomposer;
-		const double F = sqrt(2.0)/2.0;
 		double t = 0.0;
 		double dt;
 		int decomposeNumber = Q;
@@ -302,8 +301,8 @@ class ctaux_sim : public alps::mcbase_ng {
 	void measure () {
 		sweeps++;
 		if (sweeps > thermalization_sweeps) {
-			measurements["n_up"] << n_up;
-			measurements["n_dn"] << n_dn;
+			measurements["n_up"] << numberUp();
+			measurements["n_dn"] << numberDown();
 			measurements["slices"] << sliceNumber();
 		}
 	}
