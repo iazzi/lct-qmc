@@ -333,6 +333,13 @@ int main (int argc, char **argv) {
 	parameters_type<sim_type>::type params(hdf5::archive(options.input_file));
 	sim_type configuration(params);
 
+	//configuration.run(boost::bind(&stop_callback, options.time_limit));
+	//results_type<sim_type>::type results = collect_results(configuration);
+	//std::cout << results << std::endl;
+	//save_results(results, params, options.output_file, "/simulation/results");
+	//return 0;
+
+
 	int D = 1;
 	int L = 1;
 	double beta = 10.0;
@@ -357,14 +364,14 @@ int main (int argc, char **argv) {
 
 	int n = 0;
 	int a = 0;
-	for (int i=0;i<10000;i++) {
+	for (int i=0;i<int(params["THERMALIZATION"]);i++) {
 		if (i%100==0) { std::cout << i << "\r"; std::cout.flush(); }
 		configuration.metropolis(1);
 	}
 
 	std::chrono::steady_clock::time_point time_start = std::chrono::steady_clock::now();
 	std::chrono::steady_clock::time_point time_end = std::chrono::steady_clock::now();
-	for (;;) {
+	for (int k=0;k<int(params["SWEEPS"]);k++) {
 		if (configuration.metropolis(1)) a++;
 		n++;
 		d_up << configuration.numberUp();
