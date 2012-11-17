@@ -308,7 +308,9 @@ class Configuration {
 		}
 	}
 
-	int sliceNumber () { return diagonals.size(); }
+	double sliceNumber () { return diagonals.size(); }
+	double numberUp () { return n_up; }
+	double numberDown () { return n_dn; }
 
 	void print () {
 		for (auto i : diagonals) {
@@ -331,13 +333,7 @@ typedef ctaux_sim sim_type;
 int main (int argc, char **argv) {
 	mcoptions options(argc, argv);
 	parameters_type<sim_type>::type params(hdf5::archive(options.input_file));
-	sim_type configuration(params);
-
-	//configuration.run(boost::bind(&stop_callback, options.time_limit));
-	//results_type<sim_type>::type results = collect_results(configuration);
-	//std::cout << results << std::endl;
-	//save_results(results, params, options.output_file, "/simulation/results");
-	//return 0;
+	sim_type sim(params);
 
 
 	int D = 1;
@@ -349,8 +345,9 @@ int main (int argc, char **argv) {
 	double J = 0.0;
 	int qrn = 0;
 
-	alps::RealObservable d_up("d_up");
-	alps::RealObservable d_dn("d_dn");
+	//alps::RealObservable d_up("d_up");
+	//alps::RealObservable d_dn("d_dn");
+	//alps::RealObservable slices("slices");
 
 	D = params["D"];
 	L = params["L"];
@@ -360,43 +357,48 @@ int main (int argc, char **argv) {
 	B = params["B"];
 	J = params["J"];
 
-	//Configuration configuration(D, L, beta, g, mu, B, J);
+	//Configuration sim(D, L, beta, g, mu, B, J);
 
 	int n = 0;
 	int a = 0;
 	for (int i=0;i<int(params["THERMALIZATION"]);i++) {
 		if (i%100==0) { std::cout << i << "\r"; std::cout.flush(); }
-		configuration.metropolis(1);
+		sim.update();
+		sim.measure();
 	}
+	std::cout << int(params["THERMALIZATION"]) << std::endl;
+	std::cout.flush();
 
 	std::chrono::steady_clock::time_point time_start = std::chrono::steady_clock::now();
 	std::chrono::steady_clock::time_point time_end = std::chrono::steady_clock::now();
 	for (int k=0;k<int(params["SWEEPS"]);k++) {
-		if (configuration.metropolis(1)) a++;
+		sim.update();
+		sim.measure();
 		n++;
-		d_up << configuration.numberUp();
-		d_dn << configuration.numberDown();
-		if (n%(1<<10)==0) {
-			time_end = std::chrono::steady_clock::now();
-			std::cout << "dimension = " << D << ", size = " << L << std::endl;
-			std::cout << "temperature = " << (1.0/beta) << ", interaction = " << g << std::endl;
-			std::cout << "chemical potential = " << mu << ", magnetic field = " << B << std::endl;
-			std::cout << "acceptance = " << (double(a)/double(n)) << std::endl;
-			std::cout << "elapsed: " << std::chrono::duration_cast<std::chrono::duration<double>>(time_end - time_start).count() << " seconds" << std::endl;
-			std::cout << "steps per second = " << n/std::chrono::duration_cast<std::chrono::duration<double>>(time_end - time_start).count() << std::endl;
-			std::cout << "slices = " << configuration.sliceNumber() << std::endl;
-			std::cout << d_up << std::endl;
-			std::cout << d_dn << std::endl;
-			//configuration.print();
-			if (a>0.6*n) {
-				//configuration.measuredNumber.reset(true);
-				//configuration.eigenvalues.reset(true);
-			} else if (a<0.4*n) {
-			}
-
-		}
-		//configuration.print();
+		//d_up << sim.numberUp();
+		//d_dn << sim.numberDown();
+		//slices << double(sim.sliceNumber());
 	}
+	sim.printResults();
+	if (false) {
+		time_end = std::chrono::steady_clock::now();
+		std::cout << "dimension = " << D << ", size = " << L << std::endl;
+		std::cout << "temperature = " << (1.0/beta) << ", interaction = " << g << std::endl;
+		std::cout << "chemical potential = " << mu << ", magnetic field = " << B << std::endl;
+		std::cout << "acceptance = " << (double(a)/double(n)) << std::endl;
+		std::cout << "elapsed: " << std::chrono::duration_cast<std::chrono::duration<double>>(time_end - time_start).count() << " seconds" << std::endl;
+		std::cout << "steps per second = " << n/std::chrono::duration_cast<std::chrono::duration<double>>(time_end - time_start).count() << std::endl;
+		//std::cout << d_up << std::endl;
+		//std::cout << d_dn << std::endl;
+		//std::cout << slices << std::endl;
+	}
+
+	sim.run(boost::bind(&stop_callback, options.time_limit));
+	results_type<sim_type>::type results = collect_results(sim);
+	std::cout << results << std::endl;
+	sim.printResults();
+	save_results(results, params, options.output_file, "/simulation/results");
+
 	return 0;
 }
 

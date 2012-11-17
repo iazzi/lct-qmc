@@ -39,6 +39,11 @@ class ctaux_sim : public alps::mcbase_ng {
 	Eigen::MatrixXd positionSpace; // current matrix in position space
 	Eigen::MatrixXcd momentumSpace;
 
+
+	//alps::RealObservable n_up_obs;
+	//alps::RealObservable n_dn_obs;
+	//alps::RealObservable slices_obs;
+
 	fftw_plan x2p;
 	fftw_plan p2x;
 
@@ -98,7 +103,11 @@ class ctaux_sim : public alps::mcbase_ng {
 		distribution(0.5),
 		randomDouble(1.0),
 		randomTime(0, beta),
-		trialDistribution(1.0) {
+		trialDistribution(1.0)
+		//n_up_obs("n_up_obs"),
+		//n_dn_obs("n_dn_obs"),
+		//slices_obs("slices_obs")
+	{
 			init();
 	}
 
@@ -295,7 +304,7 @@ class ctaux_sim : public alps::mcbase_ng {
 		if (sweeps > thermalization_sweeps) {
 			measurements["n_up"] << n_up;
 			measurements["n_dn"] << n_dn;
-			measurements["slices"] << double(sliceNumber());
+			measurements["slices"] << sliceNumber();
 		}
 	}
 
@@ -304,18 +313,12 @@ class ctaux_sim : public alps::mcbase_ng {
 	}
 
 
-	int sliceNumber () { return diagonals.size(); }
-	int numberUp () { return n_up; }
-	int numberDown () { return n_dn; }
+	double sliceNumber () { return diagonals.size(); }
+	double numberUp () { return n_up; }
+	double numberDown () { return n_dn; }
 
-	void print () {
-		for (auto i : diagonals) {
-			std::cout << i.first << '\t';
-			for (int j=0;j<V;j++) {
-				std::cout << (i.second[j]<0?'-':'+');
-			}
-			std::cout << std::endl;
-		}
+	void printResults () {
+		std::cout << measurements["n_up"] << std::endl << measurements["n_dn"] << std::endl << measurements["slices"] << std::endl;
 	}
 
 	~ctaux_sim () { fftw_destroy_plan(x2p); fftw_destroy_plan(p2x); }
