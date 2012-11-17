@@ -1,60 +1,19 @@
-#include <cstdlib>
-#include <iostream>
-#include <vector>
-#include <map>
-#include <random>
-#include <chrono>
-#include <functional>
+#ifndef CT_AUX_HPP
+#define CT_AUX_HPP
 
-#include <alps/alea.h>
-#include <alps/alea/mcanalyze.hpp>
-
-#include <alps/ngs.hpp>
-#include <alps/ngs/scheduler/proto/mcbase.hpp>
-
-#include "ct_aux.hpp"
-
+#include <Eigen/Dense>
+#include <Eigen/QR>
 
 extern "C" {
 #include <fftw3.h>
 }
 
-#include <Eigen/Dense>
-#include <Eigen/QR>
+#include <alps/ngs.hpp>
+#include <alps/ngs/scheduler/proto/mcbase.hpp>
 
-extern "C" void dggev_ (const char *jobvl, const char *jobvr, const int &N,
-			double *A, const int &lda, double *B, const int &ldb,
-			double *alphar, double *alphai, double *beta,
-			double *vl, const int &ldvl, double *vr, const int &ldvr,
-			double *work, const int &lwork, int &info);
+static const double pi = 3.141592653589793238462643383279502884197;
 
-void dggev (const Eigen::MatrixXd &A, const Eigen::MatrixXd &B, Eigen::VectorXcd &alpha, Eigen::VectorXd &beta) {
-	Eigen::MatrixXd a = A, b = B;
-	int info = 0;
-	int N = a.rows();
-	Eigen::VectorXd alphar = Eigen::VectorXd::Zero(N);
-	Eigen::VectorXd alphai = Eigen::VectorXd::Zero(N);
-	alpha = Eigen::VectorXcd::Zero(N);
-	beta = Eigen::VectorXd::Zero(N);
-	//Eigen::VectorXd vl = Eigen::VectorXd::Zero(1);
-	//Eigen::VectorXd vr = Eigen::VectorXd::Zero(1);
-	Eigen::VectorXd work = Eigen::VectorXd::Zero(8*N);
-	dggev_("N", "N", N, a.data(), N, b.data(), N,
-			alphar.data(), alphai.data(), beta.data(),
-			NULL, 1, NULL, 1,
-			work.data(), work.size(), info);
-	if (info == 0) {
-		alpha.real() = alphar;
-		alpha.imag() = alphai;
-	} else if (info<0) {
-		std::cerr << "dggev_: error at argument " << -info << std::endl;
-	} else if (info<=N) {
-		std::cerr << "QZ iteration failed at step " << info << std::endl;
-	} else {
-	}
-}
-
-class Configuration {
+class ctaux_sim : public alps::mcbase_ng {
 	private:
 	int L; // size of the system
 	int D; // dimension
@@ -85,22 +44,20 @@ class Configuration {
 
 	double plog;
 
-	double energy;
-	double number;
-	std::valarray<double> density;
-
-	public:
+	int sweeps;
+	int thermalization_sweeps;
+	int total_sweeps;
 
 	double n_up;
 	double n_dn;
 
 	public:
 
-	Configuration (int d, int l, double Beta, double interaction, double m, double b, double j)
-		: L(l), D(d), V(std::pow(l, D)), beta(Beta),
-		g(interaction), mu(m), B(b), J(j), distribution(0.5), randomDouble(1.0),
-		randomTime(0, Beta), trialDistribution(1.0) {
-		A = sqrt(g);
+	void init () {
+		measurements
+			<< alps::ngs::RealObservable("n_up")
+			<< alps::ngs::RealObservable("n_dn")
+			<< alps::ngs::RealObservable("slices");
 
 		positionSpace = Eigen::MatrixXd::Identity(V, V);
 		momentumSpace = Eigen::MatrixXcd::Identity(V, V);
@@ -122,6 +79,27 @@ class Configuration {
 		}
 
 		plog = logProbability();
+	}
+
+	ctaux_sim (parameters_type const &params, std::size_t seed_offset = 42) :
+		mcbase_ng(params, seed_offset),
+		sweeps(0),
+		thermalization_sweeps(int(params["THERMALIZATION"])),
+		total_sweeps(int(params["SWEEPS"])),
+		L(params["L"]),
+		D(params["D"]),
+		V(std::pow(L, D)),
+		beta(1.0/double(params["T"])),
+		g(params["g"]),
+		mu(params["mu"]),
+		A(sqrt(g)),
+		B(params["B"]),
+		J(params["J"]),
+		distribution(0.5),
+		randomDouble(1.0),
+		randomTime(0, beta),
+		trialDistribution(1.0) {
+			init();
 	}
 
 	void computeNumber () {
@@ -308,7 +286,27 @@ class Configuration {
 		}
 	}
 
+	void update () {
+		metropolis(1);
+	}
+
+	void measure () {
+		sweeps++;
+		if (sweeps > thermalization_sweeps) {
+			measurements["n_up"] << n_up;
+			measurements["n_dn"] << n_dn;
+			measurements["slices"] << double(sliceNumber());
+		}
+	}
+
+	double fraction_completed() const {
+		return (sweeps<thermalization_sweeps ? 0. : (sweeps-thermalization_sweeps) / double(total_sweeps));
+	}
+
+
 	int sliceNumber () { return diagonals.size(); }
+	int numberUp () { return n_up; }
+	int numberDown () { return n_dn; }
 
 	void print () {
 		for (auto i : diagonals) {
@@ -320,76 +318,9 @@ class Configuration {
 		}
 	}
 
-	~Configuration () { fftw_destroy_plan(x2p); fftw_destroy_plan(p2x); }
+	~ctaux_sim () { fftw_destroy_plan(x2p); fftw_destroy_plan(p2x); }
 	protected:
 };
 
-using namespace alps;
-
-typedef ctaux_sim sim_type;
-
-int main (int argc, char **argv) {
-	mcoptions options(argc, argv);
-	parameters_type<sim_type>::type params(hdf5::archive(options.input_file));
-	sim_type configuration(params);
-
-	int D = 1;
-	int L = 1;
-	double beta = 10.0;
-	double g = 0.1;
-	double mu = -0.5;
-	double B = 0.0;
-	double J = 0.0;
-	int qrn = 0;
-
-	alps::RealObservable d_up("d_up");
-	alps::RealObservable d_dn("d_dn");
-
-	D = params["D"];
-	L = params["L"];
-	beta = 1.0/double(params["T"]);
-	g = params["g"];
-	mu = params["mu"];
-	B = params["B"];
-	J = params["J"];
-
-	//Configuration configuration(D, L, beta, g, mu, B, J);
-
-	int n = 0;
-	int a = 0;
-	for (int i=0;i<10000;i++) {
-		if (i%100==0) { std::cout << i << "\r"; std::cout.flush(); }
-		configuration.metropolis(1);
-	}
-
-	std::chrono::steady_clock::time_point time_start = std::chrono::steady_clock::now();
-	std::chrono::steady_clock::time_point time_end = std::chrono::steady_clock::now();
-	for (;;) {
-		if (configuration.metropolis(1)) a++;
-		n++;
-		d_up << configuration.numberUp();
-		d_dn << configuration.numberDown();
-		if (n%(1<<10)==0) {
-			time_end = std::chrono::steady_clock::now();
-			std::cout << "dimension = " << D << ", size = " << L << std::endl;
-			std::cout << "temperature = " << (1.0/beta) << ", interaction = " << g << std::endl;
-			std::cout << "chemical potential = " << mu << ", magnetic field = " << B << std::endl;
-			std::cout << "acceptance = " << (double(a)/double(n)) << std::endl;
-			std::cout << "elapsed: " << std::chrono::duration_cast<std::chrono::duration<double>>(time_end - time_start).count() << " seconds" << std::endl;
-			std::cout << "steps per second = " << n/std::chrono::duration_cast<std::chrono::duration<double>>(time_end - time_start).count() << std::endl;
-			std::cout << "slices = " << configuration.sliceNumber() << std::endl;
-			std::cout << d_up << std::endl;
-			std::cout << d_dn << std::endl;
-			//configuration.print();
-			if (a>0.6*n) {
-				//configuration.measuredNumber.reset(true);
-				//configuration.eigenvalues.reset(true);
-			} else if (a<0.4*n) {
-			}
-
-		}
-		//configuration.print();
-	}
-	return 0;
-}
+#endif // CT_AUX_HPP
 
