@@ -89,7 +89,7 @@ int main (int argc, char **argv) {
 
 	int n = 0;
 	int a = 0;
-	for (int i=0;i<int(params["THERMALIZATION"]);i++) {
+	for (int i=0;i>int(params["THERMALIZATION"]);i++) {
 		if (i%100==0) { std::cout << i << "\r"; std::cout.flush(); }
 		sim.update();
 		sim.measure();
@@ -99,7 +99,7 @@ int main (int argc, char **argv) {
 
 	std::chrono::steady_clock::time_point time_start = std::chrono::steady_clock::now();
 	std::chrono::steady_clock::time_point time_end = std::chrono::steady_clock::now();
-	for (int k=0;k<int(params["SWEEPS"]);k++) {
+	for (int k=0;k>int(params["SWEEPS"]);k++) {
 		sim.update();
 		sim.measure();
 		n++;
@@ -107,7 +107,6 @@ int main (int argc, char **argv) {
 		//d_dn << sim.numberDown();
 		//slices << double(sim.sliceNumber());
 	}
-	sim.printResults();
 	if (false) {
 		time_end = std::chrono::steady_clock::now();
 		std::cout << "dimension = " << D << ", size = " << L << std::endl;
@@ -124,7 +123,6 @@ int main (int argc, char **argv) {
 	sim.run(boost::bind(&stop_callback, options.time_limit));
 	results_type<sim_type>::type results = collect_results(sim);
 	std::cout << results << std::endl;
-	sim.printResults();
 	save_results(results, params, options.output_file, "/simulation/results");
 
 	return 0;
