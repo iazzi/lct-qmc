@@ -23,6 +23,7 @@ class ctaux_sim : public alps::mcbase_ng {
 	double mu; // chemical potential
 	double A; // sqrt(g)
 	double B; // magnetic field
+	double t; // nearest neighbour hopping
 	double J; // next-nearest neighbour hopping
 
 	std::map<double, Eigen::VectorXd> diagonals;
@@ -78,9 +79,8 @@ class ctaux_sim : public alps::mcbase_ng {
 
 		energies = Eigen::VectorXd::Zero(V);
 		for (int i=0;i<V;i++) {
-			energies[i] = - cos(2.0*(i%L)*pi/L) - cos(2.0*((i/L)%L)*pi/L) - cos(2.0*(i/L/L)*pi/L) + 3.0;
-			energies[i] += J * (- cos(4.0*(i%L)*pi/L) - cos(4.0*((i/L)%L)*pi/L) - cos(4.0*(i/L/L)*pi/L) + 3.0 );
-			energies[i] -= mu;
+			energies[i]  = -t * ( cos(2.0*(i%L)*pi/L) + cos(2.0*((i/L)%L)*pi/L) + cos(2.0*(i/L/L)*pi/L) - (3-D) );
+			energies[i] += -J * ( cos(4.0*(i%L)*pi/L) + cos(4.0*((i/L)%L)*pi/L) + cos(4.0*(i/L/L)*pi/L) - (3-D) );
 		}
 
 		plog = logProbability();
@@ -99,6 +99,7 @@ class ctaux_sim : public alps::mcbase_ng {
 		mu(params["mu"]),
 		A(sqrt(g)),
 		B(params["B"]),
+		t(params["t"]),
 		J(params["J"]),
 		distribution(0.5),
 		randomDouble(1.0),
@@ -112,8 +113,8 @@ class ctaux_sim : public alps::mcbase_ng {
 	}
 
 	void computeNumber () {
-		n_up = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(+beta*B) * positionSpace).inverse() ).trace();
-		n_dn = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(-beta*B) * positionSpace).inverse() ).trace();
+		n_up = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(+beta*B+beta*mu) * positionSpace).inverse() ).trace();
+		n_dn = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(-beta*B+beta*mu) * positionSpace).inverse() ).trace();
 	}
 
 	double logProbability (int Q = 1) {
@@ -158,7 +159,7 @@ class ctaux_sim : public alps::mcbase_ng {
 
 		Eigen::ArrayXcd ev = positionSpace.eigenvalues();
 
-		std::complex<double> ret = ( 1.0 + ev*std::exp(-beta*B) ).log().sum() + ( 1.0 + ev*std::exp(+beta*B) ).log().sum();
+		std::complex<double> ret = ( 1.0 + ev*std::exp(-beta*B+beta*mu) ).log().sum() + ( 1.0 + ev*std::exp(+beta*B+beta*mu) ).log().sum();
 		std::complex<double> other = (evb.cast<std::complex<double>>() + std::exp(+beta*B)*eva).array().log().sum() - evb.array().log().sum()
 					   + (evb.cast<std::complex<double>>() + std::exp(-beta*B)*eva).array().log().sum() - evb.array().log().sum();
 
