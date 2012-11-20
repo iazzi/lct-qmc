@@ -10,9 +10,11 @@ using namespace Eigen;
 
 MatrixXd fancy_mm (const MatrixXd &A, const MatrixXd &B) {
 	const int N = A.rows();
+
 	ArrayXcd a = ArrayXcd::Zero(N*N*N, 1);
 	ArrayXcd b = ArrayXcd::Zero(N*N*N, 1);
 	ArrayXcd c = ArrayXcd::Zero(N*N*N, 1);
+
 	for (int i=0;i<N;i++) {
 		for (int j=0;j<N;j++) {
 			int x = -i + j*N;
@@ -23,17 +25,23 @@ MatrixXd fancy_mm (const MatrixXd &A, const MatrixXd &B) {
 			b[y] = B(i, j);
 		}
 	}
+
 	fftw_plan forwardA = fftw_plan_dft_1d(N*N*N, reinterpret_cast<fftw_complex*>(a.data()), reinterpret_cast<fftw_complex*>(a.data()), FFTW_FORWARD, FFTW_ESTIMATE);
 	fftw_plan forwardB = fftw_plan_dft_1d(N*N*N, reinterpret_cast<fftw_complex*>(b.data()), reinterpret_cast<fftw_complex*>(b.data()), FFTW_FORWARD, FFTW_ESTIMATE);
 	fftw_plan backward = fftw_plan_dft_1d(N*N*N, reinterpret_cast<fftw_complex*>(c.data()), reinterpret_cast<fftw_complex*>(c.data()), FFTW_BACKWARD, FFTW_ESTIMATE);
+
 	fftw_execute(forwardA);
 	fftw_execute(forwardB);
+
 	c = a*b;
+
 	fftw_execute(backward);
+	c /= N*N*N;
+
 	fftw_destroy_plan(forwardA);
 	fftw_destroy_plan(forwardB);
 	fftw_destroy_plan(backward);
-	c /= N*N*N;
+
 	MatrixXd C = MatrixXd::Zero(N, N);
 	for (int i=0;i<N;i++) {
 		for (int j=0;j<N;j++) {
@@ -42,11 +50,12 @@ MatrixXd fancy_mm (const MatrixXd &A, const MatrixXd &B) {
 			C(i, j) = c[x].real();
 		}
 	}
+
 	return C;
 }
 
 int main (int argc, char **argv) {
-	const int N = 3;
+	const int N = 2;
 	MatrixXd A = MatrixXd::Random(N, N);
 	MatrixXd B = MatrixXd::Random(N, N);
 
