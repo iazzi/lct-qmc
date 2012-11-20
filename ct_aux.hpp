@@ -28,8 +28,8 @@ class ctaux_sim : public alps::mcbase_ng {
 
 	std::map<double, Eigen::VectorXd> diagonals;
 
-	std::default_random_engine generator;
-	//std::mt19937_64 generator;
+	//std::default_random_engine generator;
+	std::mt19937_64 generator;
 	std::bernoulli_distribution distribution;
 	std::uniform_real_distribution<double> randomDouble;
 	std::uniform_real_distribution<double> randomTime;
@@ -79,8 +79,8 @@ class ctaux_sim : public alps::mcbase_ng {
 
 		energies = Eigen::VectorXd::Zero(V);
 		for (int i=0;i<V;i++) {
-			energies[i]  = -t * ( cos(2.0*(i%L)*pi/L) + cos(2.0*((i/L)%L)*pi/L) + cos(2.0*(i/L/L)*pi/L) - (3-D) );
-			energies[i] += -J * ( cos(4.0*(i%L)*pi/L) + cos(4.0*((i/L)%L)*pi/L) + cos(4.0*(i/L/L)*pi/L) - (3-D) );
+			energies[i] += -2.0*t * ( cos(2.0*(i%L)*pi/L) + cos(2.0*((i/L)%L)*pi/L) + cos(2.0*(i/L/L)*pi/L) - (3-D) );
+			energies[i] += -2.0*J * ( cos(4.0*(i%L)*pi/L) + cos(4.0*((i/L)%L)*pi/L) + cos(4.0*(i/L/L)*pi/L) - (3-D) );
 		}
 
 		plog = logProbability();

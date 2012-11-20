@@ -94,8 +94,8 @@ int main (int argc, char **argv) {
 		sim.update();
 		sim.measure();
 	}
-	std::cout << int(params["THERMALIZATION"]) << std::endl;
-	std::cout.flush();
+	//std::cout << int(params["THERMALIZATION"]) << std::endl;
+	//std::cout.flush();
 
 	std::chrono::steady_clock::time_point time_start = std::chrono::steady_clock::now();
 	std::chrono::steady_clock::time_point time_end = std::chrono::steady_clock::now();
