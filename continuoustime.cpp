@@ -54,6 +54,8 @@ void dggev (const Eigen::MatrixXd &A, const Eigen::MatrixXd &B, Eigen::VectorXcd
 	}
 }
 
+using namespace std;
+using namespace Eigen;
 using namespace alps;
 
 typedef ctaux_sim sim_type;
@@ -120,7 +122,12 @@ int main (int argc, char **argv) {
 		//std::cout << slices << std::endl;
 	}
 
-	sim.run(boost::bind(&stop_callback, options.time_limit));
+	try {
+		sim.run(boost::bind(&stop_callback, options.time_limit));
+	}
+	catch (const char *s) {
+		std::cerr << s << std::endl;
+	}
 	results_type<sim_type>::type results = collect_results(sim);
 	std::cout << results << std::endl;
 	save_results(results, params, options.output_file, "/simulation/results");
