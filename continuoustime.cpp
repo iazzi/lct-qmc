@@ -109,18 +109,6 @@ int main (int argc, char **argv) {
 		//d_dn << sim.numberDown();
 		//slices << double(sim.sliceNumber());
 	}
-	if (false) {
-		time_end = std::chrono::steady_clock::now();
-		std::cout << "dimension = " << D << ", size = " << L << std::endl;
-		std::cout << "temperature = " << (1.0/beta) << ", interaction = " << g << std::endl;
-		std::cout << "chemical potential = " << mu << ", magnetic field = " << B << std::endl;
-		std::cout << "acceptance = " << (double(a)/double(n)) << std::endl;
-		std::cout << "elapsed: " << std::chrono::duration_cast<std::chrono::duration<double>>(time_end - time_start).count() << " seconds" << std::endl;
-		std::cout << "steps per second = " << n/std::chrono::duration_cast<std::chrono::duration<double>>(time_end - time_start).count() << std::endl;
-		//std::cout << d_up << std::endl;
-		//std::cout << d_dn << std::endl;
-		//std::cout << slices << std::endl;
-	}
 
 	try {
 		sim.run(boost::bind(&stop_callback, options.time_limit));
