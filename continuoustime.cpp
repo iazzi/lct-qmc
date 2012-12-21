@@ -11,6 +11,7 @@
 
 #include <alps/ngs.hpp>
 #include <alps/ngs/scheduler/proto/mcbase.hpp>
+#include <alps/ngs/make_parameters_from_xml.hpp>
 
 #include "ct_aux.hpp"
 
@@ -62,32 +63,17 @@ typedef ctaux_sim sim_type;
 
 int main (int argc, char **argv) {
 	mcoptions options(argc, argv);
-	parameters_type<sim_type>::type params(hdf5::archive(options.input_file));
+	parameters_type<sim_type>::type params = make_parameters_from_xml(options.input_file);
 	sim_type sim(params);
 
 
-	int D = 1;
 	int L = 1;
 	double beta = 10.0;
-	double g = 0.1;
+	double U = 0.1;
 	double mu = -0.5;
 	double B = 0.0;
 	double J = 0.0;
 	int qrn = 0;
-
-	//alps::RealObservable d_up("d_up");
-	//alps::RealObservable d_dn("d_dn");
-	//alps::RealObservable slices("slices");
-
-	D = params["D"];
-	L = params["L"];
-	beta = 1.0/double(params["T"]);
-	g = params["g"];
-	mu = params["mu"];
-	B = params["B"];
-	J = params["J"];
-
-	//Configuration sim(D, L, beta, g, mu, B, J);
 
 	int n = 0;
 	int a = 0;
