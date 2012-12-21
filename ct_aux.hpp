@@ -13,18 +13,23 @@ extern "C" {
 
 static const double pi = 3.141592653589793238462643383279502884197;
 
+void dggev (const Eigen::MatrixXd &A, const Eigen::MatrixXd &B, Eigen::VectorXcd &alpha, Eigen::VectorXd &beta);
+
 class ctaux_sim : public alps::mcbase_ng {
 	private:
 	int L; // size of the system
-	int D; // dimension
+	int Dim; // dimension
 	int V; // volume of the system
 	double beta; // inverse temperature
-	double g; // interaction strength
+	double U; // interaction strength
 	double mu; // chemical potential
-	double A; // sqrt(g)
+	double A; // sqrt(U)
 	double B; // magnetic field
 	double t; // nearest neighbour hopping
 	double J; // next-nearest neighbour hopping
+
+	int MIN_SLICES;
+	int MAX_SLICES;
 
 	std::map<double, Eigen::VectorXd> diagonals;
 
@@ -40,10 +45,9 @@ class ctaux_sim : public alps::mcbase_ng {
 	Eigen::MatrixXd positionSpace; // current matrix in position space
 	Eigen::MatrixXcd momentumSpace;
 
-
-	//alps::RealObservable n_up_obs;
-	//alps::RealObservable n_dn_obs;
-	//alps::RealObservable slices_obs;
+	Eigen::MatrixXd matrixQ; // Q in the QDT decomposition of A_s
+	Eigen::VectorXd vectorD; // D in the QDT decomposition of A_s
+	Eigen::MatrixXd matrixT; // T in the QDT decomposition of A_s
 
 	fftw_plan x2p;
 	fftw_plan p2x;
@@ -63,15 +67,17 @@ class ctaux_sim : public alps::mcbase_ng {
 		measurements
 			<< alps::ngs::RealObservable("n_up")
 			<< alps::ngs::RealObservable("n_dn")
-			<< alps::ngs::RealObservable("slices");
+			<< alps::ngs::RealObservable("acceptance")
+			<< alps::ngs::RealObservable("slices")
+			<< alps::ngs::RealVectorObservable("slice_distr");
 
 		positionSpace = Eigen::MatrixXd::Identity(V, V);
 		momentumSpace = Eigen::MatrixXcd::Identity(V, V);
 
 		const int size[] = { L, L, L, };
-		x2p = fftw_plan_many_dft_r2c(D, size, V, positionSpace.data(),
+		x2p = fftw_plan_many_dft_r2c(Dim, size, V, positionSpace.data(),
 				NULL, 1, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()), NULL, 1, V, FFTW_PATIENT);
-		p2x = fftw_plan_many_dft_c2r(D, size, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()),
+		p2x = fftw_plan_many_dft_c2r(Dim, size, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()),
 				NULL, 1, V, positionSpace.data(), NULL, 1, V, FFTW_PATIENT);
 
 		positionSpace = Eigen::MatrixXd::Identity(V, V);
@@ -79,8 +85,8 @@ class ctaux_sim : public alps::mcbase_ng {
 
 		energies = Eigen::VectorXd::Zero(V);
 		for (int i=0;i<V;i++) {
-			energies[i] += -2.0*t * ( cos(2.0*(i%L)*pi/L) + cos(2.0*((i/L)%L)*pi/L) + cos(2.0*(i/L/L)*pi/L) - (3-D) );
-			energies[i] += -2.0*J * ( cos(4.0*(i%L)*pi/L) + cos(4.0*((i/L)%L)*pi/L) + cos(4.0*(i/L/L)*pi/L) - (3-D) );
+			energies[i] += -2.0*t * ( cos(2.0*(i%L)*pi/L) + cos(2.0*((i/L)%L)*pi/L) + cos(2.0*(i/L/L)*pi/L) - (3.0 - Dim) );
+			energies[i] += -2.0*J * ( cos(4.0*(i%L)*pi/L) + cos(4.0*((i/L)%L)*pi/L) + cos(4.0*(i/L/L)*pi/L) - (3.0 - Dim) );
 		}
 
 		plog = logProbability();
@@ -92,12 +98,10 @@ class ctaux_sim : public alps::mcbase_ng {
 		thermalization_sweeps(int(params["THERMALIZATION"])),
 		total_sweeps(int(params["SWEEPS"])),
 		L(params["L"]),
-		D(params["D"]),
-		V(std::pow(L, D)),
 		beta(1.0/double(params["T"])),
-		g(params["g"]),
+		U(-double(params["U"])),
 		mu(params["mu"]),
-		A(sqrt(g)),
+		A(sqrt(U)),
 		B(params["B"]),
 		t(params["t"]),
 		J(params["J"]),
@@ -105,88 +109,197 @@ class ctaux_sim : public alps::mcbase_ng {
 		randomDouble(1.0),
 		randomTime(0, beta),
 		trialDistribution(1.0)
-		//n_up_obs("n_up_obs"),
-		//n_dn_obs("n_dn_obs"),
-		//slices_obs("slices_obs")
 	{
-			init();
+		if (params["LATTICE"].cast<std::string>()==std::string("chain lattice")) {
+			Dim = 1;
+		} else if (params["LATTICE"].cast<std::string>()==std::string("square lattice")) {
+			Dim = 2;
+		} else if (params["LATTICE"].cast<std::string>()==std::string("simple cubic lattice")) {
+			Dim = 3;
+		} else {
+			throw std::string("unknown lattice type");
+		}
+		//MIN_SLICES = int(params["MIN_SLICES"]);
+		//MAX_SLICES = int(params["MAX_SLICES"]);
+		MIN_SLICES = 0;
+		MAX_SLICES = INT_MAX;
+		if (MIN_SLICES<0) MIN_SLICES = 0;
+		if (MAX_SLICES<MIN_SLICES) MAX_SLICES = MIN_SLICES;
+		V = std::pow(L, Dim);
+		if (L==1) {
+			t = J = 0.0;
+		}
+		//mu -= U/sqrt(2);
+		init();
+	}
+
+	std::complex<double> logProbabilityFromEigenvalues (const Eigen::VectorXcd& ev) {
+		std::complex<double> ret = (1.0 + std::exp(+beta*B+beta*mu)*ev.array()).log().sum()
+					 + (1.0 + std::exp(-beta*B+beta*mu)*ev.array()).log().sum();
+		return ret;
 	}
 
 	void computeNumber () {
+		//Eigen::MatrixXd Q_plus_DT1 = matrixQ.transpose() + exp(+beta*B+beta*mu) * vectorD.asDiagonal() * matrixT;
+		//Eigen::MatrixXd G1 = Q_plus_DT1.inverse() * exp(+beta*B+beta*mu) * vectorD.asDiagonal() * matrixT;
+		//Eigen::MatrixXd Q_plus_DT2 = matrixQ.transpose() + exp(-beta*B+beta*mu) * vectorD.asDiagonal() * matrixT;
+		//Eigen::MatrixXd G2 = Q_plus_DT2.inverse() * exp(-beta*B+beta*mu) * vectorD.asDiagonal() * matrixT;
+		//n_up = G1.trace() / V;
+		//n_dn = G2.trace() / V;
+		//std::cerr << "n_up " << n_up << std::endl 
+			//<< positionSpace << std::endl << std::endl
+			//<< G1 << std::endl << std::endl
+			//<< Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(+beta*B+beta*mu) * positionSpace).inverse() << std::endl << std::endl;
 		n_up = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(+beta*B+beta*mu) * positionSpace).inverse() ).trace();
 		n_dn = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(-beta*B+beta*mu) * positionSpace).inverse() ).trace();
+		if (isinf(n_up) || isinf(n_dn) || isnan(n_up) || isnan(n_dn)) {
+			std::cerr << "positionSpace\n" << exp(+beta*B+beta*mu) * positionSpace << std::endl << std::endl;
+			std::cerr << "(1+positionSpace)^-1\n" << (Eigen::MatrixXd::Identity(V, V) + exp(+beta*B+beta*mu) * positionSpace).inverse() << std::endl << std::endl;
+			std::cerr << "n_up " << n_up << std::endl << Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(+beta*B+beta*mu) * positionSpace).inverse() << std::endl << std::endl;
+			std::cerr << "n_dn " << n_dn << std::endl << Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(-beta*B+beta*mu) * positionSpace).inverse() << std::endl << std::endl;
+			throw "shit at computeNumber";
+		}
 	}
 
-	double logProbability (int Q = 1) {
-		Eigen::MatrixXd R;
+	Eigen::MatrixXd propagator (double from, double to) {
+		double t = from;
+		double dt;
+		positionSpace.setIdentity(V, V);
+		for (auto i=diagonals.lower_bound(from);i!=diagonals.upper_bound(to);i++) {
+			fftw_execute(x2p);
+			dt = (*i).first-t;
+			momentumSpace.applyOnTheLeft((-dt*energies).array().exp().matrix().asDiagonal());
+			fftw_execute(p2x);
+			positionSpace /= V;
+			positionSpace.applyOnTheLeft((Eigen::VectorXd::Constant(V, 1.0)+(*i).second).asDiagonal());
+			t = (*i).first;
+		}
+		fftw_execute(x2p);
+		dt = to-t;
+		momentumSpace.applyOnTheLeft((-dt*energies).array().exp().matrix().asDiagonal());
+		fftw_execute(p2x);
+		positionSpace /= V;
+		return positionSpace;
+	}
+
+	double logProbability2 (int nsteps = 1) {
+		std::vector<Eigen::MatrixXd> steps(nsteps, Eigen::MatrixXd::Zero(V, V));
+		for (int i=0;i<nsteps;i++) {
+			steps[i] = propagator(beta/nsteps*i, beta/nsteps*(i+1));
+			//std::cerr << "steps[" << i << "]\n" << steps[i] << std::endl << std::endl;
+		}
 		Eigen::HouseholderQR<Eigen::MatrixXd> decomposer;
+		Eigen::MatrixXd T = Eigen::MatrixXd::Identity(V, V);
+		Eigen::MatrixXd Q = Eigen::MatrixXd::Identity(V, V);
+		Eigen::VectorXd D = Eigen::VectorXd::Ones(V);
+		//Eigen::MatrixXd test = Eigen::MatrixXd::Identity(V, V);
+		for (int i=0;i<nsteps;i++) {
+			Eigen::MatrixXd Z = steps[i]*Q;
+			decomposer.compute(Z*D.asDiagonal());
+			Eigen::MatrixXd R = decomposer.matrixQR().triangularView<Eigen::Upper>();
+			D = R.diagonal();
+			R.applyOnTheLeft(D.array().inverse().matrix().asDiagonal());
+			T.applyOnTheLeft(R);
+			//std::cerr << "R\n" << R << std::endl << std::endl << "T\n" << T << std::endl << std::endl;
+			Q = decomposer.householderQ();
+			//test.applyOnTheLeft(steps[i]);
+		}
+		Eigen::VectorXcd ev1 = (D.asDiagonal()*(T*Q)).eigenvalues();
+		double lambda = D.array().abs().maxCoeff();
+		Eigen::VectorXcd ev2 = lambda - (lambda*Eigen::MatrixXd::Identity(V, V) - Q*D.asDiagonal()*T).eigenvalues().array();
+		//std::cerr << "ev1 " << ev1.transpose() << std::endl;
+		//std::cerr << "ev2 " << ev2.transpose() << std::endl;
+		//Eigen::VectorXcd eva;
+		//Eigen::VectorXd evb;
+		//dggev(test, Eigen::MatrixXd::Identity(V, V), eva, evb);
+		//dggev(Q*D.asDiagonal()*T, Eigen::MatrixXd::Identity(V, V), eva, evb);
+		//dggev(D.asDiagonal()*T*Q, Eigen::MatrixXd::Identity(V, V), eva, evb);
+		//std::cerr << Q*D.asDiagonal()*T << std::endl << std::endl;
+		//std::cerr << D.transpose() << std::endl;
+		//std::cerr << eva.transpose() << std::endl;
+		//std::cerr << evb.transpose() << std::endl;
+		//std::cerr << (eva.array() / evb.cast<std::complex<double>>().array()).transpose() << std::endl;
+		//std::complex<double> ret = (evb.cast<std::complex<double>>() + std::exp(+beta*B)*eva).array().log().sum() - evb.array().log().sum()
+					 //+ (evb.cast<std::complex<double>>() + std::exp(-beta*B)*eva).array().log().sum() - evb.array().log().sum();
+		std::complex<double> ret = logProbabilityFromEigenvalues(ev1);
+		double check = T.sum() + Q.sum() + D.sum();
+		if ( ev1.array().array().prod().real()<0 || isinf(check) || isnan(check) ) {
+			//double lambda = (eva.array() / evb.cast<std::complex<double>>().array()).abs().maxCoeff();
+			//dggev(-(D.asDiagonal()*T*Q), Eigen::MatrixXd::Identity(V, V), eva, evb);
+			//std::cerr << (eva.array() / evb.cast<std::complex<double>>().array()).transpose() << std::endl;
+			//dggev(lambda*Eigen::MatrixXd::Identity(V, V) - D.asDiagonal()*T*Q, Eigen::MatrixXd::Identity(V, V), eva, evb);
+			//std::cerr << (eva.array() / evb.cast<std::complex<double>>().array() - lambda).transpose() << std::endl;
+			if (nsteps < 100) {
+				//std::cerr << "increasing nsteps " << nsteps << " -> " << nsteps+1 << " (" << sliceNumber() << " slices)" << std::endl;
+				return logProbability2(nsteps+1);
+			} else {
+				throw "shit at " __FILE__ " too many recursions";
+			}
+		}
+		if (std::cos(ret.imag())<0.99 || isnan(ret.real())) {
+			std::cerr << "ev1 " << ev1.transpose() << std::endl;
+			std::cerr << "ev2 " << ev2.transpose() << std::endl;
+			throw "shit at " __FILE__ " sign problem appeared";
+		}
+		matrixQ = Q;
+		vectorD = D;
+		matrixT = T;
+		positionSpace = Q*D.asDiagonal()*T;
+		Eigen::MatrixXd Q_plus_DT = Q.transpose() + exp(+beta*B+beta*mu) * D.asDiagonal() * T;
+		Eigen::MatrixXd G = Q_plus_DT.inverse() * exp(+beta*B+beta*mu) * D.asDiagonal() * T;
+		//std::cerr << "positionSpace at logProbability2\n" << positionSpace << std::endl << std::endl;
+		//std::cerr << "Q_plus_DT\n" << Q_plus_DT << std::endl << std::endl;
+		//std::cerr << "G\n" << G << std::endl << std::endl;
+		//std::cerr << "Q\n" << Q << std::endl << std::endl;
+		//std::cerr << "D\n" << D.transpose() << std::endl << std::endl;
+		//std::cerr << "T\n" << T << std::endl << std::endl;
+		//std::cerr << "ev1 " << ev1.transpose() << std::endl;
+		//std::cerr << "ev2 " << ev2.transpose() << std::endl;
+		return ret.real();
+	}
+
+	double logProbability () {
+		//double other = logProbability2(1);
+		//return other;
 		double t = 0.0;
 		double dt;
-		int decomposeNumber = Q;
-		double decomposeStep = beta / (decomposeNumber+1);
 		positionSpace.setIdentity(V, V);
-		R.setIdentity(V, V);
+		//std::cerr << positionSpace << std::endl;
 		for (auto i : diagonals) {
 			fftw_execute(x2p);
 			dt = i.first-t;
 			momentumSpace.applyOnTheLeft((-dt*energies).array().exp().matrix().asDiagonal());
 			fftw_execute(p2x);
 			positionSpace /= V;
-			// FIXME needs to take into account 1/2 from the sum??
+			//std::cerr << " after K " << positionSpace << std::endl;
 			positionSpace.applyOnTheLeft((Eigen::VectorXd::Constant(V, 1.0)+i.second).asDiagonal());
 			t = i.first;
-			if (t>beta-decomposeNumber*decomposeStep) {
-				decomposer.compute(positionSpace);
-				R.applyOnTheLeft(decomposer.householderQ().inverse()*positionSpace);
-				positionSpace = decomposer.householderQ();
-				decomposeNumber--;
-			}
+			//std::cerr << " after V " << positionSpace << std::endl;
 		}
 		fftw_execute(x2p);
 		dt = beta-t;
 		momentumSpace.applyOnTheLeft((-dt*energies).array().exp().matrix().asDiagonal());
 		fftw_execute(p2x);
 		positionSpace /= V;
+		//std::cerr << positionSpace << std::endl;
+		//std::cerr << "energies " << energies.transpose() << std::endl << std::endl;
 
-		//Eigen::MatrixXd S1 = Eigen::MatrixXd::Identity(V, V) + std::exp(+beta*B)*positionSpace;
-		//Eigen::MatrixXd S2 = Eigen::MatrixXd::Identity(V, V) + std::exp(-beta*B)*positionSpace;
-
-		Eigen::VectorXcd eva;
-		Eigen::VectorXd evb;
+		//Eigen::VectorXcd eva;
+		//Eigen::VectorXd evb;
 		//dggev(R, positionSpace.inverse(), eva, evb);
 
-		positionSpace.applyOnTheRight(R);
+		Eigen::VectorXcd ev = positionSpace.eigenvalues();
 
-		Eigen::ArrayXcd ev = positionSpace.eigenvalues();
+		std::complex<double> ret = logProbabilityFromEigenvalues(ev);
+		//std::complex<double> other = (evb.cast<std::complex<double>>() + std::exp(+beta*B)*eva).array().log().sum() - evb.array().log().sum()
+					   //+ (evb.cast<std::complex<double>>() + std::exp(-beta*B)*eva).array().log().sum() - evb.array().log().sum();
 
-		std::complex<double> ret = ( 1.0 + ev*std::exp(-beta*B+beta*mu) ).log().sum() + ( 1.0 + ev*std::exp(+beta*B+beta*mu) ).log().sum();
-		std::complex<double> other = (evb.cast<std::complex<double>>() + std::exp(+beta*B)*eva).array().log().sum() - evb.array().log().sum()
-					   + (evb.cast<std::complex<double>>() + std::exp(-beta*B)*eva).array().log().sum() - evb.array().log().sum();
 
-		if (std::norm(ret - other)>1e-9 && false) {
-			std::cerr << eva.transpose() << std::endl << std::endl;
-			std::cerr << evb.transpose() << std::endl << std::endl;
-			std::cerr << (eva.array()/evb.array().cast<std::complex<double>>()).transpose() << std::endl << std::endl;
-			std::cerr << ev.transpose()  << std::endl << std::endl;
-			throw("wrong");
-		}
+		//std::cerr << ev.transpose() << std::endl;
+		//std::cerr << "old logProbability: " << ret << " new logProbability: " << other << std::endl << std::endl;
 
-		if (std::cos(ret.imag())<0.99 && Q<100) {
-			std::cerr << "increasing number of decompositions: " << Q << " -> " << Q+1 << " (number of slices = " << diagonals.size() << ")" <<  std::endl;
-			return logProbability(Q+1);
-		}
 		if (std::cos(ret.imag())<0.99) {
-			Eigen::MatrixXd S1 = Eigen::MatrixXd::Identity(V, V) + std::exp(+beta*B)*positionSpace;
-			Eigen::MatrixXd S2 = Eigen::MatrixXd::Identity(V, V) + std::exp(-beta*B)*positionSpace;
 			std::cerr << positionSpace << std::endl << std::endl;
-			std::cerr << S1 << std::endl << std::endl;
-			std::cerr << S1.eigenvalues().transpose() << std::endl;
-			std::cerr << S2.eigenvalues().transpose() << std::endl;
-			std::cerr << S1.eigenvalues().array().log().sum() << std::endl;
-			std::cerr << S2.eigenvalues().array().log().sum() << std::endl;
-			std::cerr << eva.transpose() << std::endl << std::endl;
-			std::cerr << evb.transpose() << std::endl << std::endl;
-			std::cerr << (eva.array()/evb.array().cast<std::complex<double>>()).transpose() << std::endl << std::endl;
 			std::cerr << ev.transpose() << std::endl << std::endl;
 			std::cerr << ret << ' ' << diagonals.size() << std::endl;
 			throw("wtf");
@@ -284,7 +397,7 @@ class ctaux_sim : public alps::mcbase_ng {
 	bool metropolis (int M) {
 		std::discrete_distribution<int> distribution { 0.90, 0.05, 0.05 };
 		int type = distribution(generator);
-		if (type == 0 || (type == 1 && diagonals.size()==0 )) {
+		if ( type == 0 || (type == 1 && diagonals.size()<=MIN_SLICES) || (type == 2 && diagonals.size()>=MAX_SLICES) ) {
 			return metropolisFlip(M);
 		} else if (type == 1) {
 			//std::cerr << "proposed decrease" << std::endl;
@@ -296,15 +409,22 @@ class ctaux_sim : public alps::mcbase_ng {
 	}
 
 	void update () {
-		metropolis(1);
+		measurements["acceptance"] << (metropolis(1) ? 1.0 : 0.0);
 	}
 
 	void measure () {
 		sweeps++;
 		if (sweeps > thermalization_sweeps) {
-			measurements["n_up"] << numberUp();
-			measurements["n_dn"] << numberDown();
+			measurements["n_up"] << numberUp()/V;
+			measurements["n_dn"] << numberDown()/V;
 			measurements["slices"] << sliceNumber();
+			//const int n_hist = 50;
+			//std::vector<double> times_hist(n_hist+1, 0.0);
+			//for (auto i : diagonals) {
+				//int x = int(n_hist*i.first/beta);
+				//times_hist[x] += 1;
+			//}
+			//cmeasurements["slice_distr"] << times_hist;
 		}
 	}
 
