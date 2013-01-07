@@ -7,6 +7,10 @@ main: main.o
 
 perturbative: perturbative.o
 
+test.o: measurements.hpp
+
+test: test.o
+
 full: full.o
 
 full1d: full1d.o
