@@ -7,6 +7,9 @@
 
 #include <alps/alea.h>
 #include <alps/alea/mcanalyze.hpp>
+#include <alps/ngs.hpp>
+#include <alps/ngs/scheduler/proto/mcbase.hpp>
+#include <alps/ngs/make_parameters_from_xml.hpp>
 
 
 extern "C" {
@@ -54,7 +57,7 @@ void dggev (const Eigen::MatrixXd &A, const Eigen::MatrixXd &B, Eigen::VectorXcd
   //template<> struct type_tag< Eigen::ArrayXd > : public boost::mpl::int_<37> {};
 //};
 
-class Configuration {
+class Configuration : public alps::mcbase_ng {
 	private:
 	int L; // size of the system
 	int D; // dimension
@@ -66,6 +69,7 @@ class Configuration {
 	double mu; // chemical potential
 	double A; // sqrt(exp(g*dt)-1)
 	double B; // magnetic field
+	double t; // nearest neighbour hopping
 	double J; // next-nearest neighbour hopping
 
 	std::vector<Eigen::VectorXd> diagonals;
@@ -104,11 +108,13 @@ class Configuration {
 
 	public:
 
-	Configuration (int d, int l, int n, double Beta, double interaction, double m, double b, double j)
+	Configuration (int d, int l, int n, double Beta, double interaction, double m, double b, double t_ = 1.0, double j = 0.0)
 		: L(l), D(d), V(std::pow(l, D)), N(n), beta(Beta), dt(Beta/n),
-		g(interaction), mu(m), B(b), J(j), qrnumber(0), distribution(0.5), randomPosition(0, l-1),
-		randomTime(0, n-1), trialDistribution(1.0) {
+		g(interaction), mu(m), B(b), t(t_), J(j), qrnumber(0), distribution(0.5), randomPosition(0, l-1),
+		randomTime(0, n-1), trialDistribution(1.0),
+		mcbase_ng(parameters_type())	{
 		A = sqrt(exp(g*dt)-1.0);
+		if (L==1) t = 0.0;
 		auto distributor = std::bind(distribution, generator);
 		diagonals.insert(diagonals.begin(), N, Eigen::VectorXd::Zero(V));
 		for (int i=0;i<diagonals.size();i++) {
@@ -131,11 +137,16 @@ class Configuration {
 		energies = Eigen::VectorXd::Zero(V);
 		freePropagator = Eigen::VectorXd::Zero(V);
 		for (int i=0;i<V;i++) {
-			energies[i] = - cos(2.0*(i%L)*pi/L) - cos(2.0*((i/L)%L)*pi/L) - cos(2.0*(i/L/L)*pi/L) + 3.0;
-			energies[i] += J * (- cos(4.0*(i%L)*pi/L) - cos(4.0*((i/L)%L)*pi/L) - cos(4.0*(i/L/L)*pi/L) + 3.0 );
+			energies[i] += -2.0 * t * ( cos(2.0*(i%L)*pi/L) - cos(2.0*((i/L)%L)*pi/L) - cos(2.0*(i/L/L)*pi/L) + (3.0-D) );
+			energies[i] += -2.0 * J * ( cos(4.0*(i%L)*pi/L) - cos(4.0*((i/L)%L)*pi/L) - cos(4.0*(i/L/L)*pi/L) + (3.0-D) );
 			energies[i] -= mu;
 			freePropagator[i] = exp(-dt*energies[i]);
 		}
+
+		measurements << alps::ngs::RealObservable("N")
+			<< alps::ngs::RealObservable("M")
+			<< alps::ngs::RealObservable("acceptance");
+
 
 		plog = logProbability();
 	}
@@ -230,9 +241,9 @@ class Configuration {
 		std::complex<double> ret = 0.0;
 		//ret += (1.0 + std::exp(+beta*B)*positionSpace.eigenvalues().array()).log().sum();
 		//ret += (1.0 + std::exp(-beta*B)*positionSpace.eigenvalues().array()).log().sum();
-		ret += (evb.cast<std::complex<double>>() + std::exp(+beta*B)*eva).array().log().sum();
+		ret += (evb.cast<std::complex<double>>() + std::exp(+beta*B*0.5)*eva).array().log().sum();
 		ret -= evb.array().log().sum();
-		ret += (evb.cast<std::complex<double>>() + std::exp(-beta*B)*eva).array().log().sum();
+		ret += (evb.cast<std::complex<double>>() + std::exp(-beta*B*0.5)*eva).array().log().sum();
 		ret -= evb.array().log().sum();
 
 		Eigen::ArrayXcd temp = eva.array()/evb.array().cast<std::complex<double>>();
@@ -291,15 +302,15 @@ class Configuration {
 			//std::cout << "accepted " << trial-plog << std::endl;
 			plog = trial;
 			//density = std::valarray<double>(n_s.diagonal().real().data(), V);
-			n_up = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(+beta*B) * positionSpace).inverse() ).trace();
-			n_dn = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(-beta*B) * positionSpace).inverse() ).trace();
+			n_up = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(+beta*B*0.5) * positionSpace).inverse() ).trace();
+			n_dn = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(-beta*B*0.5) * positionSpace).inverse() ).trace();
 			//number = n_s.real().trace();
 			if (std::isnan(n_up) || std::isinf(n_up)) {
 				std::cout << n_up << std::endl;
 				std::cout << n_dn << std::endl;
 				std::cout << positionSpace << std::endl << std::endl;
 				std::cout << positionSpace.eigenvalues().transpose() << std::endl << std::endl;
-				std::cout << (Eigen::MatrixXd::Identity(V, V) + exp(-beta*B) * positionSpace).inverse() << std::endl << std::endl;
+				std::cout << (Eigen::MatrixXd::Identity(V, V) + exp(-beta*B*0.5) * positionSpace).inverse() << std::endl << std::endl;
 				throw(9);
 			}
 			ret = true;
@@ -322,67 +333,69 @@ class Configuration {
 		qrnumber = n;
 	}
 
+	double fraction_completed () const {
+		return 1.0;
+	}
+
+	void update () {
+		metropolis(20);
+	}
+
+	void measure () {
+		measurements["N"] << (n_up + n_dn) / V;
+		measurements["M"] << (n_up - n_dn) / 2.0 / V;
+	}
+
 	~Configuration () { fftw_destroy_plan(x2p); fftw_destroy_plan(p2x); }
 	protected:
 };
 
 using namespace std;
+using namespace alps;
+
+typedef mcbase_ng sim_type;
 
 int main (int argc, char **argv) {
+	mcoptions options(argc, argv);
+	parameters_type<sim_type>::type params = make_parameters_from_xml(options.input_file);
+
 	int D = 1;
 	int L = 4;
 	int N = 1000;
 	int M = 1;
 	double beta = 10.0;
+	double t = 1.0;
 	double g = 0.1;
 	double mu = -0.5;
-	double B = 0.0;
-	double J = 0.0;
+	double B = 0;
 	int qrn = 0;
+
+	if (params["LATTICE"].cast<std::string>()==std::string("chain lattice")) {
+		D = 1;
+	} else if (params["LATTICE"].cast<std::string>()==std::string("square lattice")) {
+		D = 2;
+	} else if (params["LATTICE"].cast<std::string>()==std::string("simple cubic lattice")) {
+		D = 3;
+	} else {
+		throw std::string("unknown lattice type");
+	}
+
+	int thermalization_sweeps = int(params["THERMALIZATION"]);
+	int total_sweeps = int(params["SWEEPS"]);
+	L = params["L"];
+	beta = 1.0/double(params["T"]);
+	t = double(params["t"]);
+	g = -double(params["U"]);
+	mu = params["mu"];
+	B = params["B"];
+	N = int(beta/double(params["dTau"]));
 
 	alps::RealObservable d_up("d_up");
 	alps::RealObservable d_dn("d_dn");
 
-	for (int i=1;i<argc;i++) {
-		if (argv[i][0]=='-') {
-			switch (argv[i][1]) {
-				case 'D':
-					D = atoi(argv[++i]);
-					break;
-				case 'L':
-					L = atoi(argv[++i]);
-					break;
-				case 'N':
-					N = atoi(argv[++i]);
-					break;
-				case 'M':
-					M = atoi(argv[++i]);
-					break;
-				case 'T':
-					beta = 1.0/atof(argv[++i]);
-					break;
-				case 'g':
-					g = atof(argv[++i]);
-					break;
-				case 'm':
-					mu = atof(argv[++i]);
-					break;
-				case 'B':
-					B = atof(argv[++i]);
-					break;
-				case 'q':
-					qrn = atoi(argv[++i]);
-					break;
-				case 'J':
-					J = atoi(argv[++i]);
-					break;
-			}
-		}
-	}
-
 	double p_00 = 1;
-	double p_01 = exp(-beta*(-mu+B));
-	double p_10 = exp(-beta*(-mu-B));
+	double p_01 = exp(-beta*(-mu));
+	double p_10 = exp(-beta*(-mu));
 	double p_11 = exp(-beta*(-2.0*mu-g));
 	double Z = p_00 + p_01 + p_10 + p_11;
 	p_00 /= Z;
@@ -393,19 +406,34 @@ int main (int argc, char **argv) {
 	double n_up = p_10+p_11;
 	double n_dn = p_01+p_11;
 
-	Configuration configuration(D, L, N, beta, g, mu, B, J);
+	Configuration configuration(D, L, N, beta, g, mu, B, t, 0.0);
 	configuration.setQRNumber(qrn);
 
 	int n = 0;
 	int a = 0;
-	for (int i=0;i<10000;i++) {
+	for (int i=0;i<thermalization_sweeps;i++) {
 		if (i%100==0) { std::cout << i << "\r"; std::cout.flush(); }
-		configuration.metropolis(M);
+		if (configuration.metropolis(M)) a++;
+		n++;
+		if (i%200==0) {
+			if (a>0.6*n && M<0.1*N*pow(L, D)) {
+				M += 5;
+				n = 0;
+				a = 0;
+				i = 0;
+			} else if (a<0.4*n) {
+				M -= 5;
+				M = M>0?M:1;
+				n = 0;
+				a = 0;
+				i = 0;
+			}
+		}
 	}
 
 	std::chrono::steady_clock::time_point time_start = std::chrono::steady_clock::now();
 	std::chrono::steady_clock::time_point time_end = std::chrono::steady_clock::now();
-	for (;;) {
+	for (int i=0;i<total_sweeps;i++) {
 		if (configuration.metropolis(M)) a++;
 		n++;
 		if (std::isnan(configuration.n_up) || std::isnan(configuration.n_dn)) {
@@ -413,14 +441,15 @@ int main (int argc, char **argv) {
 			cout << configuration.n_dn << std::endl;
 			throw(9);
 		}
+		configuration.measure();
 		d_up << configuration.n_up;
 		d_dn << configuration.n_dn;
-		if (n%1024==0) {
+		if (n%1024==0 && false) {
 			time_end = std::chrono::steady_clock::now();
 			std::cout << "dimension = " << D << ", size = " << L << std::endl;
 			std::cout << "time steps = " << N << ", decompositions = " << configuration.qrnumber << std::endl;
 			std::cout << "temperature = " << (1.0/beta) << ", interaction = " << g << std::endl;
-			std::cout << "chemical potential = " << mu << ", magnetic field = " << B << std::endl;
+			std::cout << "chemical potential = " << mu;
 			std::cout << "acceptance = " << (double(a)/double(n)) << " spin flips = " << M << std::endl;
 			std::cout << "elapsed: " << std::chrono::duration_cast<std::chrono::duration<double>>(time_end - time_start).count() << " seconds" << std::endl;
 			std::cout << "steps per second = " << n/std::chrono::duration_cast<std::chrono::duration<double>>(time_end - time_start).count() << std::endl;
@@ -445,6 +474,9 @@ int main (int argc, char **argv) {
 		}
 		//configuration.print();
 	}
+	results_type<sim_type>::type results = collect_results(configuration);
+	std::cout << results << std::endl;
+	save_results(results, params, options.output_file, "/simulation/results");
 	return 0;
 }
 
