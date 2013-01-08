@@ -108,11 +108,7 @@ class Configuration : public alps::mcbase_ng {
 
 	public:
 
-	Configuration (int d, int l, int n, double Beta, double interaction, double m, double b, double t_ = 1.0, double j = 0.0)
-		: L(l), D(d), V(std::pow(l, D)), N(n), beta(Beta), dt(Beta/n),
-		g(interaction), mu(m), B(b), t(t_), J(j), qrnumber(0), distribution(0.5), randomPosition(0, l-1),
-		randomTime(0, n-1), trialDistribution(1.0),
-		mcbase_ng(parameters_type())	{
+	void init () {
 		A = sqrt(exp(g*dt)-1.0);
 		if (L==1) t = 0.0;
 		auto distributor = std::bind(distribution, generator);
@@ -147,8 +143,15 @@ class Configuration : public alps::mcbase_ng {
 			<< alps::ngs::RealObservable("M")
 			<< alps::ngs::RealObservable("acceptance");
 
-
 		plog = logProbability();
+	}
+
+	Configuration (int d, int l, int n, double Beta, double interaction, double m, double b, double t_ = 1.0, double j = 0.0)
+		: L(l), D(d), V(std::pow(l, D)), N(n), beta(Beta), dt(Beta/n),
+		g(interaction), mu(m), B(b), t(t_), J(j), qrnumber(0), distribution(0.5), randomPosition(0, l-1),
+		randomTime(0, n-1), trialDistribution(1.0),
+		mcbase_ng(parameters_type())	{
+		init();
 	}
 
 	void checkConsistency () {
