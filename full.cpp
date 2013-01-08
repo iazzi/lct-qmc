@@ -146,6 +146,30 @@ class Configuration : public alps::mcbase_ng {
 		plog = logProbability();
 	}
 
+	Configuration (const parameters_type& params) : mcbase_ng(params) {
+		L = params["L"];
+		V = std::pow(L, D);
+		beta = 1.0/double(params["T"]);
+		N = int(beta/double(params["dTau"]));
+		dt = beta/N;
+		t = double(params["t"]);
+		g = -double(params["U"]);
+		mu = params["mu"];
+		B = params["B"];
+
+		if (params["LATTICE"].cast<std::string>()==std::string("chain lattice")) {
+			D = 1;
+		} else if (params["LATTICE"].cast<std::string>()==std::string("square lattice")) {
+			D = 2;
+		} else if (params["LATTICE"].cast<std::string>()==std::string("simple cubic lattice")) {
+			D = 3;
+		} else {
+			throw std::string("unknown lattice type");
+		}
+
+		init();
+	}
+
 	Configuration (int d, int l, int n, double Beta, double interaction, double m, double b, double t_ = 1.0, double j = 0.0)
 		: L(l), D(d), V(std::pow(l, D)), N(n), beta(Beta), dt(Beta/n),
 		g(interaction), mu(m), B(b), t(t_), J(j), qrnumber(0), distribution(0.5), randomPosition(0, l-1),
@@ -409,7 +433,8 @@ int main (int argc, char **argv) {
 	double n_up = p_10+p_11;
 	double n_dn = p_01+p_11;
 
-	Configuration configuration(D, L, N, beta, g, mu, B, t, 0.0);
+	Configuration configuration(params);
+	//Configuration configuration(D, L, N, beta, g, mu, B, t, 0.0);
 	configuration.setQRNumber(qrn);
 
 	int n = 0;
