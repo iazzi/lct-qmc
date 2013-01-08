@@ -373,6 +373,8 @@ class Configuration : public alps::mcbase_ng {
 		measurements["M"] << (n_up - n_dn) / 2.0 / V;
 	}
 
+	int volume () { return V; }
+
 	~Configuration () { fftw_destroy_plan(x2p); fftw_destroy_plan(p2x); }
 	protected:
 };
@@ -386,65 +388,25 @@ int main (int argc, char **argv) {
 	mcoptions options(argc, argv);
 	parameters_type<sim_type>::type params = make_parameters_from_xml(options.input_file);
 
-	int D = 1;
-	int L = 4;
-	int N = 1000;
-	int M = 1;
-	double beta = 10.0;
-	double t = 1.0;
-	double g = 0.1;
-	double mu = -0.5;
-	double B = 0;
-	int qrn = 0;
-
-	if (params["LATTICE"].cast<std::string>()==std::string("chain lattice")) {
-		D = 1;
-	} else if (params["LATTICE"].cast<std::string>()==std::string("square lattice")) {
-		D = 2;
-	} else if (params["LATTICE"].cast<std::string>()==std::string("simple cubic lattice")) {
-		D = 3;
-	} else {
-		throw std::string("unknown lattice type");
-	}
-
 	int thermalization_sweeps = int(params["THERMALIZATION"]);
 	int total_sweeps = int(params["SWEEPS"]);
-	L = params["L"];
-	beta = 1.0/double(params["T"]);
-	t = double(params["t"]);
-	g = -double(params["U"]);
-	mu = params["mu"];
-	B = params["B"];
-	N = int(beta/double(params["dTau"]));
 
 	alps::RealObservable d_up("d_up");
 	alps::RealObservable d_dn("d_dn");
 
-	double p_00 = 1;
-	double p_01 = exp(-beta*(-mu));
-	double p_10 = exp(-beta*(-mu));
-	double p_11 = exp(-beta*(-2.0*mu-g));
-	double Z = p_00 + p_01 + p_10 + p_11;
-	p_00 /= Z;
-	p_01 /= Z;
-	p_10 /= Z;
-	p_11 /= Z;
-
-	double n_up = p_10+p_11;
-	double n_dn = p_01+p_11;
-
 	Configuration configuration(params);
 	//Configuration configuration(D, L, N, beta, g, mu, B, t, 0.0);
-	configuration.setQRNumber(qrn);
+	configuration.setQRNumber(0);
 
 	int n = 0;
 	int a = 0;
+	int M = 1;
 	for (int i=0;i<thermalization_sweeps;i++) {
 		if (i%100==0) { std::cout << i << "\r"; std::cout.flush(); }
 		if (configuration.metropolis(M)) a++;
 		n++;
 		if (i%200==0) {
-			if (a>0.6*n && M<0.1*N*pow(L, D)) {
+			if (a>0.6*n && M<0.1*configuration.volume()) {
 				M += 5;
 				n = 0;
 				a = 0;
@@ -464,42 +426,9 @@ int main (int argc, char **argv) {
 	for (int i=0;i<total_sweeps;i++) {
 		if (configuration.metropolis(M)) a++;
 		n++;
-		if (std::isnan(configuration.n_up) || std::isnan(configuration.n_dn)) {
-			cout << configuration.n_up << std::endl;
-			cout << configuration.n_dn << std::endl;
-			throw(9);
-		}
 		configuration.measure();
 		d_up << configuration.n_up;
 		d_dn << configuration.n_dn;
-		if (n%1024==0 && false) {
-			time_end = std::chrono::steady_clock::now();
-			std::cout << "dimension = " << D << ", size = " << L << std::endl;
-			std::cout << "time steps = " << N << ", decompositions = " << configuration.qrnumber << std::endl;
-			std::cout << "temperature = " << (1.0/beta) << ", interaction = " << g << std::endl;
-			std::cout << "chemical potential = " << mu;
-			std::cout << "acceptance = " << (double(a)/double(n)) << " spin flips = " << M << std::endl;
-			std::cout << "elapsed: " << std::chrono::duration_cast<std::chrono::duration<double>>(time_end - time_start).count() << " seconds" << std::endl;
-			std::cout << "steps per second = " << n/std::chrono::duration_cast<std::chrono::duration<double>>(time_end - time_start).count() << std::endl;
-			std::cout << "n_up = " << n_up << std::endl;
-			std::cout << "n_dn = " << n_dn << std::endl;
-			std::cout << d_up << std::endl;
-			std::cout << d_dn << std::endl;
-			if (a>0.6*n && M<0.1*N*pow(L, D)) {
-				M += 5;
-				time_start = std::chrono::steady_clock::now();
-				d_up.reset(true);
-				d_dn.reset(true);
-				n = 0;
-				a = 0;
-			} else if (a<0.4*n) {
-				d_up.reset(true);
-				d_dn.reset(true);
-				M -= 5;
-				M = M>0?M:1;
-			}
-
-		}
 		//configuration.print();
 	}
 	results_type<sim_type>::type results = collect_results(configuration);
