@@ -82,6 +82,7 @@ class Configuration : public alps::mcbase_ng {
 
 	Eigen::VectorXd energies;
 	Eigen::VectorXd freePropagator;
+	Eigen::VectorXd freePropagator_b;
 
 	Eigen::MatrixXd positionSpace; // current matrix in position space
 	Eigen::MatrixXcd momentumSpace;
@@ -139,10 +140,12 @@ class Configuration : public alps::mcbase_ng {
 
 		energies = Eigen::VectorXd::Zero(V);
 		freePropagator = Eigen::VectorXd::Zero(V);
+		freePropagator_b = Eigen::VectorXd::Zero(V);
 		for (int i=0;i<V;i++) {
 			energies[i] += -2.0 * t * ( cos(2.0*(i%L)*pi/L) - cos(2.0*((i/L)%L)*pi/L) - cos(2.0*(i/L/L)*pi/L) + (3.0-D) );
 			energies[i] += -2.0 * J * ( cos(4.0*(i%L)*pi/L) - cos(4.0*((i/L)%L)*pi/L) - cos(4.0*(i/L/L)*pi/L) + (3.0-D) );
 			freePropagator[i] = exp(-dt*energies[i]);
+			freePropagator_b[i] = exp(dt*energies[i]);
 		}
 
 		measurements << alps::ngs::RealObservable("N")
@@ -259,7 +262,7 @@ class Configuration : public alps::mcbase_ng {
 		for (int i=0;i<N;i++) {
 			positionSpace.applyOnTheRight((Eigen::VectorXd::Constant(V, 1.0)-diagonals[i]).asDiagonal());
 			fftw_execute(x2p_row);
-			momentumSpace.applyOnTheRight(freePropagator.asDiagonal());
+			momentumSpace.applyOnTheRight(freePropagator_b.asDiagonal());
 			fftw_execute(p2x_row);
 			positionSpace /= V;
 		}
@@ -269,6 +272,10 @@ class Configuration : public alps::mcbase_ng {
 		accumulate_forward();
 		Eigen::MatrixXd U_s = positionSpace;
 		accumulate_backward();
+		std::cout << std::endl;
+		std::cout << U_s*positionSpace << std::endl << std::endl;
+		std::cout << positionSpace*U_s << std::endl << std::endl;
+		std::cout << std::endl;
 	}
 
 	double logProbability () {
@@ -359,6 +366,8 @@ class Configuration : public alps::mcbase_ng {
 			diagonals[t][x] = -diagonals[t][x];
 		}
 		double trial = logProbability();
+		//logProbability_simple();
+		//throw "end";
 		if (-trialDistribution(generator)<trial-plog) {
 			//std::cout << "accepted " << trial-plog << std::endl;
 			plog = trial;
