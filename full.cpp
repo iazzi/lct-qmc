@@ -147,10 +147,7 @@ class Configuration : public alps::mcbase_ng {
 
 	Configuration (const parameters_type& params) : mcbase_ng(params) {
 		L = params["L"];
-		V = std::pow(L, D);
 		beta = 1.0/double(params["T"]);
-		N = int(beta/double(params["dTau"]));
-		dt = beta/N;
 		t = double(params["t"]);
 		g = -double(params["U"]);
 		mu = params["mu"];
@@ -166,6 +163,9 @@ class Configuration : public alps::mcbase_ng {
 			throw std::string("unknown lattice type");
 		}
 
+		V = std::pow(L, D);
+		N = int(beta/double(params["dTau"]));
+		dt = beta/N;
 		init();
 	}
 
