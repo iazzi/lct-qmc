@@ -42,7 +42,7 @@ for L in lengths:
 	x = {		'LATTICE'                   : "chain lattice",
 			'MODEL'                     : "fermion Hubbard",
 			'L'                         : L,
-			't'			    : 0.5,
+			't'			    : 0.3,
 			'J'			    : 0.0,
 			'B'			    : 0.0,
 			'mu'                        : 0.0,
