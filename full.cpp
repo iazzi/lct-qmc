@@ -135,7 +135,6 @@ class Configuration : public alps::mcbase_ng {
 		for (int i=0;i<V;i++) {
 			energies[i] += -2.0 * t * ( cos(2.0*(i%L)*pi/L) - cos(2.0*((i/L)%L)*pi/L) - cos(2.0*(i/L/L)*pi/L) + (3.0-D) );
 			energies[i] += -2.0 * J * ( cos(4.0*(i%L)*pi/L) - cos(4.0*((i/L)%L)*pi/L) - cos(4.0*(i/L/L)*pi/L) + (3.0-D) );
-			energies[i] -= mu;
 			freePropagator[i] = exp(-dt*energies[i]);
 		}
 
@@ -268,9 +267,9 @@ class Configuration : public alps::mcbase_ng {
 		std::complex<double> ret = 0.0;
 		//ret += (1.0 + std::exp(+beta*B)*positionSpace.eigenvalues().array()).log().sum();
 		//ret += (1.0 + std::exp(-beta*B)*positionSpace.eigenvalues().array()).log().sum();
-		ret += (evb.cast<std::complex<double>>() + std::exp(+beta*B*0.5)*eva).array().log().sum();
+		ret += (evb.cast<std::complex<double>>() + std::exp(+beta*B*0.5+beta*mu)*eva).array().log().sum();
 		ret -= evb.array().log().sum();
-		ret += (evb.cast<std::complex<double>>() + std::exp(-beta*B*0.5)*eva).array().log().sum();
+		ret += (evb.cast<std::complex<double>>() + std::exp(-beta*B*0.5+beta*mu)*eva).array().log().sum();
 		ret -= evb.array().log().sum();
 
 		Eigen::ArrayXcd temp = eva.array()/evb.array().cast<std::complex<double>>();
@@ -329,8 +328,8 @@ class Configuration : public alps::mcbase_ng {
 			//std::cout << "accepted " << trial-plog << std::endl;
 			plog = trial;
 			//density = std::valarray<double>(n_s.diagonal().real().data(), V);
-			n_up = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(+beta*B*0.5) * positionSpace).inverse() ).trace();
-			n_dn = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(-beta*B*0.5) * positionSpace).inverse() ).trace();
+			n_up = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(+beta*B*0.5+beta*mu) * positionSpace).inverse() ).trace();
+			n_dn = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(-beta*B*0.5+beta*mu) * positionSpace).inverse() ).trace();
 			//number = n_s.real().trace();
 			if (std::isnan(n_up) || std::isinf(n_up)) {
 				std::cout << n_up << std::endl;
