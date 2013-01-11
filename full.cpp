@@ -86,8 +86,11 @@ class Configuration : public alps::mcbase_ng {
 	Eigen::MatrixXd positionSpace; // current matrix in position space
 	Eigen::MatrixXcd momentumSpace;
 
-	fftw_plan x2p;
-	fftw_plan p2x;
+	fftw_plan x2p_col;
+	fftw_plan p2x_col;
+
+	fftw_plan x2p_row;
+	fftw_plan p2x_row;
 
 	Eigen::FullPivHouseholderQR<Eigen::MatrixXd> decomposer;
 
@@ -122,10 +125,14 @@ class Configuration : public alps::mcbase_ng {
 		momentumSpace = Eigen::MatrixXcd::Identity(V, V);
 
 		const int size[] = { L, L, L, };
-		x2p = fftw_plan_many_dft_r2c(D, size, V, positionSpace.data(),
+		x2p_col = fftw_plan_many_dft_r2c(D, size, V, positionSpace.data(),
 				NULL, 1, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()), NULL, 1, V, FFTW_PATIENT);
-		p2x = fftw_plan_many_dft_c2r(D, size, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()),
+		p2x_col = fftw_plan_many_dft_c2r(D, size, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()),
 				NULL, 1, V, positionSpace.data(), NULL, 1, V, FFTW_PATIENT);
+		x2p_row = fftw_plan_many_dft_r2c(D, size, V, positionSpace.data(),
+				NULL, V, 1, reinterpret_cast<fftw_complex*>(momentumSpace.data()), NULL, V, 1, FFTW_PATIENT);
+		p2x_row = fftw_plan_many_dft_c2r(D, size, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()),
+				NULL, V, 1, positionSpace.data(), NULL, V, 1, FFTW_PATIENT);
 
 		positionSpace = Eigen::MatrixXd::Identity(V, V);
 		momentumSpace = Eigen::MatrixXcd::Identity(V, V);
@@ -197,9 +204,9 @@ class Configuration : public alps::mcbase_ng {
 				std::cout << positionSpace*R << std::endl << std::endl;
 				std::cout << ev.transpose() << std::endl << std::endl;
 			}
-			fftw_execute(x2p);
+			fftw_execute(x2p_col);
 			momentumSpace.applyOnTheLeft(freePropagator.asDiagonal());
-			fftw_execute(p2x);
+			fftw_execute(p2x_col);
 			positionSpace /= V;
 			ev = (positionSpace*R).eigenvalues();
 			if (std::cos(ev.log().sum().imag())<0.999) {
@@ -245,9 +252,9 @@ class Configuration : public alps::mcbase_ng {
 		R.setIdentity(V, V);
 		for (int i=0;i<N;i++) {
 			positionSpace.applyOnTheLeft((Eigen::VectorXd::Constant(V, 1.0)+diagonals[i]).asDiagonal());
-			fftw_execute(x2p);
+			fftw_execute(x2p_col);
 			momentumSpace.applyOnTheLeft(freePropagator.asDiagonal());
-			fftw_execute(p2x);
+			fftw_execute(p2x_col);
 			positionSpace /= V;
 			if ((qrperiod>0 && (i+1)%qrperiod==0) || i==N-1) {
 				qrsolver.compute(positionSpace);
@@ -374,7 +381,12 @@ class Configuration : public alps::mcbase_ng {
 
 	int volume () { return V; }
 
-	~Configuration () { fftw_destroy_plan(x2p); fftw_destroy_plan(p2x); }
+	~Configuration () {
+		fftw_destroy_plan(x2p_col);
+		fftw_destroy_plan(p2x_col);
+		fftw_destroy_plan(x2p_row);
+		fftw_destroy_plan(p2x_row);
+	}
 	protected:
 };
 
