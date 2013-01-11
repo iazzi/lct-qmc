@@ -243,6 +243,34 @@ class Configuration : public alps::mcbase_ng {
 		}
 	}
 
+	void accumulate_forward () {
+		positionSpace.setIdentity(V, V);
+		for (int i=0;i<N;i++) {
+			positionSpace.applyOnTheLeft((Eigen::VectorXd::Constant(V, 1.0)+diagonals[i]).asDiagonal());
+			fftw_execute(x2p_col);
+			momentumSpace.applyOnTheLeft(freePropagator.asDiagonal());
+			fftw_execute(p2x_col);
+			positionSpace /= V;
+		}
+	}
+
+	void accumulate_backward () {
+		positionSpace.setIdentity(V, V);
+		for (int i=0;i<N;i++) {
+			positionSpace.applyOnTheRight((Eigen::VectorXd::Constant(V, 1.0)-diagonals[i]).asDiagonal());
+			fftw_execute(x2p_row);
+			momentumSpace.applyOnTheRight(freePropagator.asDiagonal());
+			fftw_execute(p2x_row);
+			positionSpace /= V;
+		}
+	}
+
+	double logProbability_simple () {
+		accumulate_forward();
+		Eigen::MatrixXd U_s = positionSpace;
+		accumulate_backward();
+	}
+
 	double logProbability () {
 		Eigen::HouseholderQR<Eigen::MatrixXd> qrsolver;
 		Eigen::MatrixXd R = Eigen::MatrixXd::Identity(V, V);
