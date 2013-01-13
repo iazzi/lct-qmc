@@ -11,7 +11,7 @@ test.o: measurements.hpp
 
 test: test.o
 
-full: full.o
+full: full.o helpers.o
 
 full1d: full1d.o
 
