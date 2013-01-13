@@ -164,6 +164,7 @@ class Configuration : public alps::mcbase_ng {
 		g = -double(params["U"]);
 		mu = params["mu"];
 		B = params["B"];
+		qrnumber = 0;
 
 		if (params["LATTICE"].cast<std::string>()==std::string("chain lattice")) {
 			D = 1;
