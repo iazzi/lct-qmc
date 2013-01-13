@@ -35,11 +35,13 @@ Eigen::MatrixXd reduceSVD_f (std::vector<Eigen::MatrixXd>& vec) {
 	Eigen::MatrixXd ret = Eigen::MatrixXd::Identity(V, V);
 	Eigen::MatrixXd Y = Eigen::MatrixXd::Identity(V, V);
 	Eigen::MatrixXd Z = Eigen::MatrixXd::Identity(V, V);
+	Eigen::ArrayXd D;
 	for (auto X : vec) {
 		svd.compute(X*Y*Z, Eigen::ComputeFullU | Eigen::ComputeFullV);
 		ret.applyOnTheLeft(svd.matrixV().transpose());
 		Y = svd.matrixU();
 		Z = svd.singularValues().asDiagonal();
+		D = svd.singularValues();
 	}
 	std::cout << Z.diagonal().transpose() << std::endl;
 	Eigen::VectorXcd eva;
@@ -47,6 +49,10 @@ Eigen::MatrixXd reduceSVD_f (std::vector<Eigen::MatrixXd>& vec) {
 	dggev(Z, Y.transpose()*ret.transpose(), eva, evb);
 	std::cout << (eva.array()/evb.cast<std::complex<double>>().array()).transpose() << std::endl;
 	dggev(Y.transpose()*ret.transpose(), Z, eva, evb);
+	std::cout << (evb.cast<std::complex<double>>().array()/eva.array()).transpose() << std::endl;
+	dggev(D.inverse().matrix().asDiagonal(), Y.transpose()*ret.transpose(), eva, evb);
+	std::cout << (eva.array()/evb.cast<std::complex<double>>().array()).transpose() << std::endl;
+	dggev(Y.transpose()*ret.transpose(), D.inverse().matrix().asDiagonal(), eva, evb);
 	std::cout << (evb.cast<std::complex<double>>().array()/eva.array()).transpose() << std::endl;
 	return Y*Z*ret;
 }
@@ -68,9 +74,9 @@ Eigen::MatrixXd reduceSVD_b (std::vector<Eigen::MatrixXd>& vec) {
 	Eigen::VectorXcd eva;
 	Eigen::VectorXd evb;
 	dggev(Z, ret.transpose()*Y.transpose(), eva, evb);
-	std::cout << (evb.cast<std::complex<double>>().array()/eva.array()).transpose() << std::endl;
-	dggev(ret.transpose()*Y.transpose(), Z, eva, evb);
 	std::cout << (eva.array()/evb.cast<std::complex<double>>().array()).transpose() << std::endl;
+	dggev(ret.transpose()*Y.transpose(), Z, eva, evb);
+	std::cout << (evb.cast<std::complex<double>>().array()/eva.array()).transpose() << std::endl;
 	return ret*Z*Y;
 }
 
