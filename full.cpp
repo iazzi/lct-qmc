@@ -11,6 +11,8 @@
 #include <alps/ngs/scheduler/proto/mcbase.hpp>
 #include <alps/ngs/make_parameters_from_xml.hpp>
 
+#include "helpers.hpp"
+
 
 extern "C" {
 #include <fftw3.h>
@@ -246,36 +248,119 @@ class Configuration : public alps::mcbase_ng {
 		}
 	}
 
-	void accumulate_forward () {
+	void accumulate_forward (int start = 0, int end = -1) {
+		double X = sqrt(1.0 - A*A);
 		positionSpace.setIdentity(V, V);
+		end = end<0?N:end;
+		end = end>N?N:end;
+		for (int i=start;i<end;i++) {
+			positionSpace.applyOnTheLeft((Eigen::VectorXd::Constant(V, 1.0)+diagonals[i]).asDiagonal());
+			fftw_execute(x2p_col);
+			momentumSpace.applyOnTheLeft(freePropagator.asDiagonal());
+			fftw_execute(p2x_col);
+			positionSpace /= V*X;
+		}
+	}
+
+	void accumulate_backward (int start = 0, int end = -1) {
+		double X = sqrt(1.0 - A*A);
+		positionSpace.setIdentity(V, V);
+		end = end<0?N:end;
+		end = end>N?N:end;
+		for (int i=start;i<end;i++) {
+			positionSpace.applyOnTheRight((Eigen::VectorXd::Constant(V, 1.0)-diagonals[i]).asDiagonal());
+			fftw_execute(x2p_row);
+			momentumSpace.applyOnTheRight(freePropagator_b.asDiagonal());
+			fftw_execute(p2x_row);
+			positionSpace /= V*X;
+		}
+	}
+
+	void accumulate_forward_qrall () {
+		Eigen::HouseholderQR<Eigen::MatrixXd> decomposer;
+		double X = sqrt(1.0 - A*A);
+		positionSpace.setIdentity(V, V);
+		Eigen::MatrixXd T = Eigen::MatrixXd::Identity(V, V);
 		for (int i=0;i<N;i++) {
 			positionSpace.applyOnTheLeft((Eigen::VectorXd::Constant(V, 1.0)+diagonals[i]).asDiagonal());
 			fftw_execute(x2p_col);
 			momentumSpace.applyOnTheLeft(freePropagator.asDiagonal());
 			fftw_execute(p2x_col);
-			positionSpace /= V;
+			positionSpace /= V*X;
+			{
+				Eigen::MatrixXd R = Eigen::MatrixXd::Identity(V, V);
+				Eigen::MatrixXd Q = Eigen::MatrixXd::Identity(V, V);
+				Eigen::VectorXd D = Eigen::VectorXd::Ones(V);
+				decomposer.compute(positionSpace);
+				R = decomposer.matrixQR().triangularView<Eigen::Upper>();
+				D = R.diagonal();
+				R.applyOnTheLeft(D.array().inverse().matrix().asDiagonal());
+				Q = decomposer.householderQ();
+				T.applyOnTheLeft(R);
+				positionSpace = Q*D.asDiagonal();
+			}
 		}
+		positionSpace.applyOnTheRight(T);
 	}
 
-	void accumulate_backward () {
+	void accumulate_backward_qrall () {
+		Eigen::HouseholderQR<Eigen::MatrixXd> decomposer;
+		double X = sqrt(1.0 - A*A);
 		positionSpace.setIdentity(V, V);
+		Eigen::MatrixXd T = Eigen::MatrixXd::Identity(V, V);
 		for (int i=0;i<N;i++) {
 			positionSpace.applyOnTheRight((Eigen::VectorXd::Constant(V, 1.0)-diagonals[i]).asDiagonal());
 			fftw_execute(x2p_row);
 			momentumSpace.applyOnTheRight(freePropagator_b.asDiagonal());
 			fftw_execute(p2x_row);
-			positionSpace /= V;
+			positionSpace /= V*X;
+			{
+				Eigen::MatrixXd R = Eigen::MatrixXd::Identity(V, V);
+				Eigen::MatrixXd Q = Eigen::MatrixXd::Identity(V, V);
+				Eigen::VectorXd D = Eigen::VectorXd::Ones(V);
+				decomposer.compute(positionSpace.transpose());
+				R = decomposer.matrixQR().triangularView<Eigen::Upper>();
+				D = R.diagonal();
+				R.applyOnTheLeft(D.array().inverse().matrix().asDiagonal());
+				Q = decomposer.householderQ();
+				T.applyOnTheLeft(R);
+				positionSpace = (Q*D.asDiagonal()).transpose();
+			}
 		}
+		positionSpace.applyOnTheLeft(T.transpose());
 	}
 
 	double logProbability_simple () {
-		accumulate_forward();
+		double X = 1.0 - A*A;
+		double Y = pow(X, N);
+		accumulate_forward(0, N);
 		Eigen::MatrixXd U_s = positionSpace;
-		accumulate_backward();
+		accumulate_backward(0, N);
 		std::cout << std::endl;
+		std::cout << N << std::endl;
+		std::cout << X << std::endl;
+		std::cout << Y << std::endl;
 		std::cout << U_s*positionSpace << std::endl << std::endl;
 		std::cout << positionSpace*U_s << std::endl << std::endl;
+		std::cout << U_s.eigenvalues().transpose() << std::endl;
+		std::cout << positionSpace.eigenvalues().transpose() << std::endl;
+		std::cout << positionSpace.eigenvalues().array().inverse().transpose() << std::endl;
 		std::cout << std::endl;
+	}
+
+	double logProbability_complex () {
+		const int M = 30;
+		std::vector<Eigen::MatrixXd> fvec;
+		std::vector<Eigen::MatrixXd> bvec;
+		for (int i=0;i<N;i+=M) {
+			accumulate_forward(i, i+M);
+			fvec.push_back(positionSpace);
+		}
+		for (int i=0;i<N;i+=M) {
+			accumulate_backward(i, i+M);
+			bvec.push_back(positionSpace);
+		}
+		test_sequences(fvec, bvec);
 	}
 
 	double logProbability () {
@@ -320,7 +405,8 @@ class Configuration : public alps::mcbase_ng {
 
 		if (std::cos(ret.imag())<0.99) {
 			if (qrnumber==N) {
-				checkConsistency();
+				//checkConsistency();
+				logProbability_complex();
 				throw("wtf");
 			} else {
 				qrnumber++;
@@ -366,7 +452,7 @@ class Configuration : public alps::mcbase_ng {
 			diagonals[t][x] = -diagonals[t][x];
 		}
 		double trial = logProbability();
-		//logProbability_simple();
+		//logProbability_complex();
 		//throw "end";
 		if (-trialDistribution(generator)<trial-plog) {
 			//std::cout << "accepted " << trial-plog << std::endl;
