@@ -182,65 +182,6 @@ class Configuration : public alps::mcbase_ng {
 		init();
 	}
 
-	void checkConsistency () {
-		Eigen::HouseholderQR<Eigen::MatrixXd> qrsolver;
-		Eigen::MatrixXd R = Eigen::MatrixXd::Identity(V, V);
-		int qrperiod = qrnumber>0?N/qrnumber:0;
-
-		positionSpace.setIdentity(V, V);
-		R.setIdentity(V, V);
-		for (int i=0;i<N;i++) {
-			positionSpace.applyOnTheLeft((Eigen::VectorXd::Constant(V, 1.0)+diagonals[i]).asDiagonal());
-			Eigen::ArrayXcd ev = (positionSpace*R).eigenvalues();
-			if (std::cos(ev.log().sum().imag())<0.999) {
-				std::cout << "imaginary part in the propagator at time slice " << i << std::endl;
-				std::cout << positionSpace*R << std::endl << std::endl;
-				std::cout << ev.transpose() << std::endl;
-				std::cout << (Eigen::VectorXd::Constant(V, 1.0)+diagonals[i]).transpose() << std::endl << std::endl;
-			} else {
-				std::cout << "everything fine up to " << i << std::endl;
-				std::cout << positionSpace*R << std::endl << std::endl;
-				std::cout << ev.transpose() << std::endl << std::endl;
-			}
-			fftw_execute(x2p_col);
-			momentumSpace.applyOnTheLeft(freePropagator.asDiagonal());
-			fftw_execute(p2x_col);
-			positionSpace /= V;
-			ev = (positionSpace*R).eigenvalues();
-			if (std::cos(ev.log().sum().imag())<0.999) {
-				std::cout << "imaginary part in the propagator at time slice " << i << std::endl;
-				std::cout << positionSpace*R << std::endl << std::endl;
-				std::cout << ev.transpose() << std::endl;
-				std::cout << (Eigen::VectorXd::Constant(V, 1.0)+diagonals[i]).transpose() << std::endl << std::endl;
-			} else {
-				std::cout << "everything fine up to " << i << std::endl;
-				std::cout << positionSpace*R << std::endl << std::endl;
-				std::cout << ev.transpose() << std::endl << std::endl;
-			}
-			if ((qrperiod>0 && (i+1)%qrperiod==0) || i==N-1) {
-				qrsolver.compute(positionSpace);
-				R.applyOnTheLeft(qrsolver.householderQ().inverse()*positionSpace);
-				Eigen::VectorXd sign = Eigen::VectorXd::Ones(V);
-				for (int k=0;k<V;k++) if (R(k, k)<0.0) sign[k] = -1.0;
-				R.applyOnTheLeft(sign.asDiagonal());
-				positionSpace = qrsolver.householderQ();
-				positionSpace.applyOnTheRight(sign.asDiagonal());
-			}
-		}
-		Eigen::VectorXcd eva;
-		Eigen::VectorXd evb;
-		dggev(R, positionSpace.transpose(), eva, evb);
-
-		//positionSpace.applyOnTheRight(R);
-		if (std::cos(eva.array().log().sum().imag() - evb.array().log().sum())<0.999) {
-			std::cout << "imaginary part in the propagator " << std::endl;
-			std::cout << positionSpace << std::endl << std::endl;
-			std::cout << positionSpace.eigenvalues().transpose() << std::endl << std::endl;
-		} else {
-			std::cout << "generalized ev problem was ok" << std::endl;
-		}
-	}
-
 	void accumulate_forward (int start = 0, int end = -1) {
 		double X = sqrt(1.0 - A*A);
 		positionSpace.setIdentity(V, V);
@@ -344,7 +285,6 @@ class Configuration : public alps::mcbase_ng {
 
 		if (std::cos(ret.imag())<0.99) {
 			if (qrnumber>N/10) {
-				//checkConsistency();
 				logProbability_complex();
 				throw("wtf");
 			} else {
