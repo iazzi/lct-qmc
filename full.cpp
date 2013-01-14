@@ -149,7 +149,7 @@ class Configuration : public alps::mcbase_ng {
 		plog = logProbability();
 	}
 
-	Configuration (const parameters_type& params) : mcbase_ng(params) {
+	Configuration (const parameters_type& params) : mcbase_ng(params), distribution(0.5), trialDistribution(1.0) {
 		L = params["L"];
 		beta = 1.0/double(params["T"]);
 		t = double(params["t"]);
