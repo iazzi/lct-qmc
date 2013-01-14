@@ -15,7 +15,7 @@ import glob
 exact_params = []
 ct_params = []
 for L in [ 1, 2, ]:
-    for U in [ 0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0 ]:
+    for U in [ 0.5, ]:
     #for U in [ 0.0, 0.235, 0.56, 1.1 ]:
 	x = {		'LATTICE'                   : "chain lattice",
 			'MODEL'                     : "fermion Hubbard",
@@ -23,16 +23,17 @@ for L in [ 1, 2, ]:
 			't'			    : 1,
 			'J'			    : 0.0,
 			'B'			    : 0.0,
-			'mu'                        : 0.70,
-			'U'                         : -U,
+			'mu'                        : 0.0,
+			'U'                         : U,
 			'CONSERVED_QUANTUMNUMBERS'  : 'Nup,Ndown',
 			'MEASURE_AVERAGE[Nup]'      : 'Nup',
 			'MEASURE_AVERAGE[Ndown]'    : 'Ndown',
 			'THERMALIZATION'            : 10000,
-			'SWEEPS'                    : 100000,
+			'SWEEPS'                    : 10000,
 			}
 	exact_params.append(copy.copy(x))
-	for T in [ 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.3, 2.6, 2.9, 3.3, 3.7, 4.2 ]:
+	x['U'] = -U
+	for T in [ 0.1, 0.3, 0.5, 0.7, 0.9, 1.2, 1.6, 2.0, 2.6, 3.3, 4.2 ]:
 		x['T'] = T
 		ct_params.append(copy.copy(x))
 
@@ -74,7 +75,7 @@ def run_tasks (appname, fn):
 
 #pyalps.runApplication('../continuoustime', input_file_ct)
 
-run_tasks('../continuoustime', input_file_ct)
+#run_tasks('../full', input_file_ct)
 
 #print pyalps.getResultFiles(prefix='qmc')
 
@@ -84,7 +85,7 @@ plotdata = pyalps.collectXY(sets=data,x='T',y='n_up', foreach=['L', 'U', 'mu'])
 measurements = glob.glob('exact.*.measurements.Nup.plot.xml')
 
 
-for L in [ 1, 2 ]:
+for L in [ 1, 2, 3, 4, 5, ]:
 	exact_data = []
 	for x in measurements:
 		exact_data.append(pyalps.readAlpsXMLPlot(x))
