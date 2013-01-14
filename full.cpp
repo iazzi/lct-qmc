@@ -284,15 +284,8 @@ class Configuration : public alps::mcbase_ng {
 		//std::cerr << positionSpace.eigenvalues().transpose() << std::endl << std::endl;
 
 		if (std::cos(ret.imag())<0.99) {
-			if (qrnumber>N/10) {
-				logProbability_complex();
-				throw("wtf");
-			} else {
-				qrnumber++;
-				std::cerr << "imaginary part = " << ret.imag() << " increasing qrnumber -> " << qrnumber << std::endl;
-				return logProbability();
-			}
-			return logProbability();
+			logProbability_complex();
+			throw("wtf");
 		}
 		return ret.real();
 	}
