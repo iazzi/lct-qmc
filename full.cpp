@@ -102,8 +102,6 @@ class Configuration : public alps::mcbase_ng {
 	double n_up;
 	double n_dn;
 
-	int qrnumber;
-
 	public:
 
 	void init () {
@@ -156,7 +154,6 @@ class Configuration : public alps::mcbase_ng {
 		g = -double(params["U"]);
 		mu = params["mu"];
 		B = params["B"];
-		qrnumber = 0;
 
 		if (params["LATTICE"].cast<std::string>()==std::string("chain lattice")) {
 			D = 1;
@@ -176,7 +173,7 @@ class Configuration : public alps::mcbase_ng {
 
 	Configuration (int d, int l, int n, double Beta, double interaction, double m, double b, double t_ = 1.0, double j = 0.0)
 		: L(l), D(d), V(std::pow(l, D)), N(n), beta(Beta), dt(Beta/n),
-		g(interaction), mu(m), B(b), t(t_), J(j), qrnumber(0), distribution(0.5), randomPosition(0, l-1),
+		g(interaction), mu(m), B(b), t(t_), J(j), distribution(0.5), randomPosition(0, l-1),
 		randomTime(0, n-1), trialDistribution(1.0),
 		mcbase_ng(parameters_type())	{
 		init();
@@ -246,7 +243,6 @@ class Configuration : public alps::mcbase_ng {
 	double logProbability () {
 		Eigen::HouseholderQR<Eigen::MatrixXd> qrsolver;
 		Eigen::MatrixXd R = Eigen::MatrixXd::Identity(V, V);
-		int qrperiod = qrnumber>0?N/qrnumber:0;
 
 		positionSpace.setIdentity(V, V);
 		R.setIdentity(V, V);
@@ -256,12 +252,10 @@ class Configuration : public alps::mcbase_ng {
 			momentumSpace.applyOnTheLeft(freePropagator.asDiagonal());
 			fftw_execute(p2x_col);
 			positionSpace /= V;
-			if ((qrperiod>0 && (i+1)%qrperiod==0) || i==N-1) {
-				qrsolver.compute(positionSpace);
-				R.applyOnTheLeft(qrsolver.householderQ().inverse()*positionSpace);
-				positionSpace = qrsolver.householderQ();
-			}
 		}
+		qrsolver.compute(positionSpace);
+		R.applyOnTheLeft(qrsolver.householderQ().inverse()*positionSpace);
+		positionSpace = qrsolver.householderQ();
 		Eigen::VectorXcd eva;
 		Eigen::VectorXd evb;
 		dggev(R, positionSpace.transpose(), eva, evb);
@@ -351,10 +345,6 @@ class Configuration : public alps::mcbase_ng {
 		return ret;
 	}
 
-	void setQRNumber (int n) {
-		qrnumber = n;
-	}
-
 	double fraction_completed () const {
 		return 1.0;
 	}
@@ -393,7 +383,6 @@ int main (int argc, char **argv) {
 
 	Configuration configuration(params);
 	//Configuration configuration(D, L, N, beta, g, mu, B, t, 0.0);
-	configuration.setQRNumber(0);
 
 	int n = 0;
 	int a = 0;
