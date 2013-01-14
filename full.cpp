@@ -405,7 +405,7 @@ class Configuration : public alps::mcbase_ng {
 		//std::cerr << positionSpace.eigenvalues().transpose() << std::endl << std::endl;
 
 		if (std::cos(ret.imag())<0.99) {
-			if (qrnumber==N) {
+			if (qrnumber>N/10) {
 				//checkConsistency();
 				logProbability_complex();
 				throw("wtf");
