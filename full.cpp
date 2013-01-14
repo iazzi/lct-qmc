@@ -57,10 +57,6 @@ void dggev (const Eigen::MatrixXd &A, const Eigen::MatrixXd &B, Eigen::VectorXcd
 	}
 }
 
-//namespace alps {
-  //template<> struct type_tag< Eigen::ArrayXd > : public boost::mpl::int_<37> {};
-//};
-
 class Configuration : public alps::mcbase_ng {
 	private:
 	int L; // size of the system
@@ -99,13 +95,7 @@ class Configuration : public alps::mcbase_ng {
 
 	Eigen::FullPivHouseholderQR<Eigen::MatrixXd> decomposer;
 
-	//Eigen::MatrixXcd n_s; // single particle density matrix
-
 	double plog;
-
-	double energy;
-	double number;
-	std::valarray<double> density;
 
 	public:
 
@@ -405,12 +395,9 @@ class Configuration : public alps::mcbase_ng {
 		//logProbability_complex();
 		//throw "end";
 		if (-trialDistribution(generator)<trial-plog) {
-			//std::cout << "accepted " << trial-plog << std::endl;
 			plog = trial;
-			//density = std::valarray<double>(n_s.diagonal().real().data(), V);
 			n_up = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(+beta*B*0.5+beta*mu) * positionSpace).inverse() ).trace();
 			n_dn = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(-beta*B*0.5+beta*mu) * positionSpace).inverse() ).trace();
-			//number = n_s.real().trace();
 			if (std::isnan(n_up) || std::isinf(n_up)) {
 				std::cout << n_up << std::endl;
 				std::cout << n_dn << std::endl;
@@ -421,7 +408,6 @@ class Configuration : public alps::mcbase_ng {
 			}
 			ret = true;
 		} else {
-			//std::cout << "rejected " << trial-plog << std::endl;
 			for (int i=0;i<M;i++) {
 				int t = index[i]/V;
 				int x = index[i]%V;
@@ -429,9 +415,6 @@ class Configuration : public alps::mcbase_ng {
 			}
 			ret = false;
 		}
-		//std::cout << n_up << ' ' << n_dn << std::endl;
-		//measuredNumber << number;
-		//std::cout << measuredNumber << std::endl;
 		return ret;
 	}
 
