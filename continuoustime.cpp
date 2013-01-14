@@ -78,9 +78,9 @@ int main (int argc, char **argv) {
 	int n = 0;
 	int a = 0;
 	for (int i=0;i>int(params["THERMALIZATION"]);i++) {
-		if (i%100==0) { std::cout << i << "\r"; std::cout.flush(); }
-		sim.update();
-		sim.measure();
+		//if (i%100==0) { std::cout << i << "\r"; std::cout.flush(); }
+		//sim.update();
+		//sim.measure();
 	}
 	//std::cout << int(params["THERMALIZATION"]) << std::endl;
 	//std::cout.flush();
@@ -88,14 +88,15 @@ int main (int argc, char **argv) {
 	std::chrono::steady_clock::time_point time_start = std::chrono::steady_clock::now();
 	std::chrono::steady_clock::time_point time_end = std::chrono::steady_clock::now();
 	for (int k=0;k>int(params["SWEEPS"]);k++) {
-		sim.update();
-		sim.measure();
-		n++;
+		//sim.update();
+		//sim.measure();
+		//n++;
 		//d_up << sim.numberUp();
 		//d_dn << sim.numberDown();
 		//slices << double(sim.sliceNumber());
 	}
 
+	sim.setDiscreteTime(100);
 	try {
 		sim.run(boost::bind(&stop_callback, options.time_limit));
 	}
