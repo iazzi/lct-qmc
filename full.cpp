@@ -23,6 +23,8 @@ extern "C" {
 
 static const double pi = 3.141592653589793238462643383279502884197;
 
+void dggev (const Eigen::MatrixXd &A, const Eigen::MatrixXd &B, Eigen::VectorXcd &alpha, Eigen::VectorXd &beta);
+
 extern "C" void dggev_ (const char *jobvl, const char *jobvr, const int &N,
 			double *A, const int &lda, double *B, const int &ldb,
 			double *alphar, double *alphai, double *beta,
@@ -277,60 +279,6 @@ class Configuration : public alps::mcbase_ng {
 		}
 	}
 
-	void accumulate_forward_qrall () {
-		Eigen::HouseholderQR<Eigen::MatrixXd> decomposer;
-		double X = sqrt(1.0 - A*A);
-		positionSpace.setIdentity(V, V);
-		Eigen::MatrixXd T = Eigen::MatrixXd::Identity(V, V);
-		for (int i=0;i<N;i++) {
-			positionSpace.applyOnTheLeft((Eigen::VectorXd::Constant(V, 1.0)+diagonals[i]).asDiagonal());
-			fftw_execute(x2p_col);
-			momentumSpace.applyOnTheLeft(freePropagator.asDiagonal());
-			fftw_execute(p2x_col);
-			positionSpace /= V*X;
-			{
-				Eigen::MatrixXd R = Eigen::MatrixXd::Identity(V, V);
-				Eigen::MatrixXd Q = Eigen::MatrixXd::Identity(V, V);
-				Eigen::VectorXd D = Eigen::VectorXd::Ones(V);
-				decomposer.compute(positionSpace);
-				R = decomposer.matrixQR().triangularView<Eigen::Upper>();
-				D = R.diagonal();
-				R.applyOnTheLeft(D.array().inverse().matrix().asDiagonal());
-				Q = decomposer.householderQ();
-				T.applyOnTheLeft(R);
-				positionSpace = Q*D.asDiagonal();
-			}
-		}
-		positionSpace.applyOnTheRight(T);
-	}
-
-	void accumulate_backward_qrall () {
-		Eigen::HouseholderQR<Eigen::MatrixXd> decomposer;
-		double X = sqrt(1.0 - A*A);
-		positionSpace.setIdentity(V, V);
-		Eigen::MatrixXd T = Eigen::MatrixXd::Identity(V, V);
-		for (int i=0;i<N;i++) {
-			positionSpace.applyOnTheRight((Eigen::VectorXd::Constant(V, 1.0)-diagonals[i]).asDiagonal());
-			fftw_execute(x2p_row);
-			momentumSpace.applyOnTheRight(freePropagator_b.asDiagonal());
-			fftw_execute(p2x_row);
-			positionSpace /= V*X;
-			{
-				Eigen::MatrixXd R = Eigen::MatrixXd::Identity(V, V);
-				Eigen::MatrixXd Q = Eigen::MatrixXd::Identity(V, V);
-				Eigen::VectorXd D = Eigen::VectorXd::Ones(V);
-				decomposer.compute(positionSpace.transpose());
-				R = decomposer.matrixQR().triangularView<Eigen::Upper>();
-				D = R.diagonal();
-				R.applyOnTheLeft(D.array().inverse().matrix().asDiagonal());
-				Q = decomposer.householderQ();
-				T.applyOnTheLeft(R);
-				positionSpace = (Q*D.asDiagonal()).transpose();
-			}
-		}
-		positionSpace.applyOnTheLeft(T.transpose());
-	}
-
 	double logProbability_simple () {
 		double X = 1.0 - A*A;
 		double Y = pow(X, N);
@@ -428,7 +376,8 @@ class Configuration : public alps::mcbase_ng {
 		}
 	}
 
-	bool metropolis (int M) {
+	bool metropolis (int M = 0) {
+		if (M==0) M = 0.1 * volume();
 		bool ret = false;
 		std::vector<int> index(M);
 		for (int j=0;j<M;j++) {
@@ -495,7 +444,7 @@ class Configuration : public alps::mcbase_ng {
 	}
 
 	void update () {
-		metropolis(20);
+		metropolis();
 	}
 
 	void measure () {
@@ -526,9 +475,6 @@ int main (int argc, char **argv) {
 	int thermalization_sweeps = int(params["THERMALIZATION"]);
 	int total_sweeps = int(params["SWEEPS"]);
 
-	alps::RealObservable d_up("d_up");
-	alps::RealObservable d_dn("d_dn");
-
 	Configuration configuration(params);
 	//Configuration configuration(D, L, N, beta, g, mu, B, t, 0.0);
 	configuration.setQRNumber(0);
@@ -542,12 +488,16 @@ int main (int argc, char **argv) {
 		n++;
 		if (i%200==0) {
 			if (a>0.6*n && M<0.1*configuration.volume()) {
+				cout << "M: " << M;
 				M += 5;
+				cout << " -> " << M << endl;
 				n = 0;
 				a = 0;
 				i = 0;
 			} else if (a<0.4*n) {
+				cout << "M: " << M;
 				M -= 5;
+				cout << " -> " << M << endl;
 				M = M>0?M:1;
 				n = 0;
 				a = 0;
@@ -555,17 +505,17 @@ int main (int argc, char **argv) {
 			}
 		}
 	}
+	std::cout << thermalization_sweeps << "\n"; std::cout.flush();
 
 	std::chrono::steady_clock::time_point time_start = std::chrono::steady_clock::now();
 	std::chrono::steady_clock::time_point time_end = std::chrono::steady_clock::now();
 	for (int i=0;i<total_sweeps;i++) {
+		if (i%100==0) { std::cout << i << "\r"; std::cout.flush(); }
 		if (configuration.metropolis(M)) a++;
 		n++;
 		configuration.measure();
-		d_up << configuration.n_up;
-		d_dn << configuration.n_dn;
-		//configuration.print();
 	}
+	std::cout << total_sweeps << "\n"; std::cout.flush();
 	results_type<sim_type>::type results = collect_results(configuration);
 	std::cout << results << std::endl;
 	save_results(results, params, options.output_file, "/simulation/results");
