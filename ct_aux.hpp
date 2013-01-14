@@ -351,6 +351,14 @@ class ctaux_sim : public alps::mcbase_ng {
 		return ret;
 	}
 
+	void insertSlice (double t) {
+		std::map<double, Eigen::VectorXd>::iterator diter = diagonals.find(t);
+		if (diter!=diagonals.end()) return;
+		diagonals[t] = Eigen::VectorXd::Zero(V);
+		diter = diagonals.find(t);
+		for (int i=0;i<V;i++) diter->second[i] = distribution(generator)?A:-A;
+	}
+
 	bool metropolisUp () {
 		bool ret = false;
 		double t = randomTime(generator);
@@ -406,6 +414,17 @@ class ctaux_sim : public alps::mcbase_ng {
 			//std::cerr << "proposed increase" << std::endl;
 			return metropolisUp();
 		}
+	}
+
+	void setDiscreteTime (const int M) {
+		MIN_SLICES = M;
+		MAX_SLICES = M;
+		diagonals.clear();
+		for (int i=0;i<M;i++) {
+			double t = (beta/M)*i + (beta/(2*M));
+			insertSlice(t);
+		}
+		A = sqrt(exp(-U*beta/M)-1.0);
 	}
 
 	void update () {
