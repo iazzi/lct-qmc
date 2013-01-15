@@ -45,7 +45,7 @@ for L in lengths:
 			't'			    : 0.3,
 			'J'			    : 0.0,
 			'B'			    : 0.0,
-			'mu'                        : 0.0,
+			'mu'                        : -1.0,
 			'U'                         : U,
 			'CONSERVED_QUANTUMNUMBERS'  : 'Nup,Ndown',
 			'MEASURE_AVERAGE[N]'      : 'n',
@@ -53,7 +53,7 @@ for L in lengths:
 			'THERMALIZATION'            : 10000,
 			'SWEEPS'                    : 100000,
 			}
-	if L<6 :exact_params.append(copy.copy(x))
+	if L<7 :exact_params.append(copy.copy(x))
 	for T in [ 0.1, 0.3, 0.5, 0.7, 0.9, 1.2, 1.6, 2.0, 2.6, 3.3, 4.2 ]:
 		x['T'] = T*x['t']
 		x['dTau'] = 0.01/x['t']
@@ -111,12 +111,12 @@ for L in lengths:
 		exact_data.append(p)
 	for x in plotdata_N:
 		flip_plot(x, False)
-		x.props['line'] = 'scatter'
+		#x.props['line'] = 'scatter'
 	    	if x.props['L']==L:
 			exact_data.append(x)
 	for x in plotdata_M:
 		flip_plot(x, True)
-		x.props['line'] = 'scatter'
+		#x.props['line'] = 'scatter'
 		if x.props['L']==L:
 			exact_data.append(x)
 	plt.figure()
