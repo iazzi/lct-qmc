@@ -169,14 +169,6 @@ class Configuration : public alps::mcbase_ng {
 		init();
 	}
 
-	Configuration (int d, int l, int n, double Beta, double interaction, double m, double b, double t_ = 1.0, double j = 0.0)
-		: L(l), D(d), V(std::pow(l, D)), N(n), beta(Beta), dt(Beta/n),
-		g(interaction), mu(m), B(b), t(t_), J(j), distribution(0.5), randomPosition(0, l-1),
-		randomTime(0, n-1), trialDistribution(1.0),
-		mcbase_ng(parameters_type())	{
-		init();
-	}
-
 	void accumulate_forward (int start = 0, int end = -1) {
 		double X = sqrt(1.0 - A*A);
 		positionSpace.setIdentity(V, V);
@@ -280,7 +272,7 @@ class Configuration : public alps::mcbase_ng {
 	}
 
 	bool metropolis (int M = 0) {
-		if (M==0) M = 0.1 * volume();
+		if (M==0) M = 0.1 * volume() * N;
 		bool ret = false;
 		std::vector<int> index(M);
 		for (int j=0;j<M;j++) {
@@ -345,6 +337,7 @@ class Configuration : public alps::mcbase_ng {
 	}
 
 	int volume () { return V; }
+	int timeSlices () { return N; }
 
 	~Configuration () {
 		fftw_destroy_plan(x2p_col);
@@ -378,7 +371,7 @@ int main (int argc, char **argv) {
 		if (configuration.metropolis(M)) a++;
 		n++;
 		if (i%200==0) {
-			if (a>0.6*n && M<0.1*configuration.volume()) {
+			if (a>0.6*n && M<0.1*configuration.volume()*configuration.timeSlices()) {
 				cout << "M: " << M;
 				M += 5;
 				cout << " -> " << M << endl;
