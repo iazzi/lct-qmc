@@ -93,8 +93,6 @@ class Configuration : public alps::mcbase_ng {
 	fftw_plan x2p_row;
 	fftw_plan p2x_row;
 
-	Eigen::FullPivHouseholderQR<Eigen::MatrixXd> decomposer;
-
 	double plog;
 
 	public:
@@ -241,7 +239,6 @@ class Configuration : public alps::mcbase_ng {
 	}
 
 	double logProbability () {
-		Eigen::HouseholderQR<Eigen::MatrixXd> qrsolver;
 		Eigen::MatrixXd R = Eigen::MatrixXd::Identity(V, V);
 
 		positionSpace.setIdentity(V, V);
@@ -253,29 +250,18 @@ class Configuration : public alps::mcbase_ng {
 			fftw_execute(p2x_col);
 			positionSpace /= V;
 		}
-		qrsolver.compute(positionSpace);
-		R.applyOnTheLeft(qrsolver.householderQ().inverse()*positionSpace);
-		positionSpace = qrsolver.householderQ();
 		Eigen::VectorXcd eva;
 		Eigen::VectorXd evb;
-		dggev(R, positionSpace.transpose(), eva, evb);
+		dggev(positionSpace, R, eva, evb);
 
 		positionSpace.applyOnTheRight(R);
 
-		//Eigen::MatrixXd S1 = Eigen::MatrixXd::Identity(V, V) + std::exp(+beta*B)*positionSpace;
-		//Eigen::MatrixXd S2 = Eigen::MatrixXd::Identity(V, V) + std::exp(-beta*B)*positionSpace;
 
 		std::complex<double> ret = 0.0;
-		//ret += (1.0 + std::exp(+beta*B)*positionSpace.eigenvalues().array()).log().sum();
-		//ret += (1.0 + std::exp(-beta*B)*positionSpace.eigenvalues().array()).log().sum();
 		ret += (evb.cast<std::complex<double>>() + std::exp(+beta*B*0.5+beta*mu)*eva).array().log().sum();
 		ret -= evb.array().log().sum();
 		ret += (evb.cast<std::complex<double>>() + std::exp(-beta*B*0.5+beta*mu)*eva).array().log().sum();
 		ret -= evb.array().log().sum();
-
-		Eigen::ArrayXcd temp = eva.array()/evb.array().cast<std::complex<double>>();
-		//std::cerr << temp.transpose() << std::endl;
-		//std::cerr << positionSpace.eigenvalues().transpose() << std::endl << std::endl;
 
 		if (std::cos(ret.imag())<0.99) {
 			logProbability_complex();
