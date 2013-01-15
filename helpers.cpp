@@ -28,6 +28,19 @@ Eigen::MatrixXd reduce_b (const std::vector<Eigen::MatrixXd>& vec) {
 	return ret;
 }
 
+Eigen::VectorXcd get_ev_from_qd (const Eigen::MatrixXd &Q, const Eigen::VectorXd &D) {
+	assert(Q.rows()==Q.cols());
+	assert(D.rows()==Q.cols());
+	const int V = Q.rows();
+	Eigen::VectorXcd ret;
+	Eigen::VectorXcd eva;
+	Eigen::VectorXd evb;
+	dggev(Q, D.asDiagonal(), eva, evb);
+	ret = eva.array()/evb.cast<std::complex<double>>().array();
+	dggev(Q.transpose(), D.array().inverse().matrix().asDiagonal(), eva, evb);
+	return ret;
+}
+
 Eigen::VectorXcd merge_ev (Eigen::VectorXcd ev1, Eigen::VectorXcd ev2) {
 	assert(ev1.size()==ev2.size());
 	const int N = ev1.size();
@@ -47,11 +60,9 @@ Eigen::VectorXcd merge_ev (Eigen::VectorXcd ev1, Eigen::VectorXcd ev2) {
 	}
 	Eigen::VectorXcd ret = Eigen::VectorXcd::Zero(N);
 	for (int i=0;i<N;i++) {
-		if (std::norm(ev1[i])>std::norm(ev2[i])) {
-			assert(std::norm(ev2[i]/ev2[N-1])<1e-10);
+		if (std::norm(ev1[i]/ev1[0])>std::norm(ev2[i]/ev2[N-1])) {
 			ret[i] = ev1[i];
-		} else if (std::norm(ev1[i])<std::norm(ev2[i])) {
-			assert(std::norm(ev1[i]/ev1[0])<1e-10);
+		} else if (std::norm(ev1[i]/ev1[0])<std::norm(ev2[i]/ev2[N-1])) {
 			ret[i] = 1.0/ev2[i];
 		} else {
 			throw "problem";
