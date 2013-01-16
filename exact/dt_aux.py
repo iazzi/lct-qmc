@@ -36,14 +36,13 @@ for a in sys.argv:
 	if a=='--cached': cached = True
 
 
-lengths = [ 6 ]
+lengths = [ 8 ]
 for L in lengths:
-    for U in [ 0.7, ]:
+    for U in [ 0.8, ]:
 	x = {		'LATTICE'                   : "chain lattice",
 			'MODEL'                     : "fermion Hubbard",
 			'L'                         : L,
-			't'			    : 0.3,
-			'J'			    : 0.0,
+			't'			    : 0.2,
 			'B'			    : 0.0,
 			'mu'                        : -1.0,
 			'U'                         : U,
@@ -54,7 +53,7 @@ for L in lengths:
 			'SWEEPS'                    : 100000,
 			}
 	if L<7 :exact_params.append(copy.copy(x))
-	for T in [ 0.1, 0.3, 0.5, 0.7, 0.9, 1.2, 1.6, 2.0, 2.6, 3.3, 4.2 ]:
+	for T in [ 0.2, 0.3, 0.5, 0.7, 0.9, 1.2, 1.6, 2.0, 2.6, 3.3, 4.2 ]:
 		x['T'] = T*x['t']
 		x['dTau'] = 0.01/x['t']
 		ct_params.append(flip_params(x))
