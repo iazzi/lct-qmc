@@ -100,6 +100,8 @@ class Configuration : public alps::mcbase_ng {
 	double n_up;
 	double n_dn;
 
+	Eigen::MatrixXd U_s;
+
 	public:
 
 	void init () {
@@ -299,16 +301,7 @@ class Configuration : public alps::mcbase_ng {
 		//throw "end";
 		if (-trialDistribution(generator)<trial-plog) {
 			plog = trial;
-			n_up = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(+beta*B*0.5+beta*mu) * positionSpace).inverse() ).trace();
-			n_dn = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(-beta*B*0.5+beta*mu) * positionSpace).inverse() ).trace();
-			if (std::isnan(n_up) || std::isinf(n_up)) {
-				std::cout << n_up << std::endl;
-				std::cout << n_dn << std::endl;
-				std::cout << positionSpace << std::endl << std::endl;
-				std::cout << positionSpace.eigenvalues().transpose() << std::endl << std::endl;
-				std::cout << (Eigen::MatrixXd::Identity(V, V) + exp(-beta*B*0.5) * positionSpace).inverse() << std::endl << std::endl;
-				throw(9);
-			}
+			U_s = positionSpace;
 			ret = true;
 		} else {
 			for (int i=0;i<M;i++) {
@@ -330,6 +323,16 @@ class Configuration : public alps::mcbase_ng {
 	}
 
 	void measure () {
+		n_up = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(+beta*B*0.5+beta*mu)*U_s).inverse() ).trace();
+		n_dn = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(-beta*B*0.5+beta*mu)*U_s).inverse() ).trace();
+		if (std::isnan(n_up) || std::isinf(n_up)) {
+			std::cout << n_up << std::endl;
+			std::cout << n_dn << std::endl;
+			std::cout << positionSpace << std::endl << std::endl;
+			std::cout << positionSpace.eigenvalues().transpose() << std::endl << std::endl;
+			std::cout << (Eigen::MatrixXd::Identity(V, V) + exp(-beta*B*0.5) * positionSpace).inverse() << std::endl << std::endl;
+			throw(9);
+		}
 		measurements["N"] << (n_up + n_dn) / V;
 		measurements["M"] << (n_up - n_dn) / 2.0 / V;
 	}
