@@ -232,9 +232,7 @@ class Configuration : public alps::mcbase_ng {
 
 	double logProbability () {
 		Eigen::MatrixXd R = Eigen::MatrixXd::Identity(V, V);
-
 		positionSpace.setIdentity(V, V);
-		R.setIdentity(V, V);
 		for (int i=0;i<N;i++) {
 			positionSpace.applyOnTheLeft((Eigen::VectorXd::Constant(V, 1.0)+diagonals[i]).asDiagonal());
 			fftw_execute(x2p_col);

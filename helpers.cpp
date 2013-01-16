@@ -28,17 +28,38 @@ Eigen::MatrixXd reduce_b (const std::vector<Eigen::MatrixXd>& vec) {
 	return ret;
 }
 
+void order_evs (Eigen::VectorXcd &ev1, Eigen::VectorXcd &ev2) {
+	assert(ev1.size()==ev2.size());
+	const int N = ev1.size();
+	for (int i=0;i<N;i++) {
+		for (int j=i+1;j<N;j++) {
+			if (std::norm(ev1[i])<std::norm(ev1[j])) {
+				std::complex<double> x = ev1[j];
+				ev1[j] = ev1[i];
+				ev1[i] = x;
+			}
+			if (std::norm(ev2[i])>std::norm(ev2[j])) {
+				std::complex<double> x = ev2[j];
+				ev2[j] = ev2[i];
+				ev2[i] = x;
+			}
+		}
+	}
+}
+
 Eigen::VectorXcd get_ev_from_qd (const Eigen::MatrixXd &Q, const Eigen::VectorXd &D) {
 	assert(Q.rows()==Q.cols());
 	assert(D.rows()==Q.cols());
 	const int V = Q.rows();
-	Eigen::VectorXcd ret;
+	Eigen::VectorXcd ev1, ev2;
 	Eigen::VectorXcd eva;
 	Eigen::VectorXd evb;
 	dggev(Q, D.asDiagonal(), eva, evb);
-	ret = eva.array()/evb.cast<std::complex<double>>().array();
+	ev1 = eva.array()/evb.cast<std::complex<double>>().array();
 	dggev(Q.transpose(), D.array().inverse().matrix().asDiagonal(), eva, evb);
-	return ret;
+	ev2 = eva.array()/evb.cast<std::complex<double>>().array();
+	order_evs(ev1, ev2);
+	return ev1;
 }
 
 Eigen::VectorXcd merge_ev (Eigen::VectorXcd ev1, Eigen::VectorXcd ev2) {
