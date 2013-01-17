@@ -233,7 +233,6 @@ class Configuration : public alps::mcbase_ng {
 	}
 
 	double logProbability () {
-		Eigen::MatrixXd R = Eigen::MatrixXd::Identity(V, V);
 		positionSpace.setIdentity(V, V);
 		for (int i=0;i<N;i++) {
 			positionSpace.applyOnTheLeft((Eigen::VectorXd::Constant(V, 1.0)+diagonals[i]).asDiagonal());
@@ -244,10 +243,7 @@ class Configuration : public alps::mcbase_ng {
 		}
 		Eigen::VectorXcd eva;
 		Eigen::VectorXd evb;
-		dggev(positionSpace, R, eva, evb);
-
-		positionSpace.applyOnTheRight(R);
-
+		dggev(positionSpace, Eigen::MatrixXd::Identity(V, V), eva, evb);
 
 		std::complex<double> ret = 0.0;
 		ret += (evb.cast<std::complex<double>>() + std::exp(+beta*B*0.5+beta*mu)*eva).array().log().sum();
