@@ -12,6 +12,7 @@
 #include <alps/ngs/make_parameters_from_xml.hpp>
 
 #include "helpers.hpp"
+#include "weighted_measurements.hpp"
 
 
 extern "C" {
@@ -101,6 +102,11 @@ class Configuration : public alps::mcbase_ng {
 	double n_dn;
 
 	Eigen::MatrixXd U_s;
+	Eigen::VectorXcd ev_s;
+
+	std::vector<double> fields;
+	std::vector<weighted_measurement<double>> densities;
+	std::vector<weighted_measurement<double>> magnetizations;
 
 	public:
 
@@ -145,6 +151,13 @@ class Configuration : public alps::mcbase_ng {
 			<< alps::ngs::RealObservable("acceptance");
 
 		plog = logProbability();
+
+		for (int i=0;i<20;i++) {
+			double f = B + double(i)/10.0;
+			fields.push_back(f);
+			densities.push_back(weighted_measurement<double>());
+			magnetizations.push_back(weighted_measurement<double>());
+		}
 	}
 
 	Configuration (const parameters_type& params) : mcbase_ng(params), distribution(0.5), trialDistribution(1.0) {
@@ -242,8 +255,9 @@ class Configuration : public alps::mcbase_ng {
 			positionSpace /= V;
 		}
 		Eigen::VectorXcd eva;
-		Eigen::VectorXd evb;
-		dggev(positionSpace, Eigen::MatrixXd::Identity(V, V), eva, evb);
+		Eigen::VectorXd evb = Eigen::VectorXd::Ones(V);
+		//dggev(positionSpace, Eigen::MatrixXd::Identity(V, V), eva, evb);
+		eva = positionSpace.eigenvalues();
 
 		std::complex<double> ret = 0.0;
 		ret += (evb.cast<std::complex<double>>() + std::exp(+beta*B*0.5+beta*mu)*eva).array().log().sum();
@@ -251,10 +265,20 @@ class Configuration : public alps::mcbase_ng {
 		ret += (evb.cast<std::complex<double>>() + std::exp(-beta*B*0.5+beta*mu)*eva).array().log().sum();
 		ret -= evb.array().log().sum();
 
+		//for (int i=0;i<V;i++) {
+			//if (std::abs(eva[i].imag())<1e-10 && eva[i].real()<0.0) {
+				//std::cout << i << ' ' << eva[i] << std::endl;
+				//std::cout << eva.transpose() << std::endl;
+				//logProbability_complex();
+				//throw("wtf");
+			//}
+		//}
+
 		if (std::cos(ret.imag())<0.99) {
 			logProbability_complex();
 			throw("wtf");
 		}
+
 		return ret.real();
 	}
 
@@ -298,6 +322,7 @@ class Configuration : public alps::mcbase_ng {
 		if (-trialDistribution(generator)<trial-plog) {
 			plog = trial;
 			U_s = positionSpace;
+			ev_s = positionSpace.eigenvalues();
 			ret = true;
 		} else {
 			for (int i=0;i<M;i++) {
@@ -331,12 +356,33 @@ class Configuration : public alps::mcbase_ng {
 		}
 		measurements["N"] << (n_up + n_dn) / V;
 		measurements["M"] << (n_up - n_dn) / 2.0 / V;
+		for (int i=0;i<fields.size();i++) {
+			double B = fields[i];
+			std::complex<double> ret = 0.0;
+			ret += (1.0 + std::exp(+beta*B*0.5+beta*mu)*ev_s.array()).log().sum();
+			ret += (1.0 + std::exp(-beta*B*0.5+beta*mu)*ev_s.array()).log().sum();
+			double n_up = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(+beta*B*0.5+beta*mu)*U_s).inverse() ).trace();
+			double n_dn = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(-beta*B*0.5+beta*mu)*U_s).inverse() ).trace();
+			if (std::cos(ret.imag())<0.99 && std::cos(ret.imag())>0.01) {
+				throw 1;
+			}
+			densities[i].add((n_up + n_dn) / V, std::exp(ret-plog).real());
+			magnetizations[i].add((n_up - n_dn) / 2.0 / V, std::exp(ret-plog).real());
+		}
 	}
 
 	int volume () { return V; }
 	int timeSlices () { return N; }
 
 	~Configuration () {
+		std::ofstream out ("last_results", std::ios::app);
+		out << "# T mu N \\Delta N^2 M \\Delta M^2" << std::endl;
+		for (int i=0;i<fields.size();i++) {
+			out << double(params["T"])/double(params["t"]) << ' ' << 0.5*(fields[i]-g)/double(params["t"])
+				<< ' ' << 1+2*(magnetizations[i].mean()) << ' ' << 4*magnetizations[i].variance()
+				<< ' ' << 0.5*(densities[i].mean()-1.0) << ' ' << 0.25*densities[i].variance() << std::endl;
+		}
+		out << std::endl;
 		fftw_destroy_plan(x2p_col);
 		fftw_destroy_plan(p2x_col);
 		fftw_destroy_plan(x2p_row);
