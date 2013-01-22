@@ -98,9 +98,6 @@ class Configuration : public alps::mcbase_ng {
 
 	public:
 
-	double n_up;
-	double n_dn;
-
 	Eigen::MatrixXd U_s;
 	Eigen::VectorXcd ev_s;
 
@@ -344,8 +341,11 @@ class Configuration : public alps::mcbase_ng {
 	}
 
 	void measure () {
-		n_up = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(+beta*B*0.5+beta*mu)*U_s).inverse() ).trace();
-		n_dn = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(-beta*B*0.5+beta*mu)*U_s).inverse() ).trace();
+		Eigen::ArrayXd d_up = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(+beta*B*0.5+beta*mu)*U_s).inverse() ).diagonal();
+		Eigen::ArrayXd d_dn = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(-beta*B*0.5+beta*mu)*U_s).inverse() ).diagonal();
+		double n_up = d_up.sum();
+		double n_dn = d_dn.sum();
+		double n2 = (d_up*d_dn).sum();
 		if (std::isnan(n_up) || std::isinf(n_up)) {
 			std::cout << n_up << std::endl;
 			std::cout << n_dn << std::endl;
@@ -361,8 +361,11 @@ class Configuration : public alps::mcbase_ng {
 			std::complex<double> ret = 0.0;
 			ret += (1.0 + std::exp(+beta*B*0.5+beta*mu)*ev_s.array()).log().sum();
 			ret += (1.0 + std::exp(-beta*B*0.5+beta*mu)*ev_s.array()).log().sum();
-			double n_up = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(+beta*B*0.5+beta*mu)*U_s).inverse() ).trace();
-			double n_dn = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(-beta*B*0.5+beta*mu)*U_s).inverse() ).trace();
+			Eigen::ArrayXd d_up = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(+beta*B*0.5+beta*mu)*U_s).inverse() ).diagonal();
+			Eigen::ArrayXd d_dn = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(-beta*B*0.5+beta*mu)*U_s).inverse() ).diagonal();
+			double n_up = d_up.sum();
+			double n_dn = d_dn.sum();
+			double n2 = (d_up*d_dn).sum();
 			if (std::cos(ret.imag())<0.99 && std::cos(ret.imag())>0.01) {
 				throw 1;
 			}
