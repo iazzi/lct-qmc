@@ -340,9 +340,29 @@ class Configuration : public alps::mcbase_ng {
 		metropolis();
 	}
 
+	void extract_data (const Eigen::MatrixXd &M, Eigen::ArrayXd &d, Eigen::ArrayXd &d1, Eigen::ArrayXd &d2, double &K) {
+		positionSpace = M;
+		d = positionSpace.diagonal();
+		d1.resize(positionSpace.rows());
+		d2.resize(positionSpace.rows());
+		// get super- and sub- diagonal
+		for (int i=0;i<V;i++) {
+			d1[i] = positionSpace(i, (i+1)%V);
+			d2[i] = positionSpace((i+1)%V, i);
+		}
+		fftw_execute(x2p_col);
+		positionSpace.applyOnTheLeft(energies.asDiagonal());
+		fftw_execute(p2x_col);
+		K = positionSpace.trace() / V;
+	}
+
 	void measure () {
-		Eigen::ArrayXd d_up = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(+beta*B*0.5+beta*mu)*U_s).inverse() ).diagonal();
-		Eigen::ArrayXd d_dn = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(-beta*B*0.5+beta*mu)*U_s).inverse() ).diagonal();
+		Eigen::ArrayXd d_up, d_dn;
+		Eigen::ArrayXd d1_up, d1_dn;
+		Eigen::ArrayXd d2_up, d2_dn;
+		double K_up, K_dn;
+		extract_data(Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(+beta*B*0.5+beta*mu)*U_s).inverse(), d_up, d1_up, d2_up, K_up);
+		extract_data(Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(-beta*B*0.5+beta*mu)*U_s).inverse(), d_dn, d1_dn, d2_dn, K_dn);
 		double n_up = d_up.sum();
 		double n_dn = d_dn.sum();
 		double n2 = (d_up*d_dn).sum();
