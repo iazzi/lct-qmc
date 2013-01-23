@@ -3,12 +3,11 @@
 #include <cmath>
 
 #include <alps/alea.h>
-#include <alps/alea/mcanalyze.hpp>
 
 
 int main (int argc, char** argv) {
 	alps::RealObservable o("alps obs");
-	mymeasurement m;
+	mymeasurement<double> m;
 	std::mt19937_64 generator;
 	std::uniform_real_distribution<double> randomDouble;
 
@@ -26,7 +25,7 @@ int main (int argc, char** argv) {
 		m.add(x);
 		o << x;
 	}
-	m.print(std::cout);
+	std::cout << m << std::endl;
 	std::cout << std::endl << o << std::endl;
 	return 0;
 }
