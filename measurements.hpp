@@ -69,6 +69,7 @@ class mymeasurement {
 		}
 
 		int bins() const { return n_.size(); }
+		int samples (int i = 0) const { return n_[i]; }
 
 	protected:
 };
@@ -79,7 +80,7 @@ template <typename T> std::ostream& operator<< (std::ostream& out, const mymeasu
 	out << "Result: " << m.mean() << " +- " << m.error() << std::endl;
 	out << "Bins: " << N << std::endl;
 	for (int i=0;i<N;i++) {
-		out << "#" << i+1 << ": mean = " << m.mean(i) << ", error = " << m.error(i) << std::endl;
+		out << "#" << i+1 << ": number = " << m.samples(i) << " mean = " << m.mean(i) << ", error = " << m.error(i) << std::endl;
 	}
 	return out;
 }
