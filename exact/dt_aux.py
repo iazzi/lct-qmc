@@ -44,7 +44,7 @@ for L in lengths:
 			'L'                         : L,
 			't'			    : 0.2,
 			'B'			    : 0.0,
-			'mu'                        : -1.0,
+			'mu'                        : U/2,
 			'U'                         : U,
 			'CONSERVED_QUANTUMNUMBERS'  : 'Nup,Ndown',
 			'MEASURE_AVERAGE[N]'      : 'n',

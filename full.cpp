@@ -114,6 +114,8 @@ class Configuration : public alps::mcbase_ng {
 	public:
 
 	void init () {
+		V = std::pow(L, D);
+		dt = beta/N;
 		A = sqrt(exp(g*dt)-1.0);
 		if (L==1) t = 0.0;
 		auto distributor = std::bind(distribution, generator);
@@ -159,6 +161,18 @@ class Configuration : public alps::mcbase_ng {
 		}
 	}
 
+	Configuration (lua_State *L) : mcbase_ng(parameters_type()), distribution(0.5), trialDistribution(1.0) {
+		lua_getfield(L, 1, "L");  this->L = lua_tointeger(L, -1);        lua_pop(L, 1);
+		lua_getfield(L, 1, "D");  D = lua_tointeger(L, -1);        lua_pop(L, 1);
+		lua_getfield(L, 1, "N");  N = lua_tointeger(L, -1);        lua_pop(L, 1);
+		lua_getfield(L, 1, "T");  beta = 1.0/lua_tonumber(L, -1);  lua_pop(L, 1);
+		lua_getfield(L, 1, "t");  t = lua_tonumber(L, -1);         lua_pop(L, 1);
+		lua_getfield(L, 1, "U");  g = -lua_tonumber(L, -1);        lua_pop(L, 1); // FIXME: check this // should be right as seen in A above
+		lua_getfield(L, 1, "mu"); mu = lua_tonumber(L, -1);        lua_pop(L, 1);
+		lua_getfield(L, 1, "B");  B = lua_tonumber(L, -1);         lua_pop(L, 1);
+		init();
+	}
+
 	Configuration (const parameters_type& params) : mcbase_ng(params), distribution(0.5), trialDistribution(1.0) {
 		L = params["L"];
 		beta = 1.0/double(params["T"]);
@@ -166,6 +180,7 @@ class Configuration : public alps::mcbase_ng {
 		g = -double(params["U"]);
 		mu = params["mu"];
 		B = params["B"];
+		N = int(beta/double(params["dTau"]));
 
 		if (params["LATTICE"].cast<std::string>()==std::string("chain lattice")) {
 			D = 1;
@@ -177,9 +192,6 @@ class Configuration : public alps::mcbase_ng {
 			throw std::string("unknown lattice type");
 		}
 
-		V = std::pow(L, D);
-		N = int(beta/double(params["dTau"]));
-		dt = beta/N;
 		init();
 	}
 
@@ -403,7 +415,7 @@ class Configuration : public alps::mcbase_ng {
 		std::ofstream out ("last_results", std::ios::app);
 		out << "# T mu N \\Delta N^2 M \\Delta M^2" << std::endl;
 		for (int i=0;i<fields.size();i++) {
-			out << double(params["T"])/double(params["t"]) << ' ' << 0.5*(fields[i]-g)/double(params["t"])
+			out << 1.0/(beta*t) << ' ' << 0.5*(fields[i]-g)/t
 				<< ' ' << 1+2*(magnetizations[i].mean()) << ' ' << 4*magnetizations[i].variance()
 				<< ' ' << 0.5*(densities[i].mean()-1.0) << ' ' << 0.25*densities[i].variance() << std::endl;
 		}
@@ -422,13 +434,20 @@ using namespace alps;
 typedef mcbase_ng sim_type;
 
 int main (int argc, char **argv) {
-	mcoptions options(argc, argv);
-	parameters_type<sim_type>::type params = make_parameters_from_xml(options.input_file);
+	lua_State *L = luaL_newstate();
+	luaL_dofile(L, argv[1]);
 
-	int thermalization_sweeps = int(params["THERMALIZATION"]);
-	int total_sweeps = int(params["SWEEPS"]);
+	//mcoptions options(argc, argv);
+	//parameters_type<sim_type>::type params = make_parameters_from_xml(options.input_file);
 
-	Configuration configuration(params);
+	lua_getfield(L, 1, "THERMALIZATION");
+	int thermalization_sweeps = lua_tointeger(L, -1);
+	lua_pop(L, 1);
+	lua_getfield(L, 1, "SWEEPS");
+	int total_sweeps = lua_tointeger(L, -1);
+	lua_pop(L, 1);
+
+	Configuration configuration(L);
 
 	int n = 0;
 	int a = 0;
@@ -470,6 +489,8 @@ int main (int argc, char **argv) {
 	//results_type<sim_type>::type results = collect_results(configuration);
 	//std::cout << results << std::endl;
 	//save_results(results, params, options.output_file, "/simulation/results");
+
+	lua_close(L);
 	return 0;
 }
 
