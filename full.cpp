@@ -5,18 +5,21 @@
 #include <chrono>
 #include <functional>
 
-#include <alps/alea.h>
-#include <alps/alea/mcanalyze.hpp>
 #include <alps/ngs.hpp>
 #include <alps/ngs/scheduler/proto/mcbase.hpp>
 #include <alps/ngs/make_parameters_from_xml.hpp>
 
 #include "helpers.hpp"
+#include "measurements.hpp"
 #include "weighted_measurements.hpp"
 
 
 extern "C" {
 #include <fftw3.h>
+
+#include <lua.h>
+#include <lualib.h>
+#include <lauxlib.h>
 }
 
 #include <Eigen/Dense>
@@ -96,6 +99,9 @@ class Configuration : public alps::mcbase_ng {
 
 	double plog;
 
+	mymeasurement<double> m_dens;
+	mymeasurement<double> m_magn;
+
 	public:
 
 	Eigen::MatrixXd U_s;
@@ -142,10 +148,6 @@ class Configuration : public alps::mcbase_ng {
 			freePropagator[i] = exp(-dt*energies[i]);
 			freePropagator_b[i] = exp(dt*energies[i]);
 		}
-
-		measurements << alps::ngs::RealObservable("N")
-			<< alps::ngs::RealObservable("M")
-			<< alps::ngs::RealObservable("acceptance");
 
 		plog = logProbability();
 
@@ -374,8 +376,8 @@ class Configuration : public alps::mcbase_ng {
 			std::cout << (Eigen::MatrixXd::Identity(V, V) + exp(-beta*B*0.5) * positionSpace).inverse() << std::endl << std::endl;
 			throw(9);
 		}
-		measurements["N"] << (n_up + n_dn) / V;
-		measurements["M"] << (n_up - n_dn) / 2.0 / V;
+		m_dens.add( (n_up + n_dn) / V );
+		m_magn.add( (n_up - n_dn) / 2.0 / V );
 		for (int i=0;i<fields.size();i++) {
 			double B = fields[i];
 			std::complex<double> ret = 0.0;
@@ -427,7 +429,6 @@ int main (int argc, char **argv) {
 	int total_sweeps = int(params["SWEEPS"]);
 
 	Configuration configuration(params);
-	//Configuration configuration(D, L, N, beta, g, mu, B, t, 0.0);
 
 	int n = 0;
 	int a = 0;
@@ -457,8 +458,7 @@ int main (int argc, char **argv) {
 	}
 	std::cout << thermalization_sweeps << "\n"; std::cout.flush();
 
-	std::chrono::steady_clock::time_point time_start = std::chrono::steady_clock::now();
-	std::chrono::steady_clock::time_point time_end = std::chrono::steady_clock::now();
+	//std::chrono::steady_clock::time_point time_start = std::chrono::steady_clock::now();
 	for (int i=0;i<total_sweeps;i++) {
 		if (i%100==0) { std::cout << i << "\r"; std::cout.flush(); }
 		if (configuration.metropolis(M)) a++;
@@ -466,9 +466,10 @@ int main (int argc, char **argv) {
 		configuration.measure();
 	}
 	std::cout << total_sweeps << "\n"; std::cout.flush();
-	results_type<sim_type>::type results = collect_results(configuration);
-	std::cout << results << std::endl;
-	save_results(results, params, options.output_file, "/simulation/results");
+	//std::chrono::steady_clock::time_point time_end = std::chrono::steady_clock::now();
+	//results_type<sim_type>::type results = collect_results(configuration);
+	//std::cout << results << std::endl;
+	//save_results(results, params, options.output_file, "/simulation/results");
 	return 0;
 }
 
