@@ -1,13 +1,10 @@
 #include <cstdlib>
+#include <fstream>
 #include <iostream>
 #include <vector>
 #include <random>
 #include <chrono>
 #include <functional>
-
-#include <alps/ngs.hpp>
-#include <alps/ngs/scheduler/proto/mcbase.hpp>
-#include <alps/ngs/make_parameters_from_xml.hpp>
 
 #include "helpers.hpp"
 #include "measurements.hpp"
@@ -61,7 +58,7 @@ void dggev (const Eigen::MatrixXd &A, const Eigen::MatrixXd &B, Eigen::VectorXcd
 	}
 }
 
-class Configuration : public alps::mcbase_ng {
+class Configuration {
 	private:
 	int L; // size of the system
 	int D; // dimension
@@ -161,7 +158,7 @@ class Configuration : public alps::mcbase_ng {
 		}
 	}
 
-	Configuration (lua_State *L) : mcbase_ng(parameters_type()), distribution(0.5), trialDistribution(1.0) {
+	Configuration (lua_State *L) : distribution(0.5), trialDistribution(1.0) {
 		lua_getfield(L, 1, "L");  this->L = lua_tointeger(L, -1);        lua_pop(L, 1);
 		lua_getfield(L, 1, "D");  D = lua_tointeger(L, -1);        lua_pop(L, 1);
 		lua_getfield(L, 1, "N");  N = lua_tointeger(L, -1);        lua_pop(L, 1);
@@ -170,28 +167,6 @@ class Configuration : public alps::mcbase_ng {
 		lua_getfield(L, 1, "U");  g = -lua_tonumber(L, -1);        lua_pop(L, 1); // FIXME: check this // should be right as seen in A above
 		lua_getfield(L, 1, "mu"); mu = lua_tonumber(L, -1);        lua_pop(L, 1);
 		lua_getfield(L, 1, "B");  B = lua_tonumber(L, -1);         lua_pop(L, 1);
-		init();
-	}
-
-	Configuration (const parameters_type& params) : mcbase_ng(params), distribution(0.5), trialDistribution(1.0) {
-		L = params["L"];
-		beta = 1.0/double(params["T"]);
-		t = double(params["t"]);
-		g = -double(params["U"]);
-		mu = params["mu"];
-		B = params["B"];
-		N = int(beta/double(params["dTau"]));
-
-		if (params["LATTICE"].cast<std::string>()==std::string("chain lattice")) {
-			D = 1;
-		} else if (params["LATTICE"].cast<std::string>()==std::string("square lattice")) {
-			D = 2;
-		} else if (params["LATTICE"].cast<std::string>()==std::string("simple cubic lattice")) {
-			D = 3;
-		} else {
-			throw std::string("unknown lattice type");
-		}
-
 		init();
 	}
 
@@ -429,9 +404,6 @@ class Configuration : public alps::mcbase_ng {
 };
 
 using namespace std;
-using namespace alps;
-
-typedef mcbase_ng sim_type;
 
 int main (int argc, char **argv) {
 	lua_State *L = luaL_newstate();
