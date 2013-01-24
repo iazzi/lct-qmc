@@ -65,6 +65,8 @@ class Configuration {
 	mymeasurement<double> m_dens;
 	mymeasurement<double> m_magn;
 
+	std::string outfn;
+
 	public:
 
 	Eigen::MatrixXd U_s;
@@ -133,6 +135,7 @@ class Configuration {
 		lua_getfield(L, index, "U");  g = -lua_tonumber(L, -1);        lua_pop(L, 1); // FIXME: check this // should be right as seen in A above
 		lua_getfield(L, index, "mu"); mu = lua_tonumber(L, -1);        lua_pop(L, 1);
 		lua_getfield(L, index, "B");  B = lua_tonumber(L, -1);         lua_pop(L, 1);
+		lua_getfield(L, index, "OUTPUT");  outfn = lua_tostring(L, -1);         lua_pop(L, 1);
 		init();
 	}
 
@@ -353,7 +356,7 @@ class Configuration {
 	int timeSlices () { return N; }
 
 	~Configuration () {
-		std::ofstream out ("last_results", std::ios::app);
+		std::ofstream out (outfn, std::ios::app);
 		out << "# T mu N \\Delta N^2 M \\Delta M^2" << std::endl;
 		for (int i=0;i<fields.size();i++) {
 			out << 1.0/(beta*t) << ' ' << 0.5*(fields[i]+g)/t
@@ -379,10 +382,10 @@ int main (int argc, char **argv) {
 	for (int i=1;i<=lua_gettop(L);i++) { try {
 		lua_getfield(L, i, "THERMALIZATION");
 		int thermalization_sweeps = lua_tointeger(L, -1);
-		lua_pop(L, i);
+		lua_pop(L, 1);
 		lua_getfield(L, i, "SWEEPS");
 		int total_sweeps = lua_tointeger(L, -1);
-		lua_pop(L, i);
+		lua_pop(L, 1);
 
 		Configuration configuration(L, i);
 
