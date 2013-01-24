@@ -116,7 +116,7 @@ class Configuration {
 
 		plog = logProbability();
 
-		for (int i=0;i<20;i++) {
+		for (int i=0;i<40;i++) {
 			double f = B + double(i)/10.0;
 			fields.push_back(f);
 			densities.push_back(weighted_measurement<double>());
@@ -356,7 +356,7 @@ class Configuration {
 		std::ofstream out ("last_results", std::ios::app);
 		out << "# T mu N \\Delta N^2 M \\Delta M^2" << std::endl;
 		for (int i=0;i<fields.size();i++) {
-			out << 1.0/(beta*t) << ' ' << 0.5*(fields[i]-g)/t
+			out << 1.0/(beta*t) << ' ' << 0.5*(fields[i]+g)/t
 				<< ' ' << 1+2*(magnetizations[i].mean()) << ' ' << 4*magnetizations[i].variance()
 				<< ' ' << 0.5*(densities[i].mean()-1.0) << ' ' << 0.25*densities[i].variance() << std::endl;
 		}
