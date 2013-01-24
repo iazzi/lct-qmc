@@ -8,6 +8,7 @@ Eigen::MatrixXd reduce_f (const std::vector<Eigen::MatrixXd>& vec);
 Eigen::MatrixXd reduce_b (const std::vector<Eigen::MatrixXd>& vec);
 
 void test_sequences (std::vector<Eigen::MatrixXd>& fvec, std::vector<Eigen::MatrixXd>& bvec);
+void dggev (const Eigen::MatrixXd &A, const Eigen::MatrixXd &B, Eigen::VectorXcd &alpha, Eigen::VectorXd &beta);
 
 #endif // __HELPERS_HPP
 

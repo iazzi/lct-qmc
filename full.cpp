@@ -24,40 +24,6 @@ extern "C" {
 
 static const double pi = 3.141592653589793238462643383279502884197;
 
-void dggev (const Eigen::MatrixXd &A, const Eigen::MatrixXd &B, Eigen::VectorXcd &alpha, Eigen::VectorXd &beta);
-
-extern "C" void dggev_ (const char *jobvl, const char *jobvr, const int &N,
-			double *A, const int &lda, double *B, const int &ldb,
-			double *alphar, double *alphai, double *beta,
-			double *vl, const int &ldvl, double *vr, const int &ldvr,
-			double *work, const int &lwork, int &info);
-
-void dggev (const Eigen::MatrixXd &A, const Eigen::MatrixXd &B, Eigen::VectorXcd &alpha, Eigen::VectorXd &beta) {
-	Eigen::MatrixXd a = A, b = B;
-	int info = 0;
-	int N = a.rows();
-	Eigen::VectorXd alphar = Eigen::VectorXd::Zero(N);
-	Eigen::VectorXd alphai = Eigen::VectorXd::Zero(N);
-	alpha = Eigen::VectorXcd::Zero(N);
-	beta = Eigen::VectorXd::Zero(N);
-	//Eigen::VectorXd vl = Eigen::VectorXd::Zero(1);
-	//Eigen::VectorXd vr = Eigen::VectorXd::Zero(1);
-	Eigen::VectorXd work = Eigen::VectorXd::Zero(8*N);
-	dggev_("N", "N", N, a.data(), N, b.data(), N,
-			alphar.data(), alphai.data(), beta.data(),
-			NULL, 1, NULL, 1,
-			work.data(), work.size(), info);
-	if (info == 0) {
-		alpha.real() = alphar;
-		alpha.imag() = alphai;
-	} else if (info<0) {
-		std::cerr << "dggev_: error at argument " << -info << std::endl;
-	} else if (info<=N) {
-		std::cerr << "QZ iteration failed at step " << info << std::endl;
-	} else {
-	}
-}
-
 class Configuration {
 	private:
 	int L; // size of the system
