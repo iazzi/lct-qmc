@@ -116,7 +116,7 @@ class Configuration {
 
 		plog = logProbability();
 
-		for (int i=0;i<40;i++) {
+		for (int i=-15;i<30;i++) {
 			double f = B + double(i)/10.0;
 			fields.push_back(f);
 			densities.push_back(weighted_measurement<double>());
@@ -373,6 +373,7 @@ using namespace std;
 
 int main (int argc, char **argv) {
 	lua_State *L = luaL_newstate();
+	luaL_openlibs(L);
 	luaL_dofile(L, argv[1]);
 
 	//mcoptions options(argc, argv);
