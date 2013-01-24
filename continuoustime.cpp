@@ -98,7 +98,7 @@ int main (int argc, char **argv) {
 
 	sim.setDiscreteTime(100);
 	try {
-		sim.run(boost::bind(&stop_callback, options.time_limit));
+		//sim.run(boost::bind(&stop_callback, options.time_limit));
 	}
 	catch (const char *s) {
 		std::cerr << s << std::endl;
