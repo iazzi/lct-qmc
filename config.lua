@@ -5,20 +5,23 @@ local function flip_params (t)
 	return t
 end
 
-local t = 0.2
-local U = 4*t
-local T = 0.3*t
+local tasks = setmetatable({}, { __index=table })
 
-return flip_params {
-	L = 8,
-	D = 1,
-	T = T,
-	N = 100*t/T,
-	t = t,
-	U = U,
-	mu = 0.0,
-	B = 0.0,
-	THERMALIZATION = 10000,
-	SWEEPS = 100000,
-}
+local t = 0.2
+for _, x in ipairs{ 0.1, 0.2, 0.3, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, } do
+	tasks:insert( flip_params{
+		L = 8,
+		D = 1,
+		T = x*t,
+		N = 100/x,
+		t = t,
+		U = 4*t,
+		mu = 0.0,
+		B = 0.0,
+		THERMALIZATION = 10000,
+		SWEEPS = 100000,
+	} )
+end
+
+return tasks[5]
 
