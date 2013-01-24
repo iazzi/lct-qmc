@@ -77,6 +77,7 @@ class Configuration {
 	std::vector<weighted_measurement<double>> magnetizations;
 	std::vector<weighted_measurement<double>> kinetic;
 	std::vector<weighted_measurement<double>> interaction;
+	std::vector<weighted_measurement<double>> spincorrelation;
 
 	public:
 
@@ -127,6 +128,7 @@ class Configuration {
 			magnetizations.push_back(weighted_measurement<double>());
 			kinetic.push_back(weighted_measurement<double>());
 			interaction.push_back(weighted_measurement<double>());
+			spincorrelation.push_back(weighted_measurement<double>());
 		}
 	}
 
@@ -359,6 +361,12 @@ class Configuration {
 			magnetizations[i].add((n_up - n_dn) / 2.0 / V, w);
 			kinetic[i].add(K_up+K_dn, w);
 			interaction[i].add(g*(n_up-n2), w);
+			double ssz = - (d1_up*d2_up).sum() - (d1_dn*d2_dn).sum() - 2.0*n_up - 2.0*n_dn;
+			for (int j=0;j<V;j++) {
+				ssz += d_up[j]*d_up[(j+1)%V] + d_dn[j]*d_dn[(j+1)%V];
+				ssz += d_up[j]*d_dn[(j+1)%V] + d_dn[j]*d_up[(j+1)%V];
+			}
+			spincorrelation[i].add(0.25*ssz, w);
 		}
 	}
 
@@ -373,7 +381,8 @@ class Configuration {
 				<< ' ' << 1+2*(magnetizations[i].mean()) << ' ' << 4*magnetizations[i].variance()
 				<< ' ' << 0.5*(densities[i].mean()-1.0) << ' ' << 0.25*densities[i].variance()
 				<< ' ' << kinetic[i].mean()/t/V << ' ' << kinetic[i].variance()
-				<< ' ' << interaction[i].mean()/t/V << ' ' << interaction[i].variance() << std::endl;
+				<< ' ' << interaction[i].mean()/t/V << ' ' << interaction[i].variance()
+				<< ' ' << spincorrelation[i].mean()/V << ' ' << spincorrelation[i].variance() << std::endl;
 		}
 		out << std::endl;
 		fftw_destroy_plan(x2p_col);
