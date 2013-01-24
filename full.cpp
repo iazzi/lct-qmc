@@ -75,6 +75,8 @@ class Configuration {
 	std::vector<double> fields;
 	std::vector<weighted_measurement<double>> densities;
 	std::vector<weighted_measurement<double>> magnetizations;
+	std::vector<weighted_measurement<double>> kinetic;
+	std::vector<weighted_measurement<double>> interaction;
 
 	public:
 
@@ -123,6 +125,8 @@ class Configuration {
 			fields.push_back(f);
 			densities.push_back(weighted_measurement<double>());
 			magnetizations.push_back(weighted_measurement<double>());
+			kinetic.push_back(weighted_measurement<double>());
+			interaction.push_back(weighted_measurement<double>());
 		}
 	}
 
@@ -183,6 +187,7 @@ class Configuration {
 		std::cout << positionSpace.eigenvalues().transpose() << std::endl;
 		std::cout << positionSpace.eigenvalues().array().inverse().transpose() << std::endl;
 		std::cout << std::endl;
+		return 0.0;
 	}
 
 	double logProbability_complex () {
@@ -198,6 +203,7 @@ class Configuration {
 			bvec.push_back(positionSpace);
 		}
 		test_sequences(fvec, bvec);
+		return 0.0;
 	}
 
 	double logProbability () {
@@ -309,7 +315,7 @@ class Configuration {
 			d2[i] = positionSpace((i+1)%V, i);
 		}
 		fftw_execute(x2p_col);
-		positionSpace.applyOnTheLeft(energies.asDiagonal());
+		momentumSpace.applyOnTheLeft(energies.asDiagonal());
 		fftw_execute(p2x_col);
 		K = positionSpace.trace() / V;
 	}
@@ -319,11 +325,12 @@ class Configuration {
 		Eigen::ArrayXd d1_up, d1_dn;
 		Eigen::ArrayXd d2_up, d2_dn;
 		double K_up, K_dn;
+		double n_up, n_dn, n2;
 		extract_data(Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(+beta*B*0.5+beta*mu)*U_s).inverse(), d_up, d1_up, d2_up, K_up);
 		extract_data(Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(-beta*B*0.5+beta*mu)*U_s).inverse(), d_dn, d1_dn, d2_dn, K_dn);
-		double n_up = d_up.sum();
-		double n_dn = d_dn.sum();
-		double n2 = (d_up*d_dn).sum();
+		n_up = d_up.sum();
+		n_dn = d_dn.sum();
+		n2 = (d_up*d_dn).sum();
 		if (std::isnan(n_up) || std::isinf(n_up)) {
 			std::cout << n_up << std::endl;
 			std::cout << n_dn << std::endl;
@@ -339,16 +346,19 @@ class Configuration {
 			std::complex<double> ret = 0.0;
 			ret += (1.0 + std::exp(+beta*B*0.5+beta*mu)*ev_s.array()).log().sum();
 			ret += (1.0 + std::exp(-beta*B*0.5+beta*mu)*ev_s.array()).log().sum();
-			Eigen::ArrayXd d_up = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(+beta*B*0.5+beta*mu)*U_s).inverse() ).diagonal();
-			Eigen::ArrayXd d_dn = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(-beta*B*0.5+beta*mu)*U_s).inverse() ).diagonal();
-			double n_up = d_up.sum();
-			double n_dn = d_dn.sum();
-			double n2 = (d_up*d_dn).sum();
+			double w = std::exp(ret-plog).real();
+			extract_data(Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(+beta*B*0.5+beta*mu)*U_s).inverse(), d_up, d1_up, d2_up, K_up);
+			extract_data(Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(-beta*B*0.5+beta*mu)*U_s).inverse(), d_dn, d1_dn, d2_dn, K_dn);
+			n_up = d_up.sum();
+			n_dn = d_dn.sum();
+			n2 = (d_up*d_dn).sum();
 			if (std::cos(ret.imag())<0.99 && std::cos(ret.imag())>0.01) {
 				throw 1;
 			}
-			densities[i].add((n_up + n_dn) / V, std::exp(ret-plog).real());
-			magnetizations[i].add((n_up - n_dn) / 2.0 / V, std::exp(ret-plog).real());
+			densities[i].add((n_up + n_dn) / V, w);
+			magnetizations[i].add((n_up - n_dn) / 2.0 / V, w);
+			kinetic[i].add(K_up, w);
+			interaction[i].add(g*n2, w);
 		}
 	}
 
@@ -361,7 +371,9 @@ class Configuration {
 		for (int i=0;i<fields.size();i++) {
 			out << 1.0/(beta*t) << ' ' << 0.5*(fields[i]+g)/t
 				<< ' ' << 1+2*(magnetizations[i].mean()) << ' ' << 4*magnetizations[i].variance()
-				<< ' ' << 0.5*(densities[i].mean()-1.0) << ' ' << 0.25*densities[i].variance() << std::endl;
+				<< ' ' << 0.5*(densities[i].mean()-1.0) << ' ' << 0.25*densities[i].variance()
+				<< ' ' << kinetic[i].mean() << ' ' << kinetic[i].variance()
+				<< ' ' << interaction[i].mean() << ' ' << interaction[i].variance() << std::endl;
 		}
 		out << std::endl;
 		fftw_destroy_plan(x2p_col);
