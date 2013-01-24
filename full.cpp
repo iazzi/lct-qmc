@@ -124,15 +124,15 @@ class Configuration {
 		}
 	}
 
-	Configuration (lua_State *L) : distribution(0.5), trialDistribution(1.0) {
-		lua_getfield(L, 1, "L");  this->L = lua_tointeger(L, -1);        lua_pop(L, 1);
-		lua_getfield(L, 1, "D");  D = lua_tointeger(L, -1);        lua_pop(L, 1);
-		lua_getfield(L, 1, "N");  N = lua_tointeger(L, -1);        lua_pop(L, 1);
-		lua_getfield(L, 1, "T");  beta = 1.0/lua_tonumber(L, -1);  lua_pop(L, 1);
-		lua_getfield(L, 1, "t");  t = lua_tonumber(L, -1);         lua_pop(L, 1);
-		lua_getfield(L, 1, "U");  g = -lua_tonumber(L, -1);        lua_pop(L, 1); // FIXME: check this // should be right as seen in A above
-		lua_getfield(L, 1, "mu"); mu = lua_tonumber(L, -1);        lua_pop(L, 1);
-		lua_getfield(L, 1, "B");  B = lua_tonumber(L, -1);         lua_pop(L, 1);
+	Configuration (lua_State *L, int index) : distribution(0.5), trialDistribution(1.0) {
+		lua_getfield(L, index, "L");  this->L = lua_tointeger(L, -1);        lua_pop(L, 1);
+		lua_getfield(L, index, "D");  D = lua_tointeger(L, -1);        lua_pop(L, 1);
+		lua_getfield(L, index, "N");  N = lua_tointeger(L, -1);        lua_pop(L, 1);
+		lua_getfield(L, index, "T");  beta = 1.0/lua_tonumber(L, -1);  lua_pop(L, 1);
+		lua_getfield(L, index, "t");  t = lua_tonumber(L, -1);         lua_pop(L, 1);
+		lua_getfield(L, index, "U");  g = -lua_tonumber(L, -1);        lua_pop(L, 1); // FIXME: check this // should be right as seen in A above
+		lua_getfield(L, index, "mu"); mu = lua_tonumber(L, -1);        lua_pop(L, 1);
+		lua_getfield(L, index, "B");  B = lua_tonumber(L, -1);         lua_pop(L, 1);
 		init();
 	}
 
@@ -386,7 +386,7 @@ int main (int argc, char **argv) {
 	int total_sweeps = lua_tointeger(L, -1);
 	lua_pop(L, 1);
 
-	Configuration configuration(L);
+	Configuration configuration(L, 1);
 
 	int n = 0;
 	int a = 0;
