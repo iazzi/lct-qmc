@@ -376,58 +376,52 @@ int main (int argc, char **argv) {
 	luaL_openlibs(L);
 	luaL_dofile(L, argv[1]);
 
-	//mcoptions options(argc, argv);
-	//parameters_type<sim_type>::type params = make_parameters_from_xml(options.input_file);
+	for (int i=1;i<=lua_gettop(L);i++) { try {
+		lua_getfield(L, i, "THERMALIZATION");
+		int thermalization_sweeps = lua_tointeger(L, -1);
+		lua_pop(L, i);
+		lua_getfield(L, i, "SWEEPS");
+		int total_sweeps = lua_tointeger(L, -1);
+		lua_pop(L, i);
 
-	lua_getfield(L, 1, "THERMALIZATION");
-	int thermalization_sweeps = lua_tointeger(L, -1);
-	lua_pop(L, 1);
-	lua_getfield(L, 1, "SWEEPS");
-	int total_sweeps = lua_tointeger(L, -1);
-	lua_pop(L, 1);
+		Configuration configuration(L, i);
 
-	Configuration configuration(L, 1);
-
-	int n = 0;
-	int a = 0;
-	int M = 1;
-	for (int i=0;i<thermalization_sweeps;i++) {
-		if (i%100==0) { std::cout << i << "\r"; std::cout.flush(); }
-		if (configuration.metropolis(M)) a++;
-		n++;
-		if (i%200==0) {
-			if (a>0.6*n && M<0.1*configuration.volume()*configuration.timeSlices()) {
-				cout << "M: " << M;
-				M += 5;
-				cout << " -> " << M << endl;
-				n = 0;
-				a = 0;
-				i = 0;
-			} else if (a<0.4*n) {
-				cout << "M: " << M;
-				M -= 5;
-				cout << " -> " << M << endl;
-				M = M>0?M:1;
-				n = 0;
-				a = 0;
-				i = 0;
+		int n = 0;
+		int a = 0;
+		int M = 1;
+		for (int i=0;i<thermalization_sweeps;i++) {
+			if (i%100==0) { std::cout << i << "\r"; std::cout.flush(); }
+			if (configuration.metropolis(M)) a++;
+			n++;
+			if (i%200==0) {
+				if (a>0.6*n && M<0.1*configuration.volume()*configuration.timeSlices()) {
+					cout << "M: " << M;
+					M += 5;
+					cout << " -> " << M << endl;
+					n = 0;
+					a = 0;
+					i = 0;
+				} else if (a<0.4*n) {
+					cout << "M: " << M;
+					M -= 5;
+					cout << " -> " << M << endl;
+					M = M>0?M:1;
+					n = 0;
+					a = 0;
+					i = 0;
+				}
 			}
 		}
+		std::cout << thermalization_sweeps << "\n"; std::cout.flush();
+		for (int i=0;i<total_sweeps;i++) {
+			if (i%100==0) { std::cout << i << "\r"; std::cout.flush(); }
+			if (configuration.metropolis(M)) a++;
+			n++;
+			configuration.measure();
+		}
+		std::cout << total_sweeps << "\n"; std::cout.flush();
+	} catch (...) {}
 	}
-	std::cout << thermalization_sweeps << "\n"; std::cout.flush();
-
-	//std::chrono::steady_clock::time_point time_start = std::chrono::steady_clock::now();
-	for (int i=0;i<total_sweeps;i++) {
-		if (i%100==0) { std::cout << i << "\r"; std::cout.flush(); }
-		if (configuration.metropolis(M)) a++;
-		n++;
-		configuration.measure();
-	}
-	std::cout << total_sweeps << "\n"; std::cout.flush();
-	//std::chrono::steady_clock::time_point time_end = std::chrono::steady_clock::now();
-	//results_type<sim_type>::type results = collect_results(configuration);
-	//std::cout << results << std::endl;
-	//save_results(results, params, options.output_file, "/simulation/results");
 
 	lua_close(L);
 	return 0;

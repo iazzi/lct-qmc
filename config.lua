@@ -8,7 +8,7 @@ end
 local tasks = setmetatable({}, { __index=table })
 
 local t = 0.2
-for _, x in ipairs{ 0.1, 0.2, 0.3, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, } do
+for _, x in ipairs{ 1.1, 1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, } do
 	tasks:insert( flip_params{
 		L = 8,
 		D = 1,
@@ -20,8 +20,9 @@ for _, x in ipairs{ 0.1, 0.2, 0.3, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, } do
 		B = 0.0,
 		THERMALIZATION = 10000,
 		SWEEPS = 100000,
+		OUTPUT = "L8_0.dat",
 	} )
 end
 
-return tasks[5]
+return table.unpack(tasks)
 
