@@ -357,8 +357,8 @@ class Configuration {
 			}
 			densities[i].add((n_up + n_dn) / V, w);
 			magnetizations[i].add((n_up - n_dn) / 2.0 / V, w);
-			kinetic[i].add(K_up, w);
-			interaction[i].add(g*n2, w);
+			kinetic[i].add(K_up+K_dn, w);
+			interaction[i].add(g*(n_up-n2), w);
 		}
 	}
 
@@ -372,8 +372,8 @@ class Configuration {
 			out << 1.0/(beta*t) << ' ' << 0.5*(fields[i]+g)/t
 				<< ' ' << 1+2*(magnetizations[i].mean()) << ' ' << 4*magnetizations[i].variance()
 				<< ' ' << 0.5*(densities[i].mean()-1.0) << ' ' << 0.25*densities[i].variance()
-				<< ' ' << kinetic[i].mean() << ' ' << kinetic[i].variance()
-				<< ' ' << interaction[i].mean() << ' ' << interaction[i].variance() << std::endl;
+				<< ' ' << kinetic[i].mean()/t/V << ' ' << kinetic[i].variance()
+				<< ' ' << interaction[i].mean()/t/V << ' ' << interaction[i].variance() << std::endl;
 		}
 		out << std::endl;
 		fftw_destroy_plan(x2p_col);
