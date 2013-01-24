@@ -1,4 +1,4 @@
-CXXFLAGS=$(MYCXXFLAGS) -std=c++11 -I $(HOME)/local/include `pkg-config --cflags python-2.7 eigen3 ompi-cxx` -I /usr/lib/python2.7/site-packages/numpy/core/include
+CXXFLAGS=$(MYCXXFLAGS) -std=c++11 -I $(HOME)/local/include `pkg-config --cflags python-2.7 eigen3 ompi-cxx` -I /usr/lib/python2.7/site-packages/numpy/core/include -Wall
 LDFLAGS=$(MYLDFLAGS) -L $(HOME)/local/lib -lboost_system -lboost_python `pkg-config --libs python-2.7 eigen3 ompi-cxx` -lalps -lm -lstdc++ -llapack -llua
 
 all: main perturbative full1d full2d full2x2 exact2x2 continuoustime full ctsingle fmm mfmm test
@@ -32,6 +32,6 @@ optimized:
 	$(MAKE) all MYCXXFLAGS="-O3 -march=native -DEIGEN_NO_DEBUG" MYLDFLAGS="-lfftw3"
 
 debug:
-	$(MAKE) all MYCXXFLAGS="-ggdb" MYLDFLAGS="-lfftw3 -lfftw3_threads"
+	$(MAKE) all MYCXXFLAGS="-g" MYLDFLAGS="-lfftw3"
 
 
