@@ -4,6 +4,8 @@
 #include <vector>
 #include <random>
 #include <chrono>
+#include <thread>
+#include <mutex>
 #include <functional>
 
 #include "helpers.hpp"
@@ -88,7 +90,7 @@ class Configuration {
 		if (L==1) t = 0.0;
 		auto distributor = std::bind(distribution, generator);
 		diagonals.insert(diagonals.begin(), N, Eigen::VectorXd::Zero(V));
-		for (int i=0;i<diagonals.size();i++) {
+		for (size_t i=0;i<diagonals.size();i++) {
 			for (int j=0;j<V;j++) {
 				diagonals[i][j] = distributor()?A:-A;
 			}
@@ -132,16 +134,17 @@ class Configuration {
 		}
 	}
 
-	Configuration (lua_State *L, int index) : distribution(0.5), trialDistribution(1.0) {
-		lua_getfield(L, index, "L");  this->L = lua_tointeger(L, -1);        lua_pop(L, 1);
-		lua_getfield(L, index, "D");  D = lua_tointeger(L, -1);        lua_pop(L, 1);
-		lua_getfield(L, index, "N");  N = lua_tointeger(L, -1);        lua_pop(L, 1);
-		lua_getfield(L, index, "T");  beta = 1.0/lua_tonumber(L, -1);  lua_pop(L, 1);
-		lua_getfield(L, index, "t");  t = lua_tonumber(L, -1);         lua_pop(L, 1);
-		lua_getfield(L, index, "U");  g = -lua_tonumber(L, -1);        lua_pop(L, 1); // FIXME: check this // should be right as seen in A above
-		lua_getfield(L, index, "mu"); mu = lua_tonumber(L, -1);        lua_pop(L, 1);
-		lua_getfield(L, index, "B");  B = lua_tonumber(L, -1);         lua_pop(L, 1);
-		lua_getfield(L, index, "OUTPUT");  outfn = lua_tostring(L, -1);         lua_pop(L, 1);
+	Configuration (lua_State *L, int index, int seed = 42) : distribution(0.5), trialDistribution(1.0) {
+		lua_getfield(L, index, "SEED"); generator.seed(lua_tointeger(L, -1)+seed); lua_pop(L, 1);
+		lua_getfield(L, index, "L");    this->L = lua_tointeger(L, -1);            lua_pop(L, 1);
+		lua_getfield(L, index, "D");    D = lua_tointeger(L, -1);                  lua_pop(L, 1);
+		lua_getfield(L, index, "N");    N = lua_tointeger(L, -1);                  lua_pop(L, 1);
+		lua_getfield(L, index, "T");    beta = 1.0/lua_tonumber(L, -1);            lua_pop(L, 1);
+		lua_getfield(L, index, "t");    t = lua_tonumber(L, -1);                   lua_pop(L, 1);
+		lua_getfield(L, index, "U");    g = -lua_tonumber(L, -1);                  lua_pop(L, 1); // FIXME: check this // should be right as seen in A above
+		lua_getfield(L, index, "mu");   mu = lua_tonumber(L, -1);                  lua_pop(L, 1);
+		lua_getfield(L, index, "B");    B = lua_tonumber(L, -1);                   lua_pop(L, 1);
+		lua_getfield(L, index, "OUTPUT");  outfn = lua_tostring(L, -1);            lua_pop(L, 1);
 		init();
 	}
 
@@ -245,15 +248,6 @@ class Configuration {
 		return ret.real();
 	}
 
-	void print () {
-		for (int i=0;i<N;i++) {
-			for (int j=0;j<V;j++) {
-				std::cout << (diagonals[i][j]<0?'-':'+');
-			}
-			std::cout << std::endl;
-		}
-	}
-
 	bool metropolis (int M = 0) {
 		if (M==0) M = 0.1 * volume() * N;
 		bool ret = false;
@@ -343,7 +337,7 @@ class Configuration {
 		}
 		m_dens.add( (n_up + n_dn) / V );
 		m_magn.add( (n_up - n_dn) / 2.0 / V );
-		for (int i=0;i<fields.size();i++) {
+		for (size_t i=0;i<fields.size();i++) {
 			double B = fields[i];
 			std::complex<double> ret = 0.0;
 			ret += (1.0 + std::exp(+beta*B*0.5+beta*mu)*ev_s.array()).log().sum();
@@ -373,10 +367,10 @@ class Configuration {
 	int volume () { return V; }
 	int timeSlices () { return N; }
 
-	~Configuration () {
+	void output_results () {
 		std::ofstream out (outfn, std::ios::app);
 		out << "# T mu N \\Delta N^2 M \\Delta M^2" << std::endl;
-		for (int i=0;i<fields.size();i++) {
+		for (size_t i=0;i<fields.size();i++) {
 			out << 1.0/(beta*t) << ' ' << 0.5*(fields[i]+g)/t
 				<< ' ' << 1+2*(magnetizations[i].mean()) << ' ' << 4*magnetizations[i].variance()
 				<< ' ' << 0.5*(densities[i].mean()-1.0) << ' ' << 0.25*densities[i].variance()
@@ -385,6 +379,9 @@ class Configuration {
 				<< ' ' << spincorrelation[i].mean()/V << ' ' << spincorrelation[i].variance() << std::endl;
 		}
 		out << std::endl;
+	}
+
+	~Configuration () {
 		fftw_destroy_plan(x2p_col);
 		fftw_destroy_plan(p2x_col);
 		fftw_destroy_plan(x2p_row);
@@ -400,51 +397,64 @@ int main (int argc, char **argv) {
 	luaL_openlibs(L);
 	luaL_dofile(L, argv[1]);
 
-	for (int i=1;i<=lua_gettop(L);i++) { try {
+	for (int i=1;i<=lua_gettop(L);i++) {
+		lua_getfield(L, i, "THREADS");
+		int nthreads = lua_tointeger(L ,-1);
+		lua_pop(L, 1);
 		lua_getfield(L, i, "THERMALIZATION");
 		int thermalization_sweeps = lua_tointeger(L, -1);
 		lua_pop(L, 1);
 		lua_getfield(L, i, "SWEEPS");
 		int total_sweeps = lua_tointeger(L, -1);
 		lua_pop(L, 1);
+		std::vector<std::thread> threads(nthreads);
+		std::mutex lock;
+		for (int j=0;j<nthreads;j++) {
+			threads[j] = std::thread( [=,&lock] () {
+					lock.lock();
+					Configuration configuration(L, i);
+					lock.unlock();
 
-		Configuration configuration(L, i);
-
-		int n = 0;
-		int a = 0;
-		int M = 1;
-		for (int i=0;i<thermalization_sweeps;i++) {
-			if (i%100==0) { std::cout << i << "\r"; std::cout.flush(); }
-			if (configuration.metropolis(M)) a++;
-			n++;
-			if (i%200==0) {
-				if (a>0.6*n && M<0.1*configuration.volume()*configuration.timeSlices()) {
+					int n = 0;
+					int a = 0;
+					int M = 1;
+					for (int i=0;i<thermalization_sweeps;i++) {
+					if (i%100==0) { std::cout << i << "\r"; std::cout.flush(); }
+					if (configuration.metropolis(M)) a++;
+					n++;
+					if (i%200==0) {
+					if (a>0.6*n && M<0.1*configuration.volume()*configuration.timeSlices()) {
 					cout << "M: " << M;
 					M += 5;
 					cout << " -> " << M << endl;
 					n = 0;
 					a = 0;
 					i = 0;
-				} else if (a<0.4*n) {
-					cout << "M: " << M;
-					M -= 5;
-					cout << " -> " << M << endl;
-					M = M>0?M:1;
-					n = 0;
-					a = 0;
-					i = 0;
-				}
-			}
+					} else if (a<0.4*n) {
+						cout << "M: " << M;
+						M -= 5;
+						cout << " -> " << M << endl;
+						M = M>0?M:1;
+						n = 0;
+						a = 0;
+						i = 0;
+					}
+					}
+					}
+					std::cout << thermalization_sweeps << "\n"; std::cout.flush();
+					for (int i=0;i<total_sweeps;i++) {
+						if (i%100==0) { std::cout << i << "\r"; std::cout.flush(); }
+						if (configuration.metropolis(M)) a++;
+						n++;
+						configuration.measure();
+					}
+					std::cout << total_sweeps << "\n"; std::cout.flush();
+					lock.lock();
+					configuration.output_results();
+					lock.unlock();
+			});
 		}
-		std::cout << thermalization_sweeps << "\n"; std::cout.flush();
-		for (int i=0;i<total_sweeps;i++) {
-			if (i%100==0) { std::cout << i << "\r"; std::cout.flush(); }
-			if (configuration.metropolis(M)) a++;
-			n++;
-			configuration.measure();
-		}
-		std::cout << total_sweeps << "\n"; std::cout.flush();
-	} catch (...) {}
+		for (std::thread& t : threads) t.join();
 	}
 
 	lua_close(L);
