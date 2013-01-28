@@ -367,12 +367,6 @@ class Configuration {
 	int volume () { return V; }
 	int timeSlices () { return N; }
 
-	//double density () { return 1+2*(magnetizations[i].mean()); }
-	//double magnetization () { return 0.5*(densities[i].mean()-1.0); }
-	//double kinetic () { return kinetic[i].mean()/t/V; }
-	//double interaction () { return interaction[i].mean()/t/V; }
-	//double correlation () { return spincorrelation[i].mean()/V; }
-
 	void output_results () {
 		std::ofstream out (outfn, std::ios::app);
 		out << "# T mu N \\Delta N^2 M \\Delta M^2" << std::endl;
@@ -415,11 +409,6 @@ int main (int argc, char **argv) {
 		lua_pop(L, 1);
 		std::vector<std::thread> threads(nthreads);
 		std::mutex lock;
-		std::vector<double> density;
-		std::vector<double> magnetization;
-		std::vector<double> kinetic;
-		std::vector<double> interaction;
-		std::vector<double> correlation;
 		for (int j=0;j<nthreads;j++) {
 			threads[j] = std::thread( [=,&lock] () {
 					lock.lock();
