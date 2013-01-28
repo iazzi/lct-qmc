@@ -452,8 +452,7 @@ int main (int argc, char **argv) {
 					} catch (...) {}
 					std::cout << total_sweeps << "\n"; std::cout.flush();
 					lock.lock();
-					//configuration.output_results();
-					density.push_back();
+					configuration.output_results();
 					lock.unlock();
 			});
 		}
