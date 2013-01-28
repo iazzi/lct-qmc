@@ -412,7 +412,7 @@ int main (int argc, char **argv) {
 		for (int j=0;j<nthreads;j++) {
 			threads[j] = std::thread( [=,&lock] () {
 					lock.lock();
-					Configuration configuration(L, i);
+					Configuration configuration(L, i, j);
 					lock.unlock();
 
 					int n = 0;
