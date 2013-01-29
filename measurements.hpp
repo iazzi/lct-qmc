@@ -14,7 +14,7 @@ class mymeasurement {
 		std::vector<T> x_;
 		std::vector<int> n_;
 	public:
-		void add (const T &x, int i = 0) {
+		void add (const T &x, size_t i = 0) {
 			if (i==n_.size()) {
 				sums_.push_back(0.0);
 				squared_sums_.push_back(0.0);

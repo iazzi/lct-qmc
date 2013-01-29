@@ -28,8 +28,7 @@ static const double pi = 3.141592653589793238462643383279502884197;
 
 class Configuration {
 	private:
-	int L; // size of the system
-	int D; // dimension
+	int Lx, Ly, Lz; // size of the system
 	int V; // volume of the system
 	int N; // number of time-steps
 	double beta; // inverse temperature
@@ -38,8 +37,7 @@ class Configuration {
 	double mu; // chemical potential
 	double A; // sqrt(exp(g*dt)-1)
 	double B; // magnetic field
-	double t; // nearest neighbour hopping
-	double J; // next-nearest neighbour hopping
+	double tx, ty, tz; // nearest neighbour hopping
 
 	std::vector<Eigen::VectorXd> diagonals;
 
@@ -84,10 +82,12 @@ class Configuration {
 	public:
 
 	void init () {
-		V = std::pow(L, D);
+		if (Lx<2) { Lx = 1; tx = 0.0; }
+		if (Ly<2) { Ly = 1; ty = 0.0; }
+		if (Lz<2) { Lz = 1; tz = 0.0; }
+		V = Lx * Ly * Lz;
 		dt = beta/N;
 		A = sqrt(exp(g*dt)-1.0);
-		if (L==1) t = 0.0;
 		auto distributor = std::bind(distribution, generator);
 		diagonals.insert(diagonals.begin(), N, Eigen::VectorXd::Zero(V));
 		for (size_t i=0;i<diagonals.size();i++) {
@@ -98,14 +98,14 @@ class Configuration {
 		positionSpace = Eigen::MatrixXd::Identity(V, V);
 		momentumSpace = Eigen::MatrixXcd::Identity(V, V);
 
-		const int size[] = { L, L, L, };
-		x2p_col = fftw_plan_many_dft_r2c(D, size, V, positionSpace.data(),
+		const int size[] = { Lz, Ly, Lx, };
+		x2p_col = fftw_plan_many_dft_r2c(3, size, V, positionSpace.data(),
 				NULL, 1, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()), NULL, 1, V, FFTW_PATIENT);
-		p2x_col = fftw_plan_many_dft_c2r(D, size, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()),
+		p2x_col = fftw_plan_many_dft_c2r(3, size, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()),
 				NULL, 1, V, positionSpace.data(), NULL, 1, V, FFTW_PATIENT);
-		x2p_row = fftw_plan_many_dft_r2c(D, size, V, positionSpace.data(),
+		x2p_row = fftw_plan_many_dft_r2c(3, size, V, positionSpace.data(),
 				NULL, V, 1, reinterpret_cast<fftw_complex*>(momentumSpace.data()), NULL, V, 1, FFTW_PATIENT);
-		p2x_row = fftw_plan_many_dft_c2r(D, size, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()),
+		p2x_row = fftw_plan_many_dft_c2r(3, size, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()),
 				NULL, V, 1, positionSpace.data(), NULL, V, 1, FFTW_PATIENT);
 
 		positionSpace = Eigen::MatrixXd::Identity(V, V);
@@ -115,8 +115,7 @@ class Configuration {
 		freePropagator = Eigen::VectorXd::Zero(V);
 		freePropagator_b = Eigen::VectorXd::Zero(V);
 		for (int i=0;i<V;i++) {
-			energies[i] += -2.0 * t * ( cos(2.0*(i%L)*pi/L) - cos(2.0*((i/L)%L)*pi/L) - cos(2.0*(i/L/L)*pi/L) + (3.0-D) );
-			energies[i] += -2.0 * J * ( cos(4.0*(i%L)*pi/L) - cos(4.0*((i/L)%L)*pi/L) - cos(4.0*(i/L/L)*pi/L) + (3.0-D) );
+			energies[i] += -2.0 * ( tx * cos(2.0*(i%Lx)*pi/Lx) - ty * cos(2.0*((i/Lx)%Ly)*pi/Ly) - tz * cos(2.0*(i/Lx/Ly)*pi/Lz) );
 			freePropagator[i] = exp(-dt*energies[i]);
 			freePropagator_b[i] = exp(dt*energies[i]);
 		}
@@ -136,11 +135,14 @@ class Configuration {
 
 	Configuration (lua_State *L, int index, int seed = 42) : distribution(0.5), trialDistribution(1.0) {
 		lua_getfield(L, index, "SEED"); generator.seed(lua_tointeger(L, -1)+seed); lua_pop(L, 1);
-		lua_getfield(L, index, "L");    this->L = lua_tointeger(L, -1);            lua_pop(L, 1);
-		lua_getfield(L, index, "D");    D = lua_tointeger(L, -1);                  lua_pop(L, 1);
+		lua_getfield(L, index, "Lx");   this->Lx = lua_tointeger(L, -1);           lua_pop(L, 1);
+		lua_getfield(L, index, "Ly");   this->Ly = lua_tointeger(L, -1);           lua_pop(L, 1);
+		lua_getfield(L, index, "Lz");   this->Lz = lua_tointeger(L, -1);           lua_pop(L, 1);
 		lua_getfield(L, index, "N");    N = lua_tointeger(L, -1);                  lua_pop(L, 1);
 		lua_getfield(L, index, "T");    beta = 1.0/lua_tonumber(L, -1);            lua_pop(L, 1);
-		lua_getfield(L, index, "t");    t = lua_tonumber(L, -1);                   lua_pop(L, 1);
+		lua_getfield(L, index, "tx");   tx = lua_tonumber(L, -1);                  lua_pop(L, 1);
+		lua_getfield(L, index, "ty");   ty = lua_tonumber(L, -1);                  lua_pop(L, 1);
+		lua_getfield(L, index, "tz");   tz = lua_tonumber(L, -1);                  lua_pop(L, 1);
 		lua_getfield(L, index, "U");    g = -lua_tonumber(L, -1);                  lua_pop(L, 1); // FIXME: check this // should be right as seen in A above
 		lua_getfield(L, index, "mu");   mu = lua_tonumber(L, -1);                  lua_pop(L, 1);
 		lua_getfield(L, index, "B");    B = lua_tonumber(L, -1);                   lua_pop(L, 1);
@@ -241,7 +243,7 @@ class Configuration {
 		//}
 
 		if (std::cos(ret.imag())<0.99) {
-			logProbability_complex();
+			//logProbability_complex();
 			throw("wtf");
 		}
 
@@ -322,21 +324,16 @@ class Configuration {
 		Eigen::ArrayXd d2_up, d2_dn;
 		double K_up, K_dn;
 		double n_up, n_dn, n2;
-		extract_data(Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(+beta*B*0.5+beta*mu)*U_s).inverse(), d_up, d1_up, d2_up, K_up);
-		extract_data(Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(-beta*B*0.5+beta*mu)*U_s).inverse(), d_dn, d1_dn, d2_dn, K_dn);
-		n_up = d_up.sum();
-		n_dn = d_dn.sum();
-		n2 = (d_up*d_dn).sum();
-		if (std::isnan(n_up) || std::isinf(n_up)) {
-			std::cout << n_up << std::endl;
-			std::cout << n_dn << std::endl;
-			std::cout << positionSpace << std::endl << std::endl;
-			std::cout << positionSpace.eigenvalues().transpose() << std::endl << std::endl;
-			std::cout << (Eigen::MatrixXd::Identity(V, V) + exp(-beta*B*0.5) * positionSpace).inverse() << std::endl << std::endl;
-			throw(9);
-		}
-		m_dens.add( (n_up + n_dn) / V );
-		m_magn.add( (n_up - n_dn) / 2.0 / V );
+		//extract_data(Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(+beta*B*0.5+beta*mu)*U_s).inverse(), d_up, d1_up, d2_up, K_up);
+		//extract_data(Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(-beta*B*0.5+beta*mu)*U_s).inverse(), d_dn, d1_dn, d2_dn, K_dn);
+		//n_up = d_up.sum();
+		//n_dn = d_dn.sum();
+		//n2 = (d_up*d_dn).sum();
+		//if (std::isnan(n_up) || std::isinf(n_up)) {
+			//throw(9);
+		//}
+		//m_dens.add( (n_up + n_dn) / V );
+		//m_magn.add( (n_up - n_dn) / 2.0 / V );
 		for (size_t i=0;i<fields.size();i++) {
 			double B = fields[i];
 			std::complex<double> ret = 0.0;
@@ -349,7 +346,7 @@ class Configuration {
 			n_dn = d_dn.sum();
 			n2 = (d_up*d_dn).sum();
 			if (std::cos(ret.imag())<0.99 && std::cos(ret.imag())>0.01) {
-				throw 1;
+				//throw 1;
 			}
 			densities[i].add((n_up + n_dn) / V, w);
 			magnetizations[i].add((n_up - n_dn) / 2.0 / V, w);
@@ -371,11 +368,11 @@ class Configuration {
 		std::ofstream out (outfn, std::ios::app);
 		out << "# T mu N \\Delta N^2 M \\Delta M^2" << std::endl;
 		for (size_t i=0;i<fields.size();i++) {
-			out << 1.0/(beta*t) << ' ' << 0.5*(fields[i]+g)/t
+			out << 1.0/(beta*tx) << ' ' << 0.5*(fields[i]+g)/tx
 				<< ' ' << 1+2*(magnetizations[i].mean()) << ' ' << 4*magnetizations[i].variance()
 				<< ' ' << 0.5*(densities[i].mean()-1.0) << ' ' << 0.25*densities[i].variance()
-				<< ' ' << kinetic[i].mean()/t/V << ' ' << kinetic[i].variance()
-				<< ' ' << interaction[i].mean()/t/V << ' ' << interaction[i].variance()
+				<< ' ' << kinetic[i].mean()/tx/V << ' ' << kinetic[i].variance()
+				<< ' ' << interaction[i].mean()/tx/V << ' ' << interaction[i].variance()
 				<< ' ' << spincorrelation[i].mean()/V << ' ' << spincorrelation[i].variance() << std::endl;
 		}
 		out << std::endl;
@@ -411,6 +408,7 @@ int main (int argc, char **argv) {
 		std::mutex lock;
 		for (int j=0;j<nthreads;j++) {
 			threads[j] = std::thread( [=,&lock] () {
+					try {
 					lock.lock();
 					Configuration configuration(L, i, j);
 					lock.unlock();
@@ -441,19 +439,18 @@ int main (int argc, char **argv) {
 					}
 					}
 					}
-					try {
-						std::cout << thermalization_sweeps << "\n"; std::cout.flush();
-						for (int i=0;i<total_sweeps;i++) {
-							if (i%100==0) { std::cout << i << "\r"; std::cout.flush(); }
-							if (configuration.metropolis(M)) a++;
-							n++;
-							configuration.measure();
-						}
-					} catch (...) {}
+					std::cout << thermalization_sweeps << "\n"; std::cout.flush();
+					for (int i=0;i<total_sweeps;i++) {
+						if (i%100==0) { std::cout << i << "\r"; std::cout.flush(); }
+						if (configuration.metropolis(M)) a++;
+						n++;
+						configuration.measure();
+					}
 					std::cout << total_sweeps << "\n"; std::cout.flush();
 					lock.lock();
 					configuration.output_results();
 					lock.unlock();
+					} catch (...) { std::cerr << "caught exception in main() " << std::endl; }
 			});
 		}
 		for (std::thread& t : threads) t.join();

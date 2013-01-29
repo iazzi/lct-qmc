@@ -8,21 +8,25 @@ end
 local tasks = setmetatable({}, { __index=table })
 
 local t = 0.2
-for _, x in ipairs{ 1.1, 1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, } do
+local L = 4;
+for x = 0.1, 1.1, 0.1 do
 	tasks:insert( flip_params{
-		L = 6,
-		D = 1,
+		Lx = 4,
+		Ly = 4,
+		Lz = 1,
 		T = x*t,
 		N = 100/x,
-		t = t,
+		tx = t,
+		ty = 0.1*t,
+		tz = 0.1*t,
 		U = 4*t,
 		mu = 0.0,
 		B = 0.0,
-		THREADS = 2,
+		THREADS = 1,
 		THERMALIZATION = 10000,
 		SWEEPS = 100000,
 		SEED = 42,
-		OUTPUT = 'U4_L'..tostring(L)..'_T'..tostring(x)..'_threads.dat',
+		OUTPUT = 'U4_4x4_T'..tostring(x)..'_.dat',
 	} )
 end
 
