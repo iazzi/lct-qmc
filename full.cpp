@@ -151,7 +151,6 @@ class Configuration {
 	}
 
 	void accumulate_forward (int start = 0, int end = -1) {
-		double X = sqrt(1.0 - A*A);
 		positionSpace.setIdentity(V, V);
 		end = end<0?N:end;
 		end = end>N?N:end;
@@ -160,12 +159,12 @@ class Configuration {
 			fftw_execute(x2p_col);
 			momentumSpace.applyOnTheLeft(freePropagator.asDiagonal());
 			fftw_execute(p2x_col);
-			positionSpace /= V*X;
+			positionSpace /= V;
 		}
 	}
 
 	void accumulate_backward (int start = 0, int end = -1) {
-		double X = sqrt(1.0 - A*A);
+		double X = 1.0 - A*A;
 		positionSpace.setIdentity(V, V);
 		end = end<0?N:end;
 		end = end>N?N:end;
