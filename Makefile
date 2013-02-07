@@ -1,5 +1,5 @@
-CXXFLAGS=$(MYCXXFLAGS) -std=c++11 -I $(HOME)/local/include `pkg-config --cflags python-2.7 eigen3 ompi-cxx` -I /usr/lib/python2.7/site-packages/numpy/core/include -Wall
-LDFLAGS=$(MYLDFLAGS) -L $(HOME)/local/lib -lboost_system -lboost_python `pkg-config --libs python-2.7 eigen3 ompi-cxx` -lalps -lm -lstdc++ -llapack -llua
+CXXFLAGS=$(MYCXXFLAGS) -std=c++11 -I $(HOME)/local/include `pkg-config --cflags eigen3 ` -Wall
+LDFLAGS=$(MYLDFLAGS) -L $(HOME)/local/lib `pkg-config --libs eigen3` -lm -lstdc++ -llapack -llua -pthread
 
 all: full
 
