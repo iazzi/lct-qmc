@@ -212,6 +212,16 @@ class Configuration {
 		return 0.0;
 	}
 
+	double logDetU_s () {
+		int nspinup = 0;
+		for (int i=0;i<N;i++) {
+			for (int j=0;j<V;j++) {
+				if (diagonals[i][j]>0.0) nspinup++;
+			}
+		}
+		return nspinup*std::log(1.0+A) + (N*V-nspinup)*std::log(1.0-A);
+	}
+
 	double logProbability () {
 		accumulate_forward();
 		Eigen::VectorXcd eva;
@@ -219,23 +229,25 @@ class Configuration {
 		//dggev(positionSpace, Eigen::MatrixXd::Identity(V, V), eva, evb);
 		eva = positionSpace.eigenvalues();
 
+		std::complex<double> c = eva.array().log().sum();
+
+		if ( std::cos(c.imag())<0.99 || std::abs(logDetU_s()-eva.array().log().sum().real())>1.0e-6*(V*V*N) ) {
+			//logProbability_complex();
+			//std::cout << logDetU_s() << " vs. " << eva.array().log().sum();
+			//std::cout << " -> " << logDetU_s()-eva.array().log().sum() << std::endl;
+			//throw("wtf");
+		}
+
+
 		std::complex<double> ret = 0.0;
 		ret += (evb.cast<std::complex<double>>() + std::exp(+beta*B*0.5+beta*mu)*eva).array().log().sum();
 		ret -= evb.array().log().sum();
 		ret += (evb.cast<std::complex<double>>() + std::exp(-beta*B*0.5+beta*mu)*eva).array().log().sum();
 		ret -= evb.array().log().sum();
 
-		//for (int i=0;i<V;i++) {
-			//if (std::abs(eva[i].imag())<1e-10 && eva[i].real()<0.0) {
-				//std::cout << i << ' ' << eva[i] << std::endl;
-				//std::cout << eva.transpose() << std::endl;
-				//logProbability_complex();
-				//throw("wtf");
-			//}
-		//}
-
 		if (std::cos(ret.imag())<0.99) {
 			logProbability_complex();
+			std::cout << "still wrong!" << std::endl;
 			throw("wtf");
 		}
 
