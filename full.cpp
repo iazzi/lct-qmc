@@ -213,14 +213,7 @@ class Configuration {
 	}
 
 	double logProbability () {
-		positionSpace.setIdentity(V, V);
-		for (int i=0;i<N;i++) {
-			positionSpace.applyOnTheLeft((Eigen::VectorXd::Constant(V, 1.0)+diagonals[i]).asDiagonal());
-			fftw_execute(x2p_col);
-			momentumSpace.applyOnTheLeft(freePropagator.asDiagonal());
-			fftw_execute(p2x_col);
-			positionSpace /= V;
-		}
+		accumulate_forward();
 		Eigen::VectorXcd eva;
 		Eigen::VectorXd evb = Eigen::VectorXd::Ones(V);
 		//dggev(positionSpace, Eigen::MatrixXd::Identity(V, V), eva, evb);
@@ -242,7 +235,7 @@ class Configuration {
 		//}
 
 		if (std::cos(ret.imag())<0.99) {
-			//logProbability_complex();
+			logProbability_complex();
 			throw("wtf");
 		}
 
