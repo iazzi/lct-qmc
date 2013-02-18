@@ -98,7 +98,7 @@ class Configuration {
 		positionSpace = Eigen::MatrixXd::Identity(V, V);
 		momentumSpace = Eigen::MatrixXcd::Identity(V, V);
 
-		const int size[] = { Lz, Ly, Lx, };
+		const int size[] = { Lx, Ly, Lz, };
 		x2p_col = fftw_plan_many_dft_r2c(3, size, V, positionSpace.data(),
 				NULL, 1, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()), NULL, 1, V, FFTW_PATIENT);
 		p2x_col = fftw_plan_many_dft_c2r(3, size, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()),
@@ -115,7 +115,7 @@ class Configuration {
 		freePropagator = Eigen::VectorXd::Zero(V);
 		freePropagator_b = Eigen::VectorXd::Zero(V);
 		for (int i=0;i<V;i++) {
-			energies[i] += -2.0 * ( tx * cos(2.0*(i%Lx)*pi/Lx) - ty * cos(2.0*((i/Lx)%Ly)*pi/Ly) - tz * cos(2.0*(i/Lx/Ly)*pi/Lz) );
+			energies[i] += -2.0 * ( tx * cos(2.0*((i/Ly/Lz)%Lx)*pi/Lx) + ty * cos(2.0*((i/Lz)%Ly)*pi/Ly) + tz * cos(2.0*(i%Lz)*pi/Lz) );
 			freePropagator[i] = exp(-dt*energies[i]);
 			freePropagator_b[i] = exp(dt*energies[i]);
 		}
@@ -150,6 +150,19 @@ class Configuration {
 		init();
 	}
 
+	double logDetU_s (int end = -1) {
+		end = end<0?N:end;
+		int nspinup = 0;
+		for (int i=0;i<end;i++) {
+			for (int j=0;j<V;j++) {
+				if (diagonals[i][j]>0.0) nspinup++;
+			}
+		}
+		//std::cerr << "nspinup " << nspinup << " nspindn " << (N*V-nspinup) << std::endl;
+		//std::cerr << "free_contrib = " << freePropagator.array().log().sum() << std::endl;
+		return nspinup*std::log(1.0+A) + (end*V-nspinup)*std::log(1.0-A);
+	}
+
 	void accumulate_forward (int start = 0, int end = -1) {
 		positionSpace.setIdentity(V, V);
 		end = end<0?N:end;
@@ -160,6 +173,8 @@ class Configuration {
 			momentumSpace.applyOnTheLeft(freePropagator.asDiagonal());
 			fftw_execute(p2x_col);
 			positionSpace /= V;
+			//std::cerr << std::log(positionSpace.determinant()) << " <> " << logDetU_s(i+1) << std::endl;
+			//std::cerr << "free_contrib = " << freePropagator.array().log().sum() << std::endl;
 		}
 	}
 
@@ -212,41 +227,73 @@ class Configuration {
 		return 0.0;
 	}
 
-	double logDetU_s () {
-		int nspinup = 0;
+	void sort_vector (Eigen::VectorXcd &v) {
+		const int N = v.size();
 		for (int i=0;i<N;i++) {
-			for (int j=0;j<V;j++) {
-				if (diagonals[i][j]>0.0) nspinup++;
+			for (int j=i+1;j<N;j++) {
+				if (std::norm(v[i])<std::norm(v[j])) {
+					std::complex<double> x = v[j];
+					v[j] = v[i];
+					v[i] = x;
+				}
 			}
 		}
-		return nspinup*std::log(1.0+A) + (N*V-nspinup)*std::log(1.0-A);
+	}
+
+	void reverse_vector (Eigen::VectorXcd &v) {
+		const int N = v.size();
+		for (int i=0;i<N/2;i++) {
+			const int j = N-i-1;
+			std::complex<double> x = v[j];
+			v[j] = v[i];
+			v[i] = x;
+		}
 	}
 
 	double logProbability () {
-		accumulate_forward();
-		Eigen::VectorXcd eva;
-		Eigen::VectorXd evb = Eigen::VectorXd::Ones(V);
+		Eigen::VectorXcd eva, evb, evc;
 		//dggev(positionSpace, Eigen::MatrixXd::Identity(V, V), eva, evb);
-		eva = positionSpace.eigenvalues();
+		eva = Eigen::VectorXcd::Ones(V);
+		accumulate_forward();
+		evb = positionSpace.eigenvalues();
+		accumulate_backward();
+		evc = positionSpace.eigenvalues();
+		sort_vector(evb);
+		sort_vector(evc);
+		reverse_vector(evc);
+		for (int i=0;i<V;i++) {
+			//if (i>=V/2) {
+			if (std::norm(evb[i]/evb[0])<std::norm(evc[i]/evc[V-1])) {
+				eva[i] = 1.0/evc[i];
+			} else {
+				eva[i] = evb[i];
+			}
+		}
 
 		std::complex<double> c = eva.array().log().sum();
 
-		if ( std::cos(c.imag())<0.99 || std::abs(logDetU_s()-eva.array().log().sum().real())>1.0e-6*(V*V*N) ) {
+		if ( std::cos(c.imag())<0.99 || std::abs(1.0-eva.array().log().sum().real()/logDetU_s())>1.0e-5 ) {
+			std::cout << logDetU_s() << " vs. " << eva.array().log().sum() << " vs. " << evb.array().log().sum() << " vs. " << evc.array().log().sum() << std::endl;
+			std::cout << eva.transpose() << std::endl;
+			std::cout << evb.transpose() << std::endl;
+			//std::cout << evc.transpose() << std::endl;
+			std::cout << evc.array().inverse().transpose() << std::endl;
+			std::cout << V << " " << beta*4*(tx+ty+tz) << std::endl;
 			//logProbability_complex();
-			//std::cout << logDetU_s() << " vs. " << eva.array().log().sum();
-			//std::cout << " -> " << logDetU_s()-eva.array().log().sum() << std::endl;
-			//throw("wtf");
+			throw("wtf");
 		}
 
-
 		std::complex<double> ret = 0.0;
-		ret += (evb.cast<std::complex<double>>() + std::exp(+beta*B*0.5+beta*mu)*eva).array().log().sum();
-		ret -= evb.array().log().sum();
-		ret += (evb.cast<std::complex<double>>() + std::exp(-beta*B*0.5+beta*mu)*eva).array().log().sum();
-		ret -= evb.array().log().sum();
+		ret += (Eigen::VectorXcd::Ones(V) + std::exp(+beta*B*0.5+beta*mu)*eva).array().log().sum();
+		ret += (Eigen::VectorXcd::Ones(V) + std::exp(-beta*B*0.5+beta*mu)*eva).array().log().sum();
 
 		if (std::cos(ret.imag())<0.99) {
-			logProbability_complex();
+			//logProbability_complex();
+			std::cout << logDetU_s() << " vs. " << eva.array().log().sum() << " vs. " << evb.array().log().sum() << " vs. " << evc.array().log().sum() << std::endl;
+			std::cout << eva.transpose() << std::endl;
+			std::cout << evc.transpose() << std::endl;
+			std::cout << evc.array().inverse().transpose() << std::endl;
+			std::cout << V << " " << beta*4*(tx+ty+tz) << std::endl;
 			std::cout << "still wrong!" << std::endl;
 			throw("wtf");
 		}
