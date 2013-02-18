@@ -269,7 +269,6 @@ class Configuration {
 		sort_vector(evc);
 		reverse_vector(evc);
 		for (int i=0;i<V;i++) {
-			//if (i>=V/2) {
 			if (std::norm(evb[i]/evb[0])<std::norm(evc[i]/evc[V-1])) {
 				eva[i] = 1.0/evc[i];
 			} else {
@@ -307,6 +306,82 @@ class Configuration {
 
 		return ret.real();
 	}
+
+	Eigen::VectorXcd rank1EV_f (int x, int t, const Eigen::MatrixXd &M) {
+		v_x = Eigen::VectorXd::Zero(V);
+		v_x[x] = 1.0;
+		for (int i=t+1;i<N;i++) {
+			fftw_execute(x2p_vec);
+			v_p = v_p.array() * freePropagator.array();
+			fftw_execute(p2x_vec);
+			v_x = v_x.array() * (Eigen::VectorXd::Constant(V, 1.0)+diagonals[i]).array();
+			v_x /= V;
+		}
+		fftw_execute(x2p_vec);
+		v_p = v_p.array() * freePropagator.array();
+		fftw_execute(p2x_vec);
+		v_x /= V;
+		Eigen::VectorXd u = v_x;
+		v_x = Eigen::VectorXd::Zero(V);
+		v_x[x] = 1.0;
+		for (int i=t-1;i>=0;i--) {
+			fftw_execute(x2p_vec);
+			v_p = v_p.array() * freePropagator.array();
+			fftw_execute(p2x_vec);
+			v_x = v_x.array() * (Eigen::VectorXd::Constant(V, 1.0)+diagonals[i]).array();
+			v_x /= V;
+		}
+		Eigen::VectorXd v = v_x;
+		//std::cerr << "beta:" << beta*tx << std::endl;
+		//std::cerr << "u:" << std::endl << u.transpose() << std::endl;
+		//std::cerr << "v:" << std::endl << v_x.transpose() << std::endl;
+		//accumulate_forward();
+		//std::cerr << "original:" << std::endl << positionSpace << std::endl;
+		//std::cerr << "rank-1:" << std::endl << positionSpace-2*diagonals[t][x]*u*v.transpose() << std::endl;
+		//diagonals[t][x] = -diagonals[t][x];
+		//accumulate_forward();
+		//std::cerr << "plain" << std::endl << positionSpace << std::endl << std::endl;
+		return (M-2*diagonals[t][x]*u*v.transpose()).eigenvalues();
+	}
+
+	Eigen::VectorXcd rank1EV_b (int x, int t, const Eigen::MatrixXd &M) {
+		double X = 1-A*A;
+		v_x = Eigen::VectorXd::Zero(V);
+		v_x[x] = 1.0;
+		for (int i=t+1;i<N;i++) {
+			fftw_execute(x2p_vec);
+			v_p = v_p.array() * freePropagator.array();
+			fftw_execute(p2x_vec);
+			v_x = v_x.array() * (Eigen::VectorXd::Constant(V, 1.0)-diagonals[i]).array();
+			v_x /= V*X;
+		}
+		fftw_execute(x2p_vec);
+		v_p = v_p.array() * freePropagator.array();
+		fftw_execute(p2x_vec);
+		v_x /= V;
+		Eigen::VectorXd u = v_x;
+		v_x = Eigen::VectorXd::Zero(V);
+		v_x[x] = 1.0;
+		for (int i=t-1;i>=0;i--) {
+			fftw_execute(x2p_vec);
+			v_p = v_p.array() * freePropagator.array();
+			fftw_execute(p2x_vec);
+			v_x = v_x.array() * (Eigen::VectorXd::Constant(V, 1.0)-diagonals[i]).array();
+			v_x /= V*X;
+		}
+		Eigen::VectorXd v = v_x;
+		//std::cerr << "beta:" << beta*tx << std::endl;
+		//std::cerr << "u:" << std::endl << u.transpose() << std::endl;
+		//std::cerr << "v:" << std::endl << v_x.transpose() << std::endl;
+		//accumulate_forward();
+		//std::cerr << "original:" << std::endl << positionSpace << std::endl;
+		//std::cerr << "rank-1:" << std::endl << positionSpace-2*diagonals[t][x]*u*v.transpose() << std::endl;
+		//diagonals[t][x] = -diagonals[t][x];
+		//accumulate_forward();
+		//std::cerr << "plain" << std::endl << positionSpace << std::endl << std::endl;
+		return (M-2*diagonals[t][x]*u*v.transpose()).eigenvalues();
+	}
+
 	bool metropolis (int M = 0) {
 		if (M==0) M = 0.1 * volume() * N;
 		bool ret = false;

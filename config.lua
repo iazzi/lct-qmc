@@ -9,12 +9,12 @@ local tasks = setmetatable({}, { __index=table })
 
 local t = 0.2
 local L = 4;
---local seed = os.time()
 local seed = 42
+local seed = os.time()
 for x = 0.1, 1.1, 0.1 do
 	tasks:insert( flip_params{
 		Lx = 8,
-		Ly = 8,
+		Ly = 1,
 		Lz = 1,
 		T = x*t,
 		N = 100/x,
