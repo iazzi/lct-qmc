@@ -261,10 +261,10 @@ class Configuration {
 		Eigen::VectorXcd eva, evb, evc;
 		//dggev(positionSpace, Eigen::MatrixXd::Identity(V, V), eva, evb);
 		eva = Eigen::VectorXcd::Ones(V);
-		accumulate_forward();
-		evb = positionSpace.eigenvalues();
 		accumulate_backward();
 		evc = positionSpace.eigenvalues();
+		accumulate_forward();
+		evb = positionSpace.eigenvalues();
 		sort_vector(evb);
 		sort_vector(evc);
 		reverse_vector(evc);
@@ -278,11 +278,11 @@ class Configuration {
 
 		std::complex<double> c = eva.array().log().sum();
 
-		if ( std::cos(c.imag())<0.99 || std::abs(1.0-eva.array().log().sum().real()/logDetU_s())>1.0e-5 ) {
-			std::cout << logDetU_s() << " vs. " << eva.array().log().sum() << " vs. " << evb.array().log().sum() << " vs. " << evc.array().log().sum() << std::endl;
+		if ( std::cos(c.imag())<0.99 || std::abs(1.0-c.real()/logDetU_s())>1.0e-5 ) {
+			std::cout << logDetU_s() << " vs. " << c << " vs. " << evb.array().log().sum() << " vs. " << evc.array().log().sum() << std::endl;
 			std::cout << eva.transpose() << std::endl;
 			std::cout << evb.transpose() << std::endl;
-			//std::cout << evc.transpose() << std::endl;
+			std::cout << evc.transpose() << std::endl;
 			std::cout << evc.array().inverse().transpose() << std::endl;
 			std::cout << V << " " << beta*4*(tx+ty+tz) << std::endl;
 			//logProbability_complex();
