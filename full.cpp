@@ -41,7 +41,7 @@ class Configuration {
 
 	std::vector<Eigen::VectorXd> diagonals;
 
-	std::default_random_engine generator;
+	std::mt19937_64 generator;
 	std::bernoulli_distribution distribution;
 	std::uniform_int_distribution<int> randomPosition;
 	std::uniform_int_distribution<int> randomTime;
@@ -53,6 +53,12 @@ class Configuration {
 
 	Eigen::MatrixXd positionSpace; // current matrix in position space
 	Eigen::MatrixXcd momentumSpace;
+
+	Eigen::VectorXd v_x;
+	Eigen::VectorXcd v_p;
+
+	fftw_plan x2p_vec;
+	fftw_plan p2x_vec;
 
 	fftw_plan x2p_col;
 	fftw_plan p2x_col;
@@ -66,8 +72,6 @@ class Configuration {
 	mymeasurement<double> m_magn;
 
 	std::string outfn;
-
-	public:
 
 	Eigen::MatrixXd U_s;
 	Eigen::VectorXcd ev_s;
@@ -88,17 +92,20 @@ class Configuration {
 		V = Lx * Ly * Lz;
 		dt = beta/N;
 		A = sqrt(exp(g*dt)-1.0);
-		auto distributor = std::bind(distribution, generator);
 		diagonals.insert(diagonals.begin(), N, Eigen::VectorXd::Zero(V));
 		for (size_t i=0;i<diagonals.size();i++) {
 			for (int j=0;j<V;j++) {
-				diagonals[i][j] = distributor()?A:-A;
+				diagonals[i][j] = distribution(generator)?A:-A;
 			}
 		}
+		v_x = Eigen::VectorXd::Zero(V);
+		v_p = Eigen::VectorXcd::Zero(V);
 		positionSpace = Eigen::MatrixXd::Identity(V, V);
 		momentumSpace = Eigen::MatrixXcd::Identity(V, V);
 
 		const int size[] = { Lx, Ly, Lz, };
+		x2p_vec = fftw_plan_dft_r2c(3, size, v_x.data(), reinterpret_cast<fftw_complex*>(v_p.data()), FFTW_PATIENT);
+		p2x_vec = fftw_plan_dft_c2r(3, size, reinterpret_cast<fftw_complex*>(v_p.data()), v_x.data(), FFTW_PATIENT);
 		x2p_col = fftw_plan_many_dft_r2c(3, size, V, positionSpace.data(),
 				NULL, 1, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()), NULL, 1, V, FFTW_PATIENT);
 		p2x_col = fftw_plan_many_dft_c2r(3, size, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()),
@@ -300,7 +307,6 @@ class Configuration {
 
 		return ret.real();
 	}
-
 	bool metropolis (int M = 0) {
 		if (M==0) M = 0.1 * volume() * N;
 		bool ret = false;
@@ -430,6 +436,8 @@ class Configuration {
 	}
 
 	~Configuration () {
+		fftw_destroy_plan(x2p_vec);
+		fftw_destroy_plan(p2x_vec);
 		fftw_destroy_plan(x2p_col);
 		fftw_destroy_plan(p2x_col);
 		fftw_destroy_plan(x2p_row);
