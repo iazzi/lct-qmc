@@ -74,6 +74,7 @@ class Configuration {
 	std::string outfn;
 
 	Eigen::MatrixXd U_s;
+	Eigen::MatrixXd U_s_inv;
 	Eigen::VectorXcd ev_s;
 
 	std::vector<double> fields;
@@ -90,6 +91,8 @@ class Configuration {
 		if (Ly<2) { Ly = 1; ty = 0.0; }
 		if (Lz<2) { Lz = 1; tz = 0.0; }
 		V = Lx * Ly * Lz;
+		randomPosition = std::uniform_int_distribution<int>(0, V-1);
+		randomTime = std::uniform_int_distribution<int>(0, N-1);
 		dt = beta/N;
 		A = sqrt(exp(g*dt)-1.0);
 		diagonals.insert(diagonals.begin(), N, Eigen::VectorXd::Zero(V));
@@ -275,6 +278,9 @@ class Configuration {
 				eva[i] = evb[i];
 			}
 		}
+		//std::cout << eva.transpose() << std::endl;
+		//std::cout << evb.transpose() << std::endl;
+		//std::cout << evc.transpose() << std::endl;
 
 		std::complex<double> c = eva.array().log().sum();
 
@@ -334,7 +340,7 @@ class Configuration {
 		Eigen::VectorXd v = v_x;
 		//std::cerr << "beta:" << beta*tx << std::endl;
 		//std::cerr << "u:" << std::endl << u.transpose() << std::endl;
-		//std::cerr << "v:" << std::endl << v_x.transpose() << std::endl;
+		//std::cerr << "v:" << std::endl << v.transpose() << std::endl;
 		//accumulate_forward();
 		//std::cerr << "original:" << std::endl << positionSpace << std::endl;
 		//std::cerr << "rank-1:" << std::endl << positionSpace-2*diagonals[t][x]*u*v.transpose() << std::endl;
@@ -350,13 +356,13 @@ class Configuration {
 		v_x[x] = 1.0;
 		for (int i=t+1;i<N;i++) {
 			fftw_execute(x2p_vec);
-			v_p = v_p.array() * freePropagator.array();
+			v_p = v_p.array() * freePropagator_b.array();
 			fftw_execute(p2x_vec);
 			v_x = v_x.array() * (Eigen::VectorXd::Constant(V, 1.0)-diagonals[i]).array();
 			v_x /= V*X;
 		}
 		fftw_execute(x2p_vec);
-		v_p = v_p.array() * freePropagator.array();
+		v_p = v_p.array() * freePropagator_b.array();
 		fftw_execute(p2x_vec);
 		v_x /= V;
 		Eigen::VectorXd u = v_x;
@@ -364,7 +370,7 @@ class Configuration {
 		v_x[x] = 1.0;
 		for (int i=t-1;i>=0;i--) {
 			fftw_execute(x2p_vec);
-			v_p = v_p.array() * freePropagator.array();
+			v_p = v_p.array() * freePropagator_b.array();
 			fftw_execute(p2x_vec);
 			v_x = v_x.array() * (Eigen::VectorXd::Constant(V, 1.0)-diagonals[i]).array();
 			v_x /= V*X;
@@ -372,55 +378,58 @@ class Configuration {
 		Eigen::VectorXd v = v_x;
 		//std::cerr << "beta:" << beta*tx << std::endl;
 		//std::cerr << "u:" << std::endl << u.transpose() << std::endl;
-		//std::cerr << "v:" << std::endl << v_x.transpose() << std::endl;
-		//accumulate_forward();
-		//std::cerr << "original:" << std::endl << positionSpace << std::endl;
-		//std::cerr << "rank-1:" << std::endl << positionSpace-2*diagonals[t][x]*u*v.transpose() << std::endl;
+		//std::cerr << "v:" << std::endl << v.transpose() << std::endl;
+		//std::cerr << "original:" << std::endl << M << std::endl;
+		//std::cerr << "rank-1:" << std::endl << M+2*diagonals[t][x]*v*u.transpose()/X << std::endl;
 		//diagonals[t][x] = -diagonals[t][x];
-		//accumulate_forward();
-		//std::cerr << "plain" << std::endl << positionSpace << std::endl << std::endl;
-		return (M-2*diagonals[t][x]*u*v.transpose()).eigenvalues();
+		//accumulate_backward();
+		//std::cerr << "plain" << std::endl << M << std::endl << std::endl;
+		//throw("end");
+		return (M+2*diagonals[t][x]*v*u.transpose()/X).eigenvalues();
+	}
+
+	double rank1prob (int x, int t) {
+		Eigen::VectorXcd eva = Eigen::VectorXcd::Ones(V);
+		accumulate_forward();
+		Eigen::VectorXcd evb = rank1EV_f(x, t, positionSpace);
+		accumulate_backward();
+		Eigen::VectorXcd evc = rank1EV_b(x, t, positionSpace);
+		sort_vector(evb);
+		sort_vector(evc);
+		reverse_vector(evc);
+		for (int i=0;i<V;i++) {
+			if (std::norm(evb[i]/evb[0])<std::norm(evc[i]/evc[V-1])) {
+				eva[i] = 1.0/evc[i];
+			} else {
+				eva[i] = evb[i];
+			}
+		}
+		//std::cout << eva.transpose() << std::endl;
+		//std::cout << evb.transpose() << std::endl;
+		//std::cout << evc.transpose() << std::endl;
+		std::complex<double> ret = 0.0;
+		ret += (Eigen::VectorXcd::Ones(V) + std::exp(+beta*B*0.5+beta*mu)*eva).array().log().sum();
+		ret += (Eigen::VectorXcd::Ones(V) + std::exp(-beta*B*0.5+beta*mu)*eva).array().log().sum();
+		return ret.real();
 	}
 
 	bool metropolis (int M = 0) {
-		if (M==0) M = 0.1 * volume() * N;
 		bool ret = false;
-		std::vector<int> index(M);
-		for (int j=0;j<M;j++) {
-			std::uniform_int_distribution<int> distr(0, V*N-j-1);
-			int x = distr(generator);
-			int i = j;
-			// standard insertion sort would be:
-			//
-			// while (i>0 && x<index[i-1]) { index[i] = index[i-1]; i--;}
-			//
-			// if we are going to insert at place i we have to shift the value by i
-			// if this number is less *or equal* than the one below in the list,
-			// we cannot insert (we want unique indices) so we shift i down and move
-			// up by one the top index (in the standard insertion sort equality is
-			// irrelevant)
-			while (i>0 && x+i<=index[i-1]) { index[i] = index[i-1]; i--; }
-			index[i] = x+i;
-		}
-		for (int i=0;i<M;i++) {
-			int t = index[i]/V;
-			int x = index[i]%V;
-			diagonals[t][x] = -diagonals[t][x];
-		}
+		int x = randomPosition(generator);
+		int t = randomTime(generator);
+		//double trial1 = rank1prob(x, t);
+		diagonals[t][x] = -diagonals[t][x];
 		double trial = logProbability();
 		//logProbability_complex();
 		//throw "end";
+		//std::cerr << trial << " " << trial1 << std::endl;
 		if (-trialDistribution(generator)<trial-plog) {
 			plog = trial;
 			U_s = positionSpace;
 			ev_s = positionSpace.eigenvalues();
 			ret = true;
 		} else {
-			for (int i=0;i<M;i++) {
-				int t = index[i]/V;
-				int x = index[i]%V;
-				diagonals[t][x] = -diagonals[t][x];
-			}
+			diagonals[t][x] = -diagonals[t][x];
 			ret = false;
 		}
 		return ret;
@@ -552,31 +561,13 @@ int main (int argc, char **argv) {
 					int M = 1;
 					for (int i=0;i<thermalization_sweeps;i++) {
 					if (i%100==0) { std::cout << i << "\r"; std::cout.flush(); }
-					if (configuration.metropolis(M)) a++;
+					if (configuration.metropolis(1)) a++;
 					n++;
-					if (i%200==0) {
-					if (a>0.6*n && M<0.1*configuration.volume()*configuration.timeSlices()) {
-					cout << "M: " << M;
-					M += 5;
-					cout << " -> " << M << endl;
-					n = 0;
-					a = 0;
-					i = 0;
-					} else if (a<0.4*n) {
-						cout << "M: " << M;
-						M -= 5;
-						cout << " -> " << M << endl;
-						M = M>0?M:1;
-						n = 0;
-						a = 0;
-						i = 0;
-					}
-					}
 					}
 					std::cout << thermalization_sweeps << "\n"; std::cout.flush();
 					for (int i=0;i<total_sweeps;i++) {
 						if (i%100==0) { std::cout << i << "\r"; std::cout.flush(); }
-						if (configuration.metropolis(M)) a++;
+						if (configuration.metropolis(1)) a++;
 						n++;
 						configuration.measure();
 					}
