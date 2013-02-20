@@ -390,10 +390,10 @@ class Configuration {
 
 	double rank1prob (int x, int t) {
 		Eigen::VectorXcd eva = Eigen::VectorXcd::Ones(V);
-		accumulate_forward();
-		Eigen::VectorXcd evb = rank1EV_f(x, t, positionSpace);
 		accumulate_backward();
 		Eigen::VectorXcd evc = rank1EV_b(x, t, positionSpace);
+		accumulate_forward();
+		Eigen::VectorXcd evb = rank1EV_f(x, t, positionSpace);
 		sort_vector(evb);
 		sort_vector(evc);
 		reverse_vector(evc);
@@ -403,6 +403,20 @@ class Configuration {
 			} else {
 				eva[i] = evb[i];
 			}
+		}
+		std::complex<double> c =  eva.array().log().sum();
+		diagonals[t][x] = -diagonals[t][x];
+		double exact = logDetU_s();
+		diagonals[t][x] = -diagonals[t][x];
+		if ( std::cos(c.imag())<0.99 || std::abs(1.0-c.real()/exact)>1.0e-5 ) {
+			std::cout << exact << " vs. " << c << " vs. " << evb.array().log().sum() << " vs. " << evc.array().log().sum() << std::endl;
+			std::cout << eva.transpose() << std::endl;
+			std::cout << evb.transpose() << std::endl;
+			std::cout << evc.transpose() << std::endl;
+			std::cout << evc.array().inverse().transpose() << std::endl;
+			std::cout << V << " " << beta*4*(tx+ty+tz) << std::endl;
+			//logProbability_complex();
+			throw("wtf");
 		}
 		//std::cout << eva.transpose() << std::endl;
 		//std::cout << evb.transpose() << std::endl;
@@ -430,6 +444,23 @@ class Configuration {
 			ret = true;
 		} else {
 			diagonals[t][x] = -diagonals[t][x];
+			ret = false;
+		}
+		return ret;
+	}
+
+	bool metropolis1 (int M = 0) {
+		bool ret = false;
+		int x = randomPosition(generator);
+		int t = randomTime(generator);
+		double trial = rank1prob(x, t);
+		if (-trialDistribution(generator)<trial-plog) {
+			plog = trial;
+			diagonals[t][x] = -diagonals[t][x];
+			U_s = positionSpace;
+			ev_s = positionSpace.eigenvalues();
+			ret = true;
+		} else {
 			ret = false;
 		}
 		return ret;
@@ -561,13 +592,13 @@ int main (int argc, char **argv) {
 					int M = 1;
 					for (int i=0;i<thermalization_sweeps;i++) {
 					if (i%100==0) { std::cout << i << "\r"; std::cout.flush(); }
-					if (configuration.metropolis(1)) a++;
+					if (configuration.metropolis1()) a++;
 					n++;
 					}
 					std::cout << thermalization_sweeps << "\n"; std::cout.flush();
 					for (int i=0;i<total_sweeps;i++) {
 						if (i%100==0) { std::cout << i << "\r"; std::cout.flush(); }
-						if (configuration.metropolis(1)) a++;
+						if (configuration.metropolis1()) a++;
 						n++;
 						configuration.measure();
 					}
