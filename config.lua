@@ -14,7 +14,7 @@ local seed = os.time()
 for x = 0.1, 1.1, 0.1 do
 	tasks:insert( flip_params{
 		Lx = 8,
-		Ly = 1,
+		Ly = 8,
 		Lz = 1,
 		T = x*t,
 		N = 100/x,
@@ -26,9 +26,9 @@ for x = 0.1, 1.1, 0.1 do
 		B = 0.0,
 		THREADS = 1,
 		THERMALIZATION = 10000,
-		SWEEPS = 10000,
+		SWEEPS = 100000,
 		SEED = seed,
-		OUTPUT = 'U4_L8_T'..tostring(x)..'_last.dat',
+		OUTPUT = 'U4_L8x8_T'..tostring(x)..'_last.dat',
 	} )
 end
 

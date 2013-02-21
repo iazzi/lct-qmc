@@ -39,6 +39,8 @@ class Configuration {
 	double B; // magnetic field
 	double tx, ty, tz; // nearest neighbour hopping
 
+	int steps;
+
 	std::vector<Eigen::VectorXd> diagonals;
 
 	std::mt19937_64 generator;
@@ -76,6 +78,14 @@ class Configuration {
 	Eigen::MatrixXd U_s;
 	Eigen::MatrixXd U_s_inv;
 	Eigen::VectorXcd ev_s;
+
+	struct {
+		Eigen::VectorXd u;
+		Eigen::VectorXd v;
+		Eigen::VectorXd u_inv;
+		Eigen::VectorXd v_inv;
+		Eigen::VectorXcd ev;
+	} cache;
 
 	std::vector<double> fields;
 	std::vector<weighted_measurement<double>> densities;
@@ -121,6 +131,9 @@ class Configuration {
 		positionSpace = Eigen::MatrixXd::Identity(V, V);
 		momentumSpace = Eigen::MatrixXcd::Identity(V, V);
 
+		U_s = Eigen::MatrixXd::Identity(V, V);
+		U_s_inv = Eigen::MatrixXd::Identity(V, V);
+
 		energies = Eigen::VectorXd::Zero(V);
 		freePropagator = Eigen::VectorXd::Zero(V);
 		freePropagator_b = Eigen::VectorXd::Zero(V);
@@ -130,7 +143,12 @@ class Configuration {
 			freePropagator_b[i] = exp(dt*energies[i]);
 		}
 
-		plog = logProbability();
+		accumulate_forward();
+		U_s = positionSpace;
+		accumulate_backward();
+		U_s_inv = positionSpace;
+		//plog = logProbability();
+		plog = -1.0e-10;
 
 		for (int i=-15;i<30;i++) {
 			double f = B + double(i)/10.0;
@@ -143,7 +161,7 @@ class Configuration {
 		}
 	}
 
-	Configuration (lua_State *L, int index, int seed = 42) : distribution(0.5), trialDistribution(1.0) {
+	Configuration (lua_State *L, int index, int seed = 42) : distribution(0.5), trialDistribution(1.0), steps(0) {
 		lua_getfield(L, index, "SEED"); generator.seed(lua_tointeger(L, -1)+seed); lua_pop(L, 1);
 		lua_getfield(L, index, "Lx");   this->Lx = lua_tointeger(L, -1);           lua_pop(L, 1);
 		lua_getfield(L, index, "Ly");   this->Ly = lua_tointeger(L, -1);           lua_pop(L, 1);
@@ -160,17 +178,19 @@ class Configuration {
 		init();
 	}
 
-	double logDetU_s (int end = -1) {
-		end = end<0?N:end;
+	double logDetU_s (int x = -1, int t = -1) {
 		int nspinup = 0;
-		for (int i=0;i<end;i++) {
+		for (int i=0;i<N;i++) {
 			for (int j=0;j<V;j++) {
 				if (diagonals[i][j]>0.0) nspinup++;
 			}
 		}
+		if (x>=0 && t>=0) {
+			nspinup += diagonals[t][x]>0.0?-1:+1;
+		}
 		//std::cerr << "nspinup " << nspinup << " nspindn " << (N*V-nspinup) << std::endl;
 		//std::cerr << "free_contrib = " << freePropagator.array().log().sum() << std::endl;
-		return nspinup*std::log(1.0+A) + (end*V-nspinup)*std::log(1.0-A);
+		return nspinup*std::log(1.0+A) + (N*V-nspinup)*std::log(1.0-A);
 	}
 
 	void accumulate_forward (int start = 0, int end = -1) {
@@ -183,7 +203,6 @@ class Configuration {
 			momentumSpace.applyOnTheLeft(freePropagator.asDiagonal());
 			fftw_execute(p2x_col);
 			positionSpace /= V;
-			//std::cerr << std::log(positionSpace.determinant()) << " <> " << logDetU_s(i+1) << std::endl;
 			//std::cerr << "free_contrib = " << freePropagator.array().log().sum() << std::endl;
 		}
 	}
@@ -260,60 +279,7 @@ class Configuration {
 		}
 	}
 
-	double logProbability () {
-		Eigen::VectorXcd eva, evb, evc;
-		//dggev(positionSpace, Eigen::MatrixXd::Identity(V, V), eva, evb);
-		eva = Eigen::VectorXcd::Ones(V);
-		accumulate_backward();
-		evc = positionSpace.eigenvalues();
-		accumulate_forward();
-		evb = positionSpace.eigenvalues();
-		sort_vector(evb);
-		sort_vector(evc);
-		reverse_vector(evc);
-		for (int i=0;i<V;i++) {
-			if (std::norm(evb[i]/evb[0])<std::norm(evc[i]/evc[V-1])) {
-				eva[i] = 1.0/evc[i];
-			} else {
-				eva[i] = evb[i];
-			}
-		}
-		//std::cout << eva.transpose() << std::endl;
-		//std::cout << evb.transpose() << std::endl;
-		//std::cout << evc.transpose() << std::endl;
-
-		std::complex<double> c = eva.array().log().sum();
-
-		if ( std::cos(c.imag())<0.99 || std::abs(1.0-c.real()/logDetU_s())>1.0e-5 ) {
-			std::cout << logDetU_s() << " vs. " << c << " vs. " << evb.array().log().sum() << " vs. " << evc.array().log().sum() << std::endl;
-			std::cout << eva.transpose() << std::endl;
-			std::cout << evb.transpose() << std::endl;
-			std::cout << evc.transpose() << std::endl;
-			std::cout << evc.array().inverse().transpose() << std::endl;
-			std::cout << V << " " << beta*4*(tx+ty+tz) << std::endl;
-			//logProbability_complex();
-			throw("wtf");
-		}
-
-		std::complex<double> ret = 0.0;
-		ret += (Eigen::VectorXcd::Ones(V) + std::exp(+beta*B*0.5+beta*mu)*eva).array().log().sum();
-		ret += (Eigen::VectorXcd::Ones(V) + std::exp(-beta*B*0.5+beta*mu)*eva).array().log().sum();
-
-		if (std::cos(ret.imag())<0.99) {
-			//logProbability_complex();
-			std::cout << logDetU_s() << " vs. " << eva.array().log().sum() << " vs. " << evb.array().log().sum() << " vs. " << evc.array().log().sum() << std::endl;
-			std::cout << eva.transpose() << std::endl;
-			std::cout << evc.transpose() << std::endl;
-			std::cout << evc.array().inverse().transpose() << std::endl;
-			std::cout << V << " " << beta*4*(tx+ty+tz) << std::endl;
-			std::cout << "still wrong!" << std::endl;
-			throw("wtf");
-		}
-
-		return ret.real();
-	}
-
-	Eigen::VectorXcd rank1EV_f (int x, int t, const Eigen::MatrixXd &M) {
+	void compute_uv_f (int x, int t) {
 		v_x = Eigen::VectorXd::Zero(V);
 		v_x[x] = 1.0;
 		for (int i=t+1;i<N;i++) {
@@ -327,7 +293,7 @@ class Configuration {
 		v_p = v_p.array() * freePropagator.array();
 		fftw_execute(p2x_vec);
 		v_x /= V;
-		Eigen::VectorXd u = v_x;
+		cache.u = v_x;
 		v_x = Eigen::VectorXd::Zero(V);
 		v_x[x] = 1.0;
 		for (int i=t-1;i>=0;i--) {
@@ -337,20 +303,10 @@ class Configuration {
 			v_x = v_x.array() * (Eigen::VectorXd::Constant(V, 1.0)+diagonals[i]).array();
 			v_x /= V;
 		}
-		Eigen::VectorXd v = v_x;
-		//std::cerr << "beta:" << beta*tx << std::endl;
-		//std::cerr << "u:" << std::endl << u.transpose() << std::endl;
-		//std::cerr << "v:" << std::endl << v.transpose() << std::endl;
-		//accumulate_forward();
-		//std::cerr << "original:" << std::endl << positionSpace << std::endl;
-		//std::cerr << "rank-1:" << std::endl << positionSpace-2*diagonals[t][x]*u*v.transpose() << std::endl;
-		//diagonals[t][x] = -diagonals[t][x];
-		//accumulate_forward();
-		//std::cerr << "plain" << std::endl << positionSpace << std::endl << std::endl;
-		return (M-2*diagonals[t][x]*u*v.transpose()).eigenvalues();
+		cache.v = -2*diagonals[t][x]*v_x;
 	}
 
-	Eigen::VectorXcd rank1EV_b (int x, int t, const Eigen::MatrixXd &M) {
+	void compute_uv_b (int x, int t) {
 		double X = 1-A*A;
 		v_x = Eigen::VectorXd::Zero(V);
 		v_x[x] = 1.0;
@@ -365,7 +321,7 @@ class Configuration {
 		v_p = v_p.array() * freePropagator_b.array();
 		fftw_execute(p2x_vec);
 		v_x /= V;
-		Eigen::VectorXd u = v_x;
+		cache.v_inv = v_x;
 		v_x = Eigen::VectorXd::Zero(V);
 		v_x[x] = 1.0;
 		for (int i=t-1;i>=0;i--) {
@@ -375,25 +331,26 @@ class Configuration {
 			v_x = v_x.array() * (Eigen::VectorXd::Constant(V, 1.0)-diagonals[i]).array();
 			v_x /= V*X;
 		}
-		Eigen::VectorXd v = v_x;
-		//std::cerr << "beta:" << beta*tx << std::endl;
-		//std::cerr << "u:" << std::endl << u.transpose() << std::endl;
-		//std::cerr << "v:" << std::endl << v.transpose() << std::endl;
-		//std::cerr << "original:" << std::endl << M << std::endl;
-		//std::cerr << "rank-1:" << std::endl << M+2*diagonals[t][x]*v*u.transpose()/X << std::endl;
-		//diagonals[t][x] = -diagonals[t][x];
-		//accumulate_backward();
-		//std::cerr << "plain" << std::endl << M << std::endl << std::endl;
-		//throw("end");
-		return (M+2*diagonals[t][x]*v*u.transpose()/X).eigenvalues();
+		cache.u_inv = +2*diagonals[t][x]/X*v_x;
+	}
+
+	Eigen::VectorXcd rank1EV_f (int x, int t, const Eigen::MatrixXd &M) {
+		compute_uv_f(x, t);
+		return (M+cache.u*cache.v.transpose()).eigenvalues();
+	}
+
+	Eigen::VectorXcd rank1EV_b (int x, int t, const Eigen::MatrixXd &M) {
+		compute_uv_b(x, t);
+		return (M+cache.u_inv*cache.v_inv.transpose()).eigenvalues();
 	}
 
 	double rank1prob (int x, int t) {
 		Eigen::VectorXcd eva = Eigen::VectorXcd::Ones(V);
-		accumulate_backward();
-		Eigen::VectorXcd evc = rank1EV_b(x, t, positionSpace);
-		accumulate_forward();
-		Eigen::VectorXcd evb = rank1EV_f(x, t, positionSpace);
+		//accumulate_backward();
+		//U_s_inv = positionSpace;
+		Eigen::VectorXcd evc = rank1EV_b(x, t, U_s_inv);
+		//accumulate_forward();
+		Eigen::VectorXcd evb = rank1EV_f(x, t, U_s);
 		sort_vector(evb);
 		sort_vector(evc);
 		reverse_vector(evc);
@@ -404,23 +361,7 @@ class Configuration {
 				eva[i] = evb[i];
 			}
 		}
-		std::complex<double> c =  eva.array().log().sum();
-		diagonals[t][x] = -diagonals[t][x];
-		double exact = logDetU_s();
-		diagonals[t][x] = -diagonals[t][x];
-		if ( std::cos(c.imag())<0.99 || std::abs(1.0-c.real()/exact)>1.0e-5 ) {
-			std::cout << exact << " vs. " << c << " vs. " << evb.array().log().sum() << " vs. " << evc.array().log().sum() << std::endl;
-			std::cout << eva.transpose() << std::endl;
-			std::cout << evb.transpose() << std::endl;
-			std::cout << evc.transpose() << std::endl;
-			std::cout << evc.array().inverse().transpose() << std::endl;
-			std::cout << V << " " << beta*4*(tx+ty+tz) << std::endl;
-			//logProbability_complex();
-			throw("wtf");
-		}
-		//std::cout << eva.transpose() << std::endl;
-		//std::cout << evb.transpose() << std::endl;
-		//std::cout << evc.transpose() << std::endl;
+		cache.ev = eva;
 		std::complex<double> ret = 0.0;
 		ret += (Eigen::VectorXcd::Ones(V) + std::exp(+beta*B*0.5+beta*mu)*eva).array().log().sum();
 		ret += (Eigen::VectorXcd::Ones(V) + std::exp(-beta*B*0.5+beta*mu)*eva).array().log().sum();
@@ -428,37 +369,41 @@ class Configuration {
 	}
 
 	bool metropolis (int M = 0) {
+		steps++;
 		bool ret = false;
 		int x = randomPosition(generator);
 		int t = randomTime(generator);
-		//double trial1 = rank1prob(x, t);
-		diagonals[t][x] = -diagonals[t][x];
-		double trial = logProbability();
-		//logProbability_complex();
-		//throw "end";
-		//std::cerr << trial << " " << trial1 << std::endl;
-		if (-trialDistribution(generator)<trial-plog) {
-			plog = trial;
-			U_s = positionSpace;
-			ev_s = positionSpace.eigenvalues();
-			ret = true;
-		} else {
-			diagonals[t][x] = -diagonals[t][x];
-			ret = false;
-		}
-		return ret;
-	}
-
-	bool metropolis1 (int M = 0) {
-		bool ret = false;
-		int x = randomPosition(generator);
-		int t = randomTime(generator);
+		double exact = logDetU_s(x, t);
 		double trial = rank1prob(x, t);
+		std::complex<double> c =  cache.ev.array().log().sum();
+		if ( std::cos(c.imag())<0.99 || std::abs(1.0-c.real()/exact)>1.0e-5 ) {
+			std::cerr << " recomputing trial=" << c << " exact=" << exact;
+			accumulate_forward();
+			U_s = positionSpace;
+			accumulate_backward();
+			U_s_inv = positionSpace;
+			trial = rank1prob(x, t);
+			c = cache.ev.array().log().sum();
+			std::cerr << " new =" << c << std::endl;
+		}
+		if ( std::cos(c.imag())<0.99 || std::abs(1.0-c.real()/exact)>1.0e-5 ) {
+			std::cerr << c << std::endl;
+			throw "";
+		}
+		//accumulate_forward();
+		//U_s = positionSpace;
 		if (-trialDistribution(generator)<trial-plog) {
 			plog = trial;
 			diagonals[t][x] = -diagonals[t][x];
-			U_s = positionSpace;
-			ev_s = positionSpace.eigenvalues();
+			//accumulate_forward();
+			//std::cerr << (U_s+cache.u*cache.v.transpose()-positionSpace).norm()/positionSpace.norm()<< std::endl;
+			//U_s = positionSpace;
+			//accumulate_backward();
+			//U_s_inv = positionSpace;
+			//std::cerr << (U_s_inv+cache.u_inv*cache.v_inv.transpose()-positionSpace).norm()/positionSpace.norm()<< std::endl;
+			U_s = U_s+cache.u*cache.v.transpose();
+			U_s_inv = U_s_inv+cache.u_inv*cache.v_inv.transpose();
+			ev_s = cache.ev;
 			ret = true;
 		} else {
 			ret = false;
@@ -471,7 +416,13 @@ class Configuration {
 	}
 
 	void update () {
-		metropolis();
+		for (int i=0;i<10;i++) metropolis();
+		if (steps%1000==0) {
+			accumulate_forward();
+			U_s = positionSpace;
+			accumulate_backward();
+			U_s_inv = positionSpace;
+		}
 	}
 
 	void extract_data (const Eigen::MatrixXd &M, Eigen::ArrayXd &d, Eigen::ArrayXd &d1, Eigen::ArrayXd &d2, double &K) {
@@ -587,22 +538,17 @@ int main (int argc, char **argv) {
 					Configuration configuration(L, i, j);
 					lock.unlock();
 
-					int n = 0;
-					int a = 0;
-					int M = 1;
 					for (int i=0;i<thermalization_sweeps;i++) {
-					if (i%100==0) { std::cout << i << "\r"; std::cout.flush(); }
-					if (configuration.metropolis1()) a++;
-					n++;
+						if (i%100==0) { std::cout << "\r" << i; std::cout.flush(); }
+						configuration.update();
 					}
-					std::cout << thermalization_sweeps << "\n"; std::cout.flush();
+					std::cout << '\r' << thermalization_sweeps << "\n"; std::cout.flush();
 					for (int i=0;i<total_sweeps;i++) {
-						if (i%100==0) { std::cout << i << "\r"; std::cout.flush(); }
-						if (configuration.metropolis1()) a++;
-						n++;
+						if (i%100==0) { std::cout << "\r" << i; std::cout.flush(); }
+						configuration.update();
 						configuration.measure();
 					}
-					std::cout << total_sweeps << "\n"; std::cout.flush();
+					std::cout << '\r' << total_sweeps << "\n"; std::cout.flush();
 					lock.lock();
 					configuration.output_results();
 					lock.unlock();
