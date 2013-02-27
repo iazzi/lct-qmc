@@ -40,8 +40,6 @@ class Configuration {
 	double tx, ty, tz; // nearest neighbour hopping
 	double Vx, Vy, Vz; // trap strength
 
-	int steps;
-
 	std::vector<Eigen::VectorXd> diagonals;
 
 	std::mt19937_64 generator;
@@ -49,6 +47,8 @@ class Configuration {
 	std::uniform_int_distribution<int> randomPosition;
 	std::uniform_int_distribution<int> randomTime;
 	std::exponential_distribution<double> trialDistribution;
+
+	int steps;
 
 	Eigen::VectorXd energies;
 	Eigen::VectorXd freePropagator;

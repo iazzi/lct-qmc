@@ -11,20 +11,25 @@ local t = 0.2
 local L = 4;
 local seed = 42
 local seed = os.time()
+
+local _, threads = (os.getenv("LSB_HOSTS") or ''):gsub("(%S+)", "%1")
+if threads<1 then threads = 1 end
+print("using "..threads.." threads")
+
 for x = 0.1, 1.1, 0.1 do
 	tasks:insert( flip_params{
 		Lx = 8,
-		Ly = 8,
+		Ly = 1,
 		Lz = 1,
 		T = x*t,
 		N = 100/x,
 		tx = 1*t,
-		ty = 0.1*t,
+		ty = 1*t,
 		tz = 1*t,
 		U = 4*t,
 		mu = 0.0,
 		B = 0.0,
-		THREADS = 1,
+		THREADS = threads,
 		THERMALIZATION = 10000,
 		SWEEPS = 100000,
 		SEED = seed,
