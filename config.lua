@@ -19,7 +19,7 @@ for x = 0.1, 1.1, 0.1 do
 		T = x*t,
 		N = 100/x,
 		tx = 1*t,
-		ty = 1*t,
+		ty = 0.1*t,
 		tz = 1*t,
 		U = 4*t,
 		mu = 0.0,
@@ -28,7 +28,8 @@ for x = 0.1, 1.1, 0.1 do
 		THERMALIZATION = 10000,
 		SWEEPS = 100000,
 		SEED = seed,
-		OUTPUT = 'U4_L8x8_T'..tostring(x)..'_last.dat',
+		OUTPUT = 'last_',
+		RESET = true,
 	} )
 end
 

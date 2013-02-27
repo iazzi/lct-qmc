@@ -38,6 +38,7 @@ class Configuration {
 	double A; // sqrt(exp(g*dt)-1)
 	double B; // magnetic field
 	double tx, ty, tz; // nearest neighbour hopping
+	double Vx, Vy, Vz; // trap strength
 
 	int steps;
 
@@ -52,6 +53,8 @@ class Configuration {
 	Eigen::VectorXd energies;
 	Eigen::VectorXd freePropagator;
 	Eigen::VectorXd freePropagator_b;
+	Eigen::VectorXd freePropagator_x;
+	Eigen::VectorXd freePropagator_x_b;
 
 	Eigen::MatrixXd positionSpace; // current matrix in position space
 	Eigen::MatrixXcd momentumSpace;
@@ -73,6 +76,7 @@ class Configuration {
 	mymeasurement<double> m_dens;
 	mymeasurement<double> m_magn;
 
+	bool reset;
 	std::string outfn;
 
 	Eigen::MatrixXd U_s;
@@ -171,9 +175,13 @@ class Configuration {
 		lua_getfield(L, index, "tx");   tx = lua_tonumber(L, -1);                  lua_pop(L, 1);
 		lua_getfield(L, index, "ty");   ty = lua_tonumber(L, -1);                  lua_pop(L, 1);
 		lua_getfield(L, index, "tz");   tz = lua_tonumber(L, -1);                  lua_pop(L, 1);
+		lua_getfield(L, index, "Vx");   Vx = lua_tonumber(L, -1);                  lua_pop(L, 1);
+		lua_getfield(L, index, "Vy");   Vy = lua_tonumber(L, -1);                  lua_pop(L, 1);
+		lua_getfield(L, index, "Vz");   Vz = lua_tonumber(L, -1);                  lua_pop(L, 1);
 		lua_getfield(L, index, "U");    g = -lua_tonumber(L, -1);                  lua_pop(L, 1); // FIXME: check this // should be right as seen in A above
 		lua_getfield(L, index, "mu");   mu = lua_tonumber(L, -1);                  lua_pop(L, 1);
 		lua_getfield(L, index, "B");    B = lua_tonumber(L, -1);                   lua_pop(L, 1);
+		lua_getfield(L, index, "RESET");  reset = lua_toboolean(L, -1);            lua_pop(L, 1);
 		lua_getfield(L, index, "OUTPUT");  outfn = lua_tostring(L, -1);            lua_pop(L, 1);
 		init();
 	}
@@ -488,7 +496,10 @@ class Configuration {
 	int timeSlices () { return N; }
 
 	void output_results () {
-		std::ofstream out (outfn, std::ios::app);
+		std::ostringstream buf(outfn);
+		buf << "U" << g << "_T" << 1.0/(beta*tx) << '_' << Lx << 'x' << Ly << 'x' << Lz << ".dat";
+		outfn = buf.str();
+		std::ofstream out(outfn, reset?std::ios::trunc:std::ios::app);
 		out << "# T mu N \\Delta N^2 M \\Delta M^2" << std::endl;
 		for (size_t i=0;i<fields.size();i++) {
 			out << 1.0/(beta*tx) << ' ' << 0.5*(fields[i]+g)/tx
