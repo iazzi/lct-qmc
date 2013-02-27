@@ -26,7 +26,7 @@ extern "C" {
 
 static const double pi = 3.141592653589793238462643383279502884197;
 
-class Configuration {
+class Simulation {
 	private:
 	int Lx, Ly, Lz; // size of the system
 	int V; // volume of the system
@@ -165,7 +165,7 @@ class Configuration {
 		}
 	}
 
-	Configuration (lua_State *L, int index, int seed = 42) : distribution(0.5), trialDistribution(1.0), steps(0) {
+	Simulation (lua_State *L, int index, int seed = 42) : distribution(0.5), trialDistribution(1.0), steps(0) {
 		lua_getfield(L, index, "SEED"); generator.seed(lua_tointeger(L, -1)+seed); lua_pop(L, 1);
 		lua_getfield(L, index, "Lx");   this->Lx = lua_tointeger(L, -1);           lua_pop(L, 1);
 		lua_getfield(L, index, "Ly");   this->Ly = lua_tointeger(L, -1);           lua_pop(L, 1);
@@ -512,7 +512,7 @@ class Configuration {
 		out << std::endl;
 	}
 
-	~Configuration () {
+	~Simulation () {
 		fftw_destroy_plan(x2p_vec);
 		fftw_destroy_plan(p2x_vec);
 		fftw_destroy_plan(x2p_col);
@@ -546,22 +546,22 @@ int main (int argc, char **argv) {
 			threads[j] = std::thread( [=,&lock] () {
 					try {
 					lock.lock();
-					Configuration configuration(L, i, j);
+					Simulation simulation(L, i, j);
 					lock.unlock();
 
 					for (int i=0;i<thermalization_sweeps;i++) {
 						if (i%100==0) { std::cout << "\r" << i; std::cout.flush(); }
-						configuration.update();
+						simulation.update();
 					}
 					std::cout << '\r' << thermalization_sweeps << "\n"; std::cout.flush();
 					for (int i=0;i<total_sweeps;i++) {
 						if (i%100==0) { std::cout << "\r" << i; std::cout.flush(); }
-						configuration.update();
-						configuration.measure();
+						simulation.update();
+						simulation.measure();
 					}
 					std::cout << '\r' << total_sweeps << "\n"; std::cout.flush();
 					lock.lock();
-					configuration.output_results();
+					simulation.output_results();
 					lock.unlock();
 					} catch (...) { std::cerr << "caught exception in main() " << std::endl; }
 			});
