@@ -151,7 +151,6 @@ class Simulation {
 		U_s = positionSpace;
 		accumulate_backward();
 		U_s_inv = positionSpace;
-		//plog = logProbability();
 		plog = -1.0e-10;
 
 		for (int i=-15;i<30;i++) {
@@ -196,8 +195,6 @@ class Simulation {
 		if (x>=0 && t>=0) {
 			nspinup += diagonals[t][x]>0.0?-1:+1;
 		}
-		//std::cerr << "nspinup " << nspinup << " nspindn " << (N*V-nspinup) << std::endl;
-		//std::cerr << "free_contrib = " << freePropagator.array().log().sum() << std::endl;
 		return nspinup*std::log(1.0+A) + (N*V-nspinup)*std::log(1.0-A);
 	}
 
@@ -211,7 +208,6 @@ class Simulation {
 			momentumSpace.applyOnTheLeft(freePropagator.asDiagonal());
 			fftw_execute(p2x_col);
 			positionSpace /= V;
-			//std::cerr << "free_contrib = " << freePropagator.array().log().sum() << std::endl;
 		}
 	}
 
@@ -229,25 +225,6 @@ class Simulation {
 		}
 	}
 
-	double logProbability_simple () {
-		double X = 1.0 - A*A;
-		double Y = pow(X, N);
-		accumulate_forward(0, N);
-		Eigen::MatrixXd U_s = positionSpace;
-		accumulate_backward(0, N);
-		std::cout << std::endl;
-		std::cout << N << std::endl;
-		std::cout << X << std::endl;
-		std::cout << Y << std::endl;
-		std::cout << U_s*positionSpace << std::endl << std::endl;
-		std::cout << positionSpace*U_s << std::endl << std::endl;
-		std::cout << U_s.eigenvalues().transpose() << std::endl;
-		std::cout << positionSpace.eigenvalues().transpose() << std::endl;
-		std::cout << positionSpace.eigenvalues().array().inverse().transpose() << std::endl;
-		std::cout << std::endl;
-		return 0.0;
-	}
-
 	double logProbability_complex () {
 		const int M = 30;
 		std::vector<Eigen::MatrixXd> fvec;
@@ -262,29 +239,6 @@ class Simulation {
 		}
 		test_sequences(fvec, bvec);
 		return 0.0;
-	}
-
-	void sort_vector (Eigen::VectorXcd &v) {
-		const int N = v.size();
-		for (int i=0;i<N;i++) {
-			for (int j=i+1;j<N;j++) {
-				if (std::norm(v[i])<std::norm(v[j])) {
-					std::complex<double> x = v[j];
-					v[j] = v[i];
-					v[i] = x;
-				}
-			}
-		}
-	}
-
-	void reverse_vector (Eigen::VectorXcd &v) {
-		const int N = v.size();
-		for (int i=0;i<N/2;i++) {
-			const int j = N-i-1;
-			std::complex<double> x = v[j];
-			v[j] = v[i];
-			v[i] = x;
-		}
 	}
 
 	void compute_uv_f (int x, int t) {
@@ -354,10 +308,7 @@ class Simulation {
 
 	double rank1prob (int x, int t) {
 		Eigen::VectorXcd eva = Eigen::VectorXcd::Ones(V);
-		//accumulate_backward();
-		//U_s_inv = positionSpace;
 		Eigen::VectorXcd evc = rank1EV_b(x, t, U_s_inv);
-		//accumulate_forward();
 		Eigen::VectorXcd evb = rank1EV_f(x, t, U_s);
 		sort_vector(evb);
 		sort_vector(evc);
@@ -394,21 +345,40 @@ class Simulation {
 			c = cache.ev.array().log().sum();
 			std::cerr << " new =" << c << std::endl;
 		}
-		if ( std::cos(c.imag())<0.99 || std::abs(1.0-c.real()/exact)>1.0e-5 ) {
-			std::cerr << c << std::endl;
+		if ( std::cos(c.imag())<0.99 || std::abs(1.0-c.real()/exact)>1.0e-4 ) {
+			Eigen::VectorXcd eva = Eigen::VectorXcd::Ones(V);
+			diagonals[t][x] = -diagonals[t][x];
+			accumulate_forward();
+			Eigen::VectorXcd evb = positionSpace.eigenvalues();
+			accumulate_backward();
+			Eigen::VectorXcd evc = positionSpace.eigenvalues();
+			diagonals[t][x] = -diagonals[t][x];
+			sort_vector(evb);
+			sort_vector(evc);
+			reverse_vector(evc);
+			for (int i=0;i<V;i++) {
+				if (std::norm(evb[i]/evb[0])<std::norm(evc[i]/evc[V-1])) {
+					eva[i] = 1.0/evc[i];
+				} else {
+					eva[i] = evb[i];
+				}
+			}
+			cache.ev = eva;
+			std::complex<double> ret = 0.0;
+			ret += (Eigen::VectorXcd::Ones(V) + std::exp(+beta*B*0.5+beta*mu)*eva).array().log().sum();
+			ret += (Eigen::VectorXcd::Ones(V) + std::exp(-beta*B*0.5+beta*mu)*eva).array().log().sum();
+			trial = ret.real();
+			c = cache.ev.array().log().sum();
+			std::cerr << " newest=" << c << std::endl;
+		}
+		if ( std::cos(c.imag())<0.99 || std::abs(1.0-c.real()/exact)>1.0e-3 ) {
+			accumulate_forward();
+			logProbability_complex();
 			throw "";
 		}
-		//accumulate_forward();
-		//U_s = positionSpace;
 		if (-trialDistribution(generator)<trial-plog) {
 			plog = trial;
 			diagonals[t][x] = -diagonals[t][x];
-			//accumulate_forward();
-			//std::cerr << (U_s+cache.u*cache.v.transpose()-positionSpace).norm()/positionSpace.norm()<< std::endl;
-			//U_s = positionSpace;
-			//accumulate_backward();
-			//U_s_inv = positionSpace;
-			//std::cerr << (U_s_inv+cache.u_inv*cache.v_inv.transpose()-positionSpace).norm()/positionSpace.norm()<< std::endl;
 			U_s = U_s+cache.u*cache.v.transpose();
 			U_s_inv = U_s_inv+cache.u_inv*cache.v_inv.transpose();
 			ev_s = cache.ev;
@@ -455,26 +425,18 @@ class Simulation {
 		Eigen::ArrayXd d2_up, d2_dn;
 		double K_up, K_dn;
 		double n_up, n_dn, n2;
-		//extract_data(Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(+beta*B*0.5+beta*mu)*U_s).inverse(), d_up, d1_up, d2_up, K_up);
-		//extract_data(Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(-beta*B*0.5+beta*mu)*U_s).inverse(), d_dn, d1_dn, d2_dn, K_dn);
-		//n_up = d_up.sum();
-		//n_dn = d_dn.sum();
-		//n2 = (d_up*d_dn).sum();
-		//if (std::isnan(n_up) || std::isinf(n_up)) {
-			//throw(9);
-		//}
-		//m_dens.add( (n_up + n_dn) / V );
-		//m_magn.add( (n_up - n_dn) / 2.0 / V );
 		for (size_t i=0;i<fields.size();i++) {
 			double B = fields[i];
 			std::complex<double> ret = 0.0;
 			ret += (1.0 + std::exp(+beta*B*0.5+beta*mu)*ev_s.array()).log().sum();
 			ret += (1.0 + std::exp(-beta*B*0.5+beta*mu)*ev_s.array()).log().sum();
 			double w = std::exp(ret-plog).real();
-			extract_data(Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(+beta*B*0.5+beta*mu)*U_s).inverse(), d_up, d1_up, d2_up, K_up);
-			extract_data(Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(-beta*B*0.5+beta*mu)*U_s).inverse(), d_dn, d1_dn, d2_dn, K_dn);
-			n_up = d_up.sum();
-			n_dn = d_dn.sum();
+			//extract_data(Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(+beta*B*0.5+beta*mu)*U_s).inverse(), d_up, d1_up, d2_up, K_up);
+			extract_data((Eigen::MatrixXd::Identity(V, V) + exp(-beta*B*0.5-beta*mu)*U_s_inv).inverse(), d_up, d1_up, d2_up, K_up);
+			//extract_data(Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(-beta*B*0.5+beta*mu)*U_s).inverse(), d_dn, d1_dn, d2_dn, K_dn);
+			extract_data((Eigen::MatrixXd::Identity(V, V) + exp(+beta*B*0.5-beta*mu)*U_s_inv).inverse(), d_dn, d1_dn, d2_dn, K_dn);
+			n_up = ( std::exp(+beta*B*0.5+beta*mu)*ev_s.array()*(1.0 + std::exp(+beta*B*0.5+beta*mu)*ev_s.array()).inverse() ).sum().real();
+			n_dn = ( std::exp(-beta*B*0.5+beta*mu)*ev_s.array()*(1.0 + std::exp(-beta*B*0.5+beta*mu)*ev_s.array()).inverse() ).sum().real();
 			n2 = (d_up*d_dn).sum();
 			if (std::cos(ret.imag())<0.99 && std::cos(ret.imag())>0.01) {
 				//throw 1;
@@ -496,8 +458,8 @@ class Simulation {
 	int timeSlices () { return N; }
 
 	void output_results () {
-		std::ostringstream buf(outfn);
-		buf << "U" << g << "_T" << 1.0/(beta*tx) << '_' << Lx << 'x' << Ly << 'x' << Lz << ".dat";
+		std::ostringstream buf;
+		buf << outfn << "U" << (g/tx) << "_T" << 1.0/(beta*tx) << '_' << Lx << 'x' << Ly << 'x' << Lz << ".dat";
 		outfn = buf.str();
 		std::ofstream out(outfn, reset?std::ios::trunc:std::ios::app);
 		out << "# T mu N \\Delta N^2 M \\Delta M^2" << std::endl;
@@ -510,6 +472,10 @@ class Simulation {
 				<< ' ' << spincorrelation[i].mean()/V << ' ' << spincorrelation[i].variance() << std::endl;
 		}
 		out << std::endl;
+	}
+
+	double params () {
+		return 1.0/(beta*tx);
 	}
 
 	~Simulation () {
@@ -528,7 +494,11 @@ using namespace std;
 int main (int argc, char **argv) {
 	lua_State *L = luaL_newstate();
 	luaL_openlibs(L);
-	luaL_dofile(L, argv[1]);
+	if (luaL_dofile(L, argv[1])) {
+		std::cerr << "Error loading configuration file \"" << argv[1] << "\":" << std::endl;
+		std::cerr << '\t' << lua_tostring(L, -1) << std::endl;
+		return -1;
+	}
 
 	for (int i=1;i<=lua_gettop(L);i++) {
 		lua_getfield(L, i, "THREADS");
@@ -544,26 +514,29 @@ int main (int argc, char **argv) {
 		std::mutex lock;
 		for (int j=0;j<nthreads;j++) {
 			threads[j] = std::thread( [=,&lock] () {
-					try {
 					lock.lock();
 					Simulation simulation(L, i, j);
 					lock.unlock();
+					try {
 
-					for (int i=0;i<thermalization_sweeps;i++) {
-						if (i%100==0) { std::cout << "\r" << i; std::cout.flush(); }
-						simulation.update();
+						for (int i=0;i<thermalization_sweeps;i++) {
+							if (i%100==0) { std::cout << "\r" << i; std::cout.flush(); }
+							simulation.update();
+						}
+						std::cout << '\r' << thermalization_sweeps << "\n"; std::cout.flush();
+						for (int i=0;i<total_sweeps;i++) {
+							if (i%100==0) { std::cout << "\r" << i; std::cout.flush(); }
+							simulation.update();
+							simulation.measure();
 					}
-					std::cout << '\r' << thermalization_sweeps << "\n"; std::cout.flush();
-					for (int i=0;i<total_sweeps;i++) {
-						if (i%100==0) { std::cout << "\r" << i; std::cout.flush(); }
-						simulation.update();
-						simulation.measure();
+						std::cout << '\r' << total_sweeps << "\n"; std::cout.flush();
+						lock.lock();
+						simulation.output_results();
+						lock.unlock();
+					} catch (...) {
+						std::cerr << "caught exception in main() " << std::endl;
+						std::cerr << " with params " << simulation.params() << std::endl;
 					}
-					std::cout << '\r' << total_sweeps << "\n"; std::cout.flush();
-					lock.lock();
-					simulation.output_results();
-					lock.unlock();
-					} catch (...) { std::cerr << "caught exception in main() " << std::endl; }
 			});
 		}
 		for (std::thread& t : threads) t.join();

@@ -38,6 +38,29 @@ void dggev (const Eigen::MatrixXd &A, const Eigen::MatrixXd &B, Eigen::VectorXcd
 	}
 }
 
+void sort_vector (Eigen::VectorXcd &v) {
+	const int N = v.size();
+	for (int i=0;i<N;i++) {
+		for (int j=i+1;j<N;j++) {
+			if (std::norm(v[i])<std::norm(v[j])) {
+				std::complex<double> x = v[j];
+				v[j] = v[i];
+				v[i] = x;
+			}
+		}
+	}
+}
+
+void reverse_vector (Eigen::VectorXcd &v) {
+	const int N = v.size();
+	for (int i=0;i<N/2;i++) {
+		const int j = N-i-1;
+		std::complex<double> x = v[j];
+		v[j] = v[i];
+		v[i] = x;
+	}
+}
+
 Eigen::MatrixXd reduce_f (const std::vector<Eigen::MatrixXd>& vec) {
 	assert(vec[0].rows()==vec[0].cols());
 	const int V = vec[0].rows();
@@ -94,32 +117,22 @@ Eigen::VectorXcd get_ev_from_qd (const Eigen::MatrixXd &Q, const Eigen::VectorXd
 
 Eigen::VectorXcd merge_ev (Eigen::VectorXcd ev1, Eigen::VectorXcd ev2) {
 	assert(ev1.size()==ev2.size());
-	const int N = ev1.size();
-	for (int i=0;i<N;i++) {
-		for (int j=i+1;j<N;j++) {
-			if (std::norm(ev1[i])<std::norm(ev1[j])) {
-				std::complex<double> x = ev1[j];
-				ev1[j] = ev1[i];
-				ev1[i] = x;
-			}
-			if (std::norm(ev2[i])>std::norm(ev2[j])) {
-				std::complex<double> x = ev2[j];
-				ev2[j] = ev2[i];
-				ev2[i] = x;
-			}
-		}
-	}
-	Eigen::VectorXcd ret = Eigen::VectorXcd::Zero(N);
-	for (int i=0;i<N;i++) {
-		if (std::norm(ev1[i]/ev1[0])>std::norm(ev2[i]/ev2[N-1])) {
-			ret[i] = ev1[i];
-		} else if (std::norm(ev1[i]/ev1[0])<std::norm(ev2[i]/ev2[N-1])) {
+	const int V = ev1.size();
+	sort_vector(ev1);
+	sort_vector(ev2);
+	reverse_vector(ev2);
+	Eigen::VectorXcd ret = Eigen::VectorXcd::Zero(V);
+	std::complex<double> lnr = 0.0;
+	for (int i=0;i<V;i++) {
+		if (std::norm(ev1[i]/ev1[0])<std::norm(ev2[i]/ev2[V-1])) {
 			ret[i] = 1.0/ev2[i];
+			lnr -= std::log(ev2[i]);
 		} else {
-			std::cerr << std::norm(ev1[i]/ev1[0]) << ' ' << std::norm(ev2[i]/ev2[N-1]) << std::endl;
-			throw "problem";
+			ret[i] = ev1[i];
+			lnr += std::log(ev1[i]);
 		}
 	}
+	std::cerr << "guess log = " << lnr << std::endl;
 	return ret;
 }
 
@@ -169,6 +182,7 @@ Eigen::MatrixXd reduceSVD_f (std::vector<Eigen::MatrixXd>& vec) {
 	}
 	Eigen::VectorXcd ev1, ev2;
 	std::cerr << Z.diagonal().transpose() << std::endl;
+	std::cerr << "alt guess = " << D.array().log().sum() << std::endl;
 	Eigen::VectorXcd eva;
 	Eigen::VectorXd evb;
 	dggev(Z, Y.transpose()*ret.transpose(), eva, evb);
@@ -227,24 +241,24 @@ void test_sequences (std::vector<Eigen::MatrixXd>& fvec, std::vector<Eigen::Matr
 	assert(fvec[0].rows()==bvec[0].rows());
 	const int V = fvec[0].rows();
 	for (int i=0;i<N;i++) {
-		std::cerr << i << "th pair are inverse? " << (fvec[i]*bvec[i]).eval().isIdentity() << ", " << (bvec[i]*fvec[i]).eval().isIdentity() << std::endl;
+		//std::cerr << i << "th pair are inverse? " << (fvec[i]*bvec[i]).eval().isIdentity() << ", " << (bvec[i]*fvec[i]).eval().isIdentity() << std::endl;
 	}
 	Eigen::MatrixXd fp = reduce_f(fvec);
 	Eigen::MatrixXd bp = reduce_b(bvec);
 	std::cerr << "straight products are inverse? " << (fp*bp).eval().isIdentity(1e-3) << ", " << (bp*fp).eval().isIdentity(1e-3) << std::endl;
-	std::cerr << fp << std::endl << std::endl << bp << std::endl << std::endl;
+	//std::cerr << fp << std::endl << std::endl << bp << std::endl << std::endl;
 	std::cerr << "SVDs: " << std::endl << fp.jacobiSvd().singularValues().transpose() << std::endl << bp.jacobiSvd().singularValues().array().inverse().transpose() << std::endl;
 	std::cerr << "EVs: " << std::endl << fp.eigenvalues().transpose() << std::endl << bp.eigenvalues().array().transpose() << std::endl;
 	fp.setIdentity(V, V);
 	bp.setIdentity(V, V);
 	for (int i=0;i<N;i++) {
-		fp.applyOnTheLeft(fvec[i]);
-		bp.applyOnTheRight(bvec[i]);
-		std::cerr << i << "th accumulated products are inverse? " << (fp*bp).eval().isIdentity(1e-3) << ", " << (bp*fp).eval().isIdentity(1e-3) << std::endl;
+		//fp.applyOnTheLeft(fvec[i]);
+		//bp.applyOnTheRight(bvec[i]);
+		//std::cerr << i << "th accumulated products are inverse? " << (fp*bp).eval().isIdentity(1e-3) << ", " << (bp*fp).eval().isIdentity(1e-3) << std::endl;
 	}
 	fp = reduceSVD_f(fvec);
 	bp = reduceSVD_b(bvec);
 	std::cerr << "SVD products are inverse? " << (fp*bp).eval().isIdentity(1e-3) << ", " << (bp*fp).eval().isIdentity(1e-3) << std::endl;
-	std::cerr << fp << std::endl << std::endl << bp << std::endl << std::endl << fp*bp << std::endl << std::endl;
+	//std::cerr << fp << std::endl << std::endl << bp << std::endl << std::endl << fp*bp << std::endl << std::endl;
 }
 
