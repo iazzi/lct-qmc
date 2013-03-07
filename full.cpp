@@ -22,9 +22,14 @@ extern "C" {
 }
 
 #include <Eigen/Dense>
+#include <Eigen/Eigenvalues>
 #include <Eigen/QR>
 
 static const double pi = 3.141592653589793238462643383279502884197;
+
+typedef Eigen::MatrixXd Matrix_d;
+typedef Eigen::VectorXd Vector_d;
+typedef Eigen::VectorXcd Vector_cd;
 
 class Simulation {
 	private:
@@ -77,7 +82,9 @@ class Simulation {
 	mymeasurement<double> m_magn;
 
 	bool reset;
+	int reweight;
 	std::string outfn;
+	std::ofstream logfile;
 
 	Eigen::MatrixXd U_s;
 	Eigen::MatrixXd U_s_inv;
@@ -113,6 +120,7 @@ class Simulation {
 		for (size_t i=0;i<diagonals.size();i++) {
 			for (int j=0;j<V;j++) {
 				diagonals[i][j] = distribution(generator)?A:-A;
+				//diagonals[i][j] = A;
 			}
 		}
 		v_x = Eigen::VectorXd::Zero(V);
@@ -153,7 +161,7 @@ class Simulation {
 		U_s_inv = positionSpace;
 		plog = -1.0e-10;
 
-		for (int i=-15;i<30;i++) {
+		for (int i=-reweight;i<=reweight;i++) {
 			double f = B + double(i)/10.0;
 			fields.push_back(f);
 			densities.push_back(weighted_measurement<double>());
@@ -181,7 +189,9 @@ class Simulation {
 		lua_getfield(L, index, "mu");   mu = lua_tonumber(L, -1);                  lua_pop(L, 1);
 		lua_getfield(L, index, "B");    B = lua_tonumber(L, -1);                   lua_pop(L, 1);
 		lua_getfield(L, index, "RESET");  reset = lua_toboolean(L, -1);            lua_pop(L, 1);
+		lua_getfield(L, index, "REWEIGHT");  reweight = lua_tointeger(L, -1);      lua_pop(L, 1);
 		lua_getfield(L, index, "OUTPUT");  outfn = lua_tostring(L, -1);            lua_pop(L, 1);
+		lua_getfield(L, index, "LOGFILE");  logfile.open(lua_tostring(L, -1));     lua_pop(L, 1);
 		init();
 	}
 
@@ -335,8 +345,14 @@ class Simulation {
 		double exact = logDetU_s(x, t);
 		double trial = rank1prob(x, t);
 		std::complex<double> c =  cache.ev.array().log().sum();
+
+		Eigen::VectorXcd ev1, ev2, ev3;
+
+		//ev1 = cache.ev;
+		//logfile << exact << ' ' << cache.ev.array().log().sum().real() << ' ' << std::norm(cache.ev[0]/cache.ev[V-1]);
+
 		if ( std::cos(c.imag())<0.99 || std::abs(1.0-c.real()/exact)>1.0e-5 ) {
-			std::cerr << " recomputing trial=" << c << " exact=" << exact;
+			std::cerr << " recomputing exact = " << exact << " trial=" << c;
 			accumulate_forward();
 			U_s = positionSpace;
 			accumulate_backward();
@@ -344,7 +360,11 @@ class Simulation {
 			trial = rank1prob(x, t);
 			c = cache.ev.array().log().sum();
 			std::cerr << " new =" << c << std::endl;
+			std::cerr << "CN = " << cache.ev[0]/cache.ev[V-1] << std::endl;
 		}
+		//ev2 = cache.ev;
+		//logfile << ' ' << cache.ev.array().log().sum().real() << ' ' << std::norm(cache.ev[0]/cache.ev[V-1]);
+
 		if ( std::cos(c.imag())<0.99 || std::abs(1.0-c.real()/exact)>1.0e-4 ) {
 			Eigen::VectorXcd eva = Eigen::VectorXcd::Ones(V);
 			diagonals[t][x] = -diagonals[t][x];
@@ -371,7 +391,16 @@ class Simulation {
 			c = cache.ev.array().log().sum();
 			std::cerr << " newest=" << c << std::endl;
 		}
+		//ev3 = cache.ev;
+		//logfile << ' ' << cache.ev.array().log().sum().real() << ' ' << std::norm(cache.ev[0]/cache.ev[V-1]);
+		//logfile << std::endl;
+
 		if ( std::cos(c.imag())<0.99 || std::abs(1.0-c.real()/exact)>1.0e-3 ) {
+			std::cerr << exact << ' ' << ev1.array().log().sum().real() << ' ' << ev2.array().log().sum().real() << ' ' << ev3.array().log().sum().real() << std::endl;
+			std::cerr << std::endl << ev1.transpose() << std::endl;
+			std::cerr << ev2.transpose() << std::endl;
+			std::cerr << ev3.transpose() << std::endl << std::endl;
+			diagonals[t][x] = -diagonals[t][x];
 			accumulate_forward();
 			logProbability_complex();
 			throw "";
