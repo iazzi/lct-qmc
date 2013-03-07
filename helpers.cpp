@@ -61,6 +61,35 @@ void reverse_vector (Eigen::VectorXcd &v) {
 	}
 }
 
+void sort_vector (Eigen::VectorXcd &v, Eigen::VectorXd &u) {
+	const int N = v.size();
+	for (int i=0;i<N;i++) {
+		for (int j=i+1;j<N;j++) {
+			if (std::norm(u[i]*v[j])<std::norm(u[j]*v[i])) {
+				std::complex<double> x = v[j];
+				v[j] = v[i];
+				v[i] = x;
+				double y = u[j];
+				u[j] = u[i];
+				u[i] = y;
+			}
+		}
+	}
+}
+
+void reverse_vector (Eigen::VectorXcd &v, Eigen::VectorXd &u) {
+	const int N = v.size();
+	for (int i=0;i<N/2;i++) {
+		const int j = N-i-1;
+		std::complex<double> x = v[j];
+		v[j] = v[i];
+		v[i] = x;
+		double y = u[j];
+		u[j] = u[i];
+		u[i] = y;
+	}
+}
+
 Eigen::MatrixXd reduce_f (const std::vector<Eigen::MatrixXd>& vec) {
 	assert(vec[0].rows()==vec[0].cols());
 	const int V = vec[0].rows();
@@ -81,40 +110,6 @@ Eigen::MatrixXd reduce_b (const std::vector<Eigen::MatrixXd>& vec) {
 	return ret;
 }
 
-void order_evs (Eigen::VectorXcd &ev1, Eigen::VectorXcd &ev2) {
-	assert(ev1.size()==ev2.size());
-	const int N = ev1.size();
-	for (int i=0;i<N;i++) {
-		for (int j=i+1;j<N;j++) {
-			if (std::norm(ev1[i])<std::norm(ev1[j])) {
-				std::complex<double> x = ev1[j];
-				ev1[j] = ev1[i];
-				ev1[i] = x;
-			}
-			if (std::norm(ev2[i])>std::norm(ev2[j])) {
-				std::complex<double> x = ev2[j];
-				ev2[j] = ev2[i];
-				ev2[i] = x;
-			}
-		}
-	}
-}
-
-Eigen::VectorXcd get_ev_from_qd (const Eigen::MatrixXd &Q, const Eigen::VectorXd &D) {
-	assert(Q.rows()==Q.cols());
-	assert(D.rows()==Q.cols());
-	const int V = Q.rows();
-	Eigen::VectorXcd ev1, ev2;
-	Eigen::VectorXcd eva;
-	Eigen::VectorXd evb;
-	dggev(Q, D.asDiagonal(), eva, evb);
-	ev1 = eva.array()/evb.cast<std::complex<double>>().array();
-	dggev(Q.transpose(), D.array().inverse().matrix().asDiagonal(), eva, evb);
-	ev2 = eva.array()/evb.cast<std::complex<double>>().array();
-	order_evs(ev1, ev2);
-	return ev1;
-}
-
 Eigen::VectorXcd merge_ev (Eigen::VectorXcd ev1, Eigen::VectorXcd ev2) {
 	assert(ev1.size()==ev2.size());
 	const int V = ev1.size();
@@ -132,6 +127,31 @@ Eigen::VectorXcd merge_ev (Eigen::VectorXcd ev1, Eigen::VectorXcd ev2) {
 			lnr += std::log(ev1[i]);
 		}
 	}
+	std::cerr << "guess evs = " << ret.transpose() << std::endl;
+	std::cerr << "guess log = " << lnr << std::endl;
+	return ret;
+}
+
+Eigen::VectorXcd merge_ev_g (Eigen::VectorXcd eva1, Eigen::VectorXd evb1, Eigen::VectorXcd eva2, Eigen::VectorXd evb2) {
+	assert(eva1.size()==eva2.size());
+	assert(eva1.size()==evb1.size());
+	assert(eva2.size()==evb2.size());
+	const int V = eva1.size();
+	sort_vector(eva1, evb1);
+	sort_vector(eva2, evb2);
+	reverse_vector(eva2, evb2);
+	Eigen::VectorXcd ret = Eigen::VectorXcd::Zero(V);
+	std::complex<double> lnr = 0.0;
+	for (int i=0;i<V;i++) {
+		if (std::norm(eva1[i]*evb1[0]/eva1[0]/evb1[i])>std::norm(eva2[i]*evb2[V-1]/eva2[V-1]/evb2[i])) {
+			ret[i] = evb2[i]/eva2[i];
+			lnr -= std::log(eva2[i]) - std::log(evb2[i]);
+		} else {
+			ret[i] = eva1[i]/evb1[i];
+			lnr += std::log(eva1[i]) - std::log(evb1[i]);
+		}
+	}
+	std::cerr << "guess evs = " << ret.transpose() << std::endl;
 	std::cerr << "guess log = " << lnr << std::endl;
 	return ret;
 }
@@ -183,30 +203,35 @@ Eigen::MatrixXd reduceSVD_f (std::vector<Eigen::MatrixXd>& vec) {
 	Eigen::VectorXcd ev1, ev2;
 	std::cerr << Z.diagonal().transpose() << std::endl;
 	std::cerr << "alt guess = " << D.array().log().sum() << std::endl;
-	Eigen::VectorXcd eva;
-	Eigen::VectorXd evb;
-	dggev(Z, Y.transpose()*ret.transpose(), eva, evb);
-	std::cerr << (eva.array()/evb.cast<std::complex<double>>().array()).transpose() << std::endl;
-	dggev(Y.transpose()*ret.transpose(), Z, eva, evb);
-	ev1 = evb.cast<std::complex<double>>().array()/eva.array();
-	std::cerr << (evb.cast<std::complex<double>>().array()/eva.array()).transpose() << std::endl;
-	dggev(D.inverse().matrix().asDiagonal(), Y.transpose()*ret.transpose(), eva, evb);
-	std::cerr << (eva.array()/evb.cast<std::complex<double>>().array()).transpose() << std::endl;
-	dggev(Y.transpose()*ret.transpose(), D.inverse().matrix().asDiagonal(), eva, evb);
-	ev2 = evb.cast<std::complex<double>>().array()/eva.array();
-	std::cerr << (evb.cast<std::complex<double>>().array()/eva.array()).transpose() << std::endl;
-	Eigen::VectorXcd ev3 = merge_ev(ev1, ev2);
-	std::complex<double> p1 = 1.0;
-	std::complex<double> p2 = 1.0;
-	std::complex<double> p3 = 1.0;
-	double s = 1.0;
-	for (int i=0;i<ev3.size()/2;i++) {
-		p1 *= ev1[i] * ev1[ev1.size()-1-i];
-		p2 *= ev2[i] * ev2[ev2.size()-1-i];
-		p3 *= ev3[i] * ev3[ev3.size()-1-i];
-		s *= D[i] * D[D.size()-1-i];
-	}
-	std::cerr << p1 << ' ' << p2 << ' ' << p3 << ' ' << s << std::endl;
+	Eigen::VectorXcd eva1, eva2;
+	Eigen::VectorXd evb1, evb2;
+
+	//dggev(Y.transpose()*ret.transpose(), Z, eva1, evb1);
+	//ev1 = evb1.cast<std::complex<double>>().array()/eva1.array();
+	//std::cerr << (evb1.cast<std::complex<double>>().array()/eva1.array()).transpose() << std::endl;
+	//dggev(Y.transpose()*ret.transpose(), D.inverse().matrix().asDiagonal(), eva2, evb2);
+	//ev2 = evb2.cast<std::complex<double>>().array()/eva2.array();
+	//std::cerr << (evb2.cast<std::complex<double>>().array()/eva2.array()).transpose() << std::endl;
+
+	dggev(Z, Y.transpose()*ret.transpose(), eva1, evb1);
+	std::cerr << (eva1.array()/evb1.cast<std::complex<double>>().array()).transpose() << std::endl;
+	dggev(D.inverse().matrix().asDiagonal(), Y.transpose()*ret.transpose(), eva2, evb2);
+	std::cerr << (eva2.array()/evb2.cast<std::complex<double>>().array()).transpose() << std::endl;
+
+	//Eigen::VectorXcd ev3 = merge_ev_g(eva1, evb1, eva2, evb2);
+	//Eigen::VectorXcd ev3 = merge_ev(evb1.cast<std::complex<double>>().array()/eva1.array(), evb2.cast<std::complex<double>>().array()/eva2.array());
+	Eigen::VectorXcd ev3 = merge_ev(eva1.array()/evb1.cast<std::complex<double>>().array(), eva2.array()/evb2.cast<std::complex<double>>().array());
+	//std::complex<double> p1 = 1.0;
+	//std::complex<double> p2 = 1.0;
+	//std::complex<double> p3 = 1.0;
+	//double s = 1.0;
+	//for (int i=0;i<ev3.size()/2;i++) {
+		//p1 *= ev1[i] * ev1[ev1.size()-1-i];
+		//p2 *= ev2[i] * ev2[ev2.size()-1-i];
+		//p3 *= ev3[i] * ev3[ev3.size()-1-i];
+		//s *= D[i] * D[D.size()-1-i];
+	//}
+	//std::cerr << p1 << ' ' << p2 << ' ' << p3 << ' ' << s << std::endl;
 	return Y*Z*ret;
 }
 
