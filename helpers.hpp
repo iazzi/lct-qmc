@@ -4,14 +4,22 @@
 #include <vector>
 #include <Eigen/Dense>
 
-Eigen::MatrixXd reduce_f (const std::vector<Eigen::MatrixXd>& vec);
-Eigen::MatrixXd reduce_b (const std::vector<Eigen::MatrixXd>& vec);
+typedef double Real;
+typedef std::complex<Real> Complex;
 
-void test_sequences (std::vector<Eigen::MatrixXd>& fvec, std::vector<Eigen::MatrixXd>& bvec);
-void dggev (const Eigen::MatrixXd &A, const Eigen::MatrixXd &B, Eigen::VectorXcd &alpha, Eigen::VectorXd &beta);
+typedef Eigen::Matrix<Real, Eigen::Dynamic, Eigen::Dynamic> Matrix_d;
+typedef Eigen::Array<Real, Eigen::Dynamic, 1> Array_d;
+typedef Eigen::Matrix<Real, Eigen::Dynamic, 1> Vector_d;
+typedef Eigen::Matrix<Complex, Eigen::Dynamic, 1> Vector_cd;
 
-void sort_vector (Eigen::VectorXcd &v);
-void reverse_vector (Eigen::VectorXcd &v);
+Matrix_d reduce_f (const std::vector<Matrix_d>& vec);
+Matrix_d reduce_b (const std::vector<Matrix_d>& vec);
+
+void test_sequences (std::vector<Matrix_d>& fvec, std::vector<Matrix_d>& bvec);
+void dggev (const Matrix_d &A, const Matrix_d &B, Vector_cd &alpha, Vector_d &beta);
+
+void sort_vector (Vector_cd &v);
+void reverse_vector (Vector_cd &v);
 
 #endif // __HELPERS_HPP
 

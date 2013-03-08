@@ -12,24 +12,26 @@ extern "C" void dggev_ (const char *jobvl, const char *jobvr, const int &N,
 			double *vl, const int &ldvl, double *vr, const int &ldvr,
 			double *work, const int &lwork, int &info);
 
-void dggev (const Eigen::MatrixXd &A, const Eigen::MatrixXd &B, Eigen::VectorXcd &alpha, Eigen::VectorXd &beta) {
-	Eigen::MatrixXd a = A, b = B;
+void dggev (const Matrix_d &A, const Matrix_d &B, Vector_cd &alpha, Vector_d &beta) {
+	Eigen::MatrixXd a = A.cast<double>(), b = B.cast<double>();
 	int info = 0;
 	int N = a.rows();
 	Eigen::VectorXd alphar = Eigen::VectorXd::Zero(N);
 	Eigen::VectorXd alphai = Eigen::VectorXd::Zero(N);
-	alpha = Eigen::VectorXcd::Zero(N);
-	beta = Eigen::VectorXd::Zero(N);
-	//Eigen::VectorXd vl = Eigen::VectorXd::Zero(1);
-	//Eigen::VectorXd vr = Eigen::VectorXd::Zero(1);
+	Eigen::VectorXd betar = Eigen::VectorXd::Zero(N);
+	alpha = Vector_cd::Zero(N);
+	beta = Vector_d::Zero(N);
+	//Vector_d vl = Vector_d::Zero(1);
+	//Vector_d vr = Vector_d::Zero(1);
 	Eigen::VectorXd work = Eigen::VectorXd::Zero(8*N);
 	dggev_("N", "N", N, a.data(), N, b.data(), N,
-			alphar.data(), alphai.data(), beta.data(),
+			alphar.data(), alphai.data(), betar.data(),
 			NULL, 1, NULL, 1,
 			work.data(), work.size(), info);
 	if (info == 0) {
-		alpha.real() = alphar;
-		alpha.imag() = alphai;
+		alpha.real() = alphar.cast<Real>();
+		alpha.imag() = alphai.cast<Real>();
+		beta = betar.cast<Real>();
 	} else if (info<0) {
 		std::cerr << "dggev_: error at argument " << -info << std::endl;
 	} else if (info<=N) {
@@ -38,12 +40,12 @@ void dggev (const Eigen::MatrixXd &A, const Eigen::MatrixXd &B, Eigen::VectorXcd
 	}
 }
 
-void sort_vector (Eigen::VectorXcd &v) {
+void sort_vector (Vector_cd &v) {
 	const int N = v.size();
 	for (int i=0;i<N;i++) {
 		for (int j=i+1;j<N;j++) {
 			if (std::norm(v[i])<std::norm(v[j])) {
-				std::complex<double> x = v[j];
+				Complex x = v[j];
 				v[j] = v[i];
 				v[i] = x;
 			}
@@ -51,25 +53,25 @@ void sort_vector (Eigen::VectorXcd &v) {
 	}
 }
 
-void reverse_vector (Eigen::VectorXcd &v) {
+void reverse_vector (Vector_cd &v) {
 	const int N = v.size();
 	for (int i=0;i<N/2;i++) {
 		const int j = N-i-1;
-		std::complex<double> x = v[j];
+		Complex x = v[j];
 		v[j] = v[i];
 		v[i] = x;
 	}
 }
 
-void sort_vector (Eigen::VectorXcd &v, Eigen::VectorXd &u) {
+void sort_vector (Vector_cd &v, Vector_d &u) {
 	const int N = v.size();
 	for (int i=0;i<N;i++) {
 		for (int j=i+1;j<N;j++) {
 			if (std::norm(u[i]*v[j])<std::norm(u[j]*v[i])) {
-				std::complex<double> x = v[j];
+				Complex x = v[j];
 				v[j] = v[i];
 				v[i] = x;
-				double y = u[j];
+				Real y = u[j];
 				u[j] = u[i];
 				u[i] = y;
 			}
@@ -77,50 +79,50 @@ void sort_vector (Eigen::VectorXcd &v, Eigen::VectorXd &u) {
 	}
 }
 
-void reverse_vector (Eigen::VectorXcd &v, Eigen::VectorXd &u) {
+void reverse_vector (Vector_cd &v, Vector_d &u) {
 	const int N = v.size();
 	for (int i=0;i<N/2;i++) {
 		const int j = N-i-1;
-		std::complex<double> x = v[j];
+		Complex x = v[j];
 		v[j] = v[i];
 		v[i] = x;
-		double y = u[j];
+		Real y = u[j];
 		u[j] = u[i];
 		u[i] = y;
 	}
 }
 
-Eigen::MatrixXd reduce_f (const std::vector<Eigen::MatrixXd>& vec) {
+Matrix_d reduce_f (const std::vector<Matrix_d>& vec) {
 	assert(vec[0].rows()==vec[0].cols());
 	const int V = vec[0].rows();
-	Eigen::MatrixXd ret = Eigen::MatrixXd::Identity(V, V);
+	Matrix_d ret = Matrix_d::Identity(V, V);
 	for (auto X : vec) {
 		ret.applyOnTheLeft(X);
 	}
 	return ret;
 }
 
-Eigen::MatrixXd reduce_b (const std::vector<Eigen::MatrixXd>& vec) {
+Matrix_d reduce_b (const std::vector<Matrix_d>& vec) {
 	assert(vec[0].rows()==vec[0].cols());
 	const int V = vec[0].rows();
-	Eigen::MatrixXd ret = Eigen::MatrixXd::Identity(V, V);
+	Matrix_d ret = Matrix_d::Identity(V, V);
 	for (auto X : vec) {
 		ret.applyOnTheRight(X);
 	}
 	return ret;
 }
 
-Eigen::VectorXcd merge_ev (Eigen::VectorXcd ev1, Eigen::VectorXcd ev2) {
+Vector_cd merge_ev (Vector_cd ev1, Vector_cd ev2) {
 	assert(ev1.size()==ev2.size());
 	const int V = ev1.size();
 	sort_vector(ev1);
 	sort_vector(ev2);
 	reverse_vector(ev2);
-	Eigen::VectorXcd ret = Eigen::VectorXcd::Zero(V);
+	Vector_cd ret = Vector_cd::Zero(V);
 	std::complex<double> lnr = 0.0;
 	for (int i=0;i<V;i++) {
 		if (std::norm(ev1[i]/ev1[0])<std::norm(ev2[i]/ev2[V-1])) {
-			ret[i] = 1.0/ev2[i];
+			ret[i] = ((Real)1.0)/ev2[i];
 			lnr -= std::log(ev2[i]);
 		} else {
 			ret[i] = ev1[i];
@@ -132,7 +134,7 @@ Eigen::VectorXcd merge_ev (Eigen::VectorXcd ev1, Eigen::VectorXcd ev2) {
 	return ret;
 }
 
-Eigen::VectorXcd merge_ev_g (Eigen::VectorXcd eva1, Eigen::VectorXd evb1, Eigen::VectorXcd eva2, Eigen::VectorXd evb2) {
+Vector_cd merge_ev_g (Vector_cd eva1, Vector_d evb1, Vector_cd eva2, Vector_d evb2) {
 	assert(eva1.size()==eva2.size());
 	assert(eva1.size()==evb1.size());
 	assert(eva2.size()==evb2.size());
@@ -140,7 +142,7 @@ Eigen::VectorXcd merge_ev_g (Eigen::VectorXcd eva1, Eigen::VectorXd evb1, Eigen:
 	sort_vector(eva1, evb1);
 	sort_vector(eva2, evb2);
 	reverse_vector(eva2, evb2);
-	Eigen::VectorXcd ret = Eigen::VectorXcd::Zero(V);
+	Vector_cd ret = Vector_cd::Zero(V);
 	std::complex<double> lnr = 0.0;
 	for (int i=0;i<V;i++) {
 		if (std::norm(eva1[i]*evb1[0]/eva1[0]/evb1[i])>std::norm(eva2[i]*evb2[V-1]/eva2[V-1]/evb2[i])) {
@@ -156,15 +158,15 @@ Eigen::VectorXcd merge_ev_g (Eigen::VectorXcd eva1, Eigen::VectorXd evb1, Eigen:
 	return ret;
 }
 
-std::vector<Eigen::VectorXcd> evlist (std::vector<Eigen::MatrixXd>& vec) {
+std::vector<Vector_cd> evlist (std::vector<Matrix_d>& vec) {
 	assert(vec[0].rows()==vec[0].cols());
 	const int V = vec[0].rows();
-	std::vector<Eigen::VectorXcd> retlist;
-	Eigen::JacobiSVD<Eigen::MatrixXd, Eigen::NoQRPreconditioner> svd;
-	Eigen::MatrixXd ret = Eigen::MatrixXd::Identity(V, V);
-	Eigen::MatrixXd Y = Eigen::MatrixXd::Identity(V, V);
-	Eigen::MatrixXd Z = Eigen::MatrixXd::Identity(V, V);
-	Eigen::ArrayXd D;
+	std::vector<Vector_cd> retlist;
+	Eigen::JacobiSVD<Matrix_d, Eigen::NoQRPreconditioner> svd;
+	Matrix_d ret = Matrix_d::Identity(V, V);
+	Matrix_d Y = Matrix_d::Identity(V, V);
+	Matrix_d Z = Matrix_d::Identity(V, V);
+	Array_d D;
 	for (auto X : vec) {
 		svd.compute(X*Y*Z, Eigen::ComputeFullU | Eigen::ComputeFullV);
 		ret.applyOnTheLeft(svd.matrixV().transpose());
@@ -172,12 +174,12 @@ std::vector<Eigen::VectorXcd> evlist (std::vector<Eigen::MatrixXd>& vec) {
 		Z = svd.singularValues().asDiagonal();
 		D = svd.singularValues();
 		{
-			Eigen::VectorXcd eva;
-			Eigen::VectorXd evb;
+			Vector_cd eva;
+			Vector_d evb;
 			dggev(Y.transpose()*ret.transpose(), Z, eva, evb);
-			std::cerr << (evb.cast<std::complex<double>>().array()/eva.array()).transpose() << std::endl;
+			std::cerr << (evb.cast<Complex>().array()/eva.array()).transpose() << std::endl;
 			dggev(Y.transpose()*ret.transpose(), D.inverse().matrix().asDiagonal(), eva, evb);
-			std::cerr << (evb.cast<std::complex<double>>().array()/eva.array()).transpose() << std::endl;
+			std::cerr << (evb.cast<Complex>().array()/eva.array()).transpose() << std::endl;
 		}
 	}
 	std::cerr << Z.diagonal().transpose() << std::endl;
@@ -185,14 +187,14 @@ std::vector<Eigen::VectorXcd> evlist (std::vector<Eigen::MatrixXd>& vec) {
 }
 
 
-Eigen::MatrixXd reduceSVD_f (std::vector<Eigen::MatrixXd>& vec) {
+Matrix_d reduceSVD_f (std::vector<Matrix_d>& vec) {
 	assert(vec[0].rows()==vec[0].cols());
 	const int V = vec[0].rows();
-	Eigen::JacobiSVD<Eigen::MatrixXd, Eigen::NoQRPreconditioner> svd;
-	Eigen::MatrixXd ret = Eigen::MatrixXd::Identity(V, V);
-	Eigen::MatrixXd Y = Eigen::MatrixXd::Identity(V, V);
-	Eigen::MatrixXd Z = Eigen::MatrixXd::Identity(V, V);
-	Eigen::ArrayXd D;
+	Eigen::JacobiSVD<Matrix_d, Eigen::NoQRPreconditioner> svd;
+	Matrix_d ret = Matrix_d::Identity(V, V);
+	Matrix_d Y = Matrix_d::Identity(V, V);
+	Matrix_d Z = Matrix_d::Identity(V, V);
+	Array_d D;
 	for (auto X : vec) {
 		svd.compute(X*Y*Z, Eigen::ComputeFullU | Eigen::ComputeFullV);
 		ret.applyOnTheLeft(svd.matrixV().transpose());
@@ -200,11 +202,11 @@ Eigen::MatrixXd reduceSVD_f (std::vector<Eigen::MatrixXd>& vec) {
 		Z = svd.singularValues().asDiagonal();
 		D = svd.singularValues();
 	}
-	Eigen::VectorXcd ev1, ev2;
+	Vector_cd ev1, ev2;
 	std::cerr << Z.diagonal().transpose() << std::endl;
 	std::cerr << "alt guess = " << D.array().log().sum() << std::endl;
-	Eigen::VectorXcd eva1, eva2;
-	Eigen::VectorXd evb1, evb2;
+	Vector_cd eva1, eva2;
+	Vector_d evb1, evb2;
 
 	//dggev(Y.transpose()*ret.transpose(), Z, eva1, evb1);
 	//ev1 = evb1.cast<std::complex<double>>().array()/eva1.array();
@@ -214,13 +216,13 @@ Eigen::MatrixXd reduceSVD_f (std::vector<Eigen::MatrixXd>& vec) {
 	//std::cerr << (evb2.cast<std::complex<double>>().array()/eva2.array()).transpose() << std::endl;
 
 	dggev(Z, Y.transpose()*ret.transpose(), eva1, evb1);
-	std::cerr << (eva1.array()/evb1.cast<std::complex<double>>().array()).transpose() << std::endl;
+	std::cerr << (eva1.array()/evb1.cast<Complex>().array()).transpose() << std::endl;
 	dggev(D.inverse().matrix().asDiagonal(), Y.transpose()*ret.transpose(), eva2, evb2);
-	std::cerr << (eva2.array()/evb2.cast<std::complex<double>>().array()).transpose() << std::endl;
+	std::cerr << (eva2.array()/evb2.cast<Complex>().array()).transpose() << std::endl;
 
-	//Eigen::VectorXcd ev3 = merge_ev_g(eva1, evb1, eva2, evb2);
-	//Eigen::VectorXcd ev3 = merge_ev(evb1.cast<std::complex<double>>().array()/eva1.array(), evb2.cast<std::complex<double>>().array()/eva2.array());
-	Eigen::VectorXcd ev3 = merge_ev(eva1.array()/evb1.cast<std::complex<double>>().array(), eva2.array()/evb2.cast<std::complex<double>>().array());
+	//Vector_cd ev3 = merge_ev_g(eva1, evb1, eva2, evb2);
+	//Vector_cd ev3 = merge_ev(evb1.cast<std::complex<double>>().array()/eva1.array(), evb2.cast<std::complex<double>>().array()/eva2.array());
+	Vector_cd ev3 = merge_ev(eva1.array()/evb1.cast<Complex>().array(), eva2.array()/evb2.cast<Complex>().array());
 	//std::complex<double> p1 = 1.0;
 	//std::complex<double> p2 = 1.0;
 	//std::complex<double> p3 = 1.0;
@@ -235,13 +237,13 @@ Eigen::MatrixXd reduceSVD_f (std::vector<Eigen::MatrixXd>& vec) {
 	return Y*Z*ret;
 }
 
-Eigen::MatrixXd reduceSVD_b (std::vector<Eigen::MatrixXd>& vec) {
+Matrix_d reduceSVD_b (std::vector<Matrix_d>& vec) {
 	assert(vec[0].rows()==vec[0].cols());
 	const int V = vec[0].rows();
-	Eigen::JacobiSVD<Eigen::MatrixXd, Eigen::NoQRPreconditioner> svd;
-	Eigen::MatrixXd ret = Eigen::MatrixXd::Identity(V, V);
-	Eigen::MatrixXd Y = Eigen::MatrixXd::Identity(V, V);
-	Eigen::MatrixXd Z = Eigen::MatrixXd::Identity(V, V);
+	Eigen::JacobiSVD<Matrix_d, Eigen::NoQRPreconditioner> svd;
+	Matrix_d ret = Matrix_d::Identity(V, V);
+	Matrix_d Y = Matrix_d::Identity(V, V);
+	Matrix_d Z = Matrix_d::Identity(V, V);
 	for (auto X : vec) {
 		svd.compute(Z*(Y*X).eval(), Eigen::ComputeFullU | Eigen::ComputeFullV);
 		ret.applyOnTheRight(svd.matrixU());
@@ -249,16 +251,16 @@ Eigen::MatrixXd reduceSVD_b (std::vector<Eigen::MatrixXd>& vec) {
 		Z = svd.singularValues().asDiagonal();
 	}
 	std::cerr << Z.diagonal().array().inverse().transpose() << std::endl;
-	Eigen::VectorXcd eva;
-	Eigen::VectorXd evb;
+	Vector_cd eva;
+	Vector_d evb;
 	dggev(Z, ret.transpose()*Y.transpose(), eva, evb);
-	std::cerr << (eva.array()/evb.cast<std::complex<double>>().array()).transpose() << std::endl;
+	std::cerr << (eva.array()/evb.cast<Complex>().array()).transpose() << std::endl;
 	dggev(ret.transpose()*Y.transpose(), Z, eva, evb);
-	std::cerr << (evb.cast<std::complex<double>>().array()/eva.array()).transpose() << std::endl;
+	std::cerr << (evb.cast<Complex>().array()/eva.array()).transpose() << std::endl;
 	return ret*Z*Y;
 }
 
-void test_sequences (std::vector<Eigen::MatrixXd>& fvec, std::vector<Eigen::MatrixXd>& bvec) {
+void test_sequences (std::vector<Matrix_d>& fvec, std::vector<Matrix_d>& bvec) {
 	assert(fvec.size() == bvec.size());
 	const int N = fvec.size();
 	assert(fvec[0].rows()==fvec[0].cols());
@@ -268,8 +270,8 @@ void test_sequences (std::vector<Eigen::MatrixXd>& fvec, std::vector<Eigen::Matr
 	for (int i=0;i<N;i++) {
 		//std::cerr << i << "th pair are inverse? " << (fvec[i]*bvec[i]).eval().isIdentity() << ", " << (bvec[i]*fvec[i]).eval().isIdentity() << std::endl;
 	}
-	Eigen::MatrixXd fp = reduce_f(fvec);
-	Eigen::MatrixXd bp = reduce_b(bvec);
+	Matrix_d fp = reduce_f(fvec);
+	Matrix_d bp = reduce_b(bvec);
 	std::cerr << "straight products are inverse? " << (fp*bp).eval().isIdentity(1e-3) << ", " << (bp*fp).eval().isIdentity(1e-3) << std::endl;
 	//std::cerr << fp << std::endl << std::endl << bp << std::endl << std::endl;
 	std::cerr << "SVDs: " << std::endl << fp.jacobiSvd().singularValues().transpose() << std::endl << bp.jacobiSvd().singularValues().array().inverse().transpose() << std::endl;

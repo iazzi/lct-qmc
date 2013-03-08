@@ -27,10 +27,6 @@ extern "C" {
 
 static const double pi = 3.141592653589793238462643383279502884197;
 
-typedef Eigen::MatrixXd Matrix_d;
-typedef Eigen::VectorXd Vector_d;
-typedef Eigen::VectorXcd Vector_cd;
-
 class Simulation {
 	private:
 	int Lx, Ly, Lz; // size of the system
@@ -45,7 +41,7 @@ class Simulation {
 	double tx, ty, tz; // nearest neighbour hopping
 	double Vx, Vy, Vz; // trap strength
 
-	std::vector<Eigen::VectorXd> diagonals;
+	std::vector<Vector_d> diagonals;
 
 	std::mt19937_64 generator;
 	std::bernoulli_distribution distribution;
@@ -55,17 +51,17 @@ class Simulation {
 
 	int steps;
 
-	Eigen::VectorXd energies;
-	Eigen::VectorXd freePropagator;
-	Eigen::VectorXd freePropagator_b;
-	Eigen::VectorXd freePropagator_x;
-	Eigen::VectorXd freePropagator_x_b;
+	Vector_d energies;
+	Vector_d freePropagator;
+	Vector_d freePropagator_b;
+	Vector_d freePropagator_x;
+	Vector_d freePropagator_x_b;
 
-	Eigen::MatrixXd positionSpace; // current matrix in position space
+	Matrix_d positionSpace; // current matrix in position space
 	Eigen::MatrixXcd momentumSpace;
 
-	Eigen::VectorXd v_x;
-	Eigen::VectorXcd v_p;
+	Vector_d v_x;
+	Vector_cd v_p;
 
 	fftw_plan x2p_vec;
 	fftw_plan p2x_vec;
@@ -86,16 +82,16 @@ class Simulation {
 	std::string outfn;
 	std::ofstream logfile;
 
-	Eigen::MatrixXd U_s;
-	Eigen::MatrixXd U_s_inv;
-	Eigen::VectorXcd ev_s;
+	Matrix_d U_s;
+	Matrix_d U_s_inv;
+	Vector_cd ev_s;
 
 	struct {
-		Eigen::VectorXd u;
-		Eigen::VectorXd v;
-		Eigen::VectorXd u_inv;
-		Eigen::VectorXd v_inv;
-		Eigen::VectorXcd ev;
+		Vector_d u;
+		Vector_d v;
+		Vector_d u_inv;
+		Vector_d v_inv;
+		Vector_cd ev;
 	} cache;
 
 	std::vector<double> fields;
@@ -116,16 +112,16 @@ class Simulation {
 		randomTime = std::uniform_int_distribution<int>(0, N-1);
 		dt = beta/N;
 		A = sqrt(exp(g*dt)-1.0);
-		diagonals.insert(diagonals.begin(), N, Eigen::VectorXd::Zero(V));
+		diagonals.insert(diagonals.begin(), N, Vector_d::Zero(V));
 		for (size_t i=0;i<diagonals.size();i++) {
 			for (int j=0;j<V;j++) {
 				diagonals[i][j] = distribution(generator)?A:-A;
 				//diagonals[i][j] = A;
 			}
 		}
-		v_x = Eigen::VectorXd::Zero(V);
-		v_p = Eigen::VectorXcd::Zero(V);
-		positionSpace = Eigen::MatrixXd::Identity(V, V);
+		v_x = Vector_d::Zero(V);
+		v_p = Vector_cd::Zero(V);
+		positionSpace = Matrix_d::Identity(V, V);
 		momentumSpace = Eigen::MatrixXcd::Identity(V, V);
 
 		const int size[] = { Lx, Ly, Lz, };
@@ -140,15 +136,15 @@ class Simulation {
 		p2x_row = fftw_plan_many_dft_c2r(3, size, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()),
 				NULL, V, 1, positionSpace.data(), NULL, V, 1, FFTW_PATIENT);
 
-		positionSpace = Eigen::MatrixXd::Identity(V, V);
+		positionSpace = Matrix_d::Identity(V, V);
 		momentumSpace = Eigen::MatrixXcd::Identity(V, V);
 
-		U_s = Eigen::MatrixXd::Identity(V, V);
-		U_s_inv = Eigen::MatrixXd::Identity(V, V);
+		U_s = Matrix_d::Identity(V, V);
+		U_s_inv = Matrix_d::Identity(V, V);
 
-		energies = Eigen::VectorXd::Zero(V);
-		freePropagator = Eigen::VectorXd::Zero(V);
-		freePropagator_b = Eigen::VectorXd::Zero(V);
+		energies = Vector_d::Zero(V);
+		freePropagator = Vector_d::Zero(V);
+		freePropagator_b = Vector_d::Zero(V);
 		for (int i=0;i<V;i++) {
 			energies[i] += -2.0 * ( tx * cos(2.0*((i/Ly/Lz)%Lx)*pi/Lx) + ty * cos(2.0*((i/Lz)%Ly)*pi/Ly) + tz * cos(2.0*(i%Lz)*pi/Lz) );
 			freePropagator[i] = exp(-dt*energies[i]);
@@ -213,7 +209,7 @@ class Simulation {
 		end = end<0?N:end;
 		end = end>N?N:end;
 		for (int i=start;i<end;i++) {
-			positionSpace.applyOnTheLeft((Eigen::VectorXd::Constant(V, 1.0)+diagonals[i]).asDiagonal());
+			positionSpace.applyOnTheLeft((Vector_d::Constant(V, 1.0)+diagonals[i]).asDiagonal());
 			fftw_execute(x2p_col);
 			momentumSpace.applyOnTheLeft(freePropagator.asDiagonal());
 			fftw_execute(p2x_col);
@@ -222,12 +218,12 @@ class Simulation {
 	}
 
 	void accumulate_backward (int start = 0, int end = -1) {
-		double X = 1.0 - A*A;
+		Real X = 1.0 - A*A;
 		positionSpace.setIdentity(V, V);
 		end = end<0?N:end;
 		end = end>N?N:end;
 		for (int i=start;i<end;i++) {
-			positionSpace.applyOnTheRight((Eigen::VectorXd::Constant(V, 1.0)-diagonals[i]).asDiagonal());
+			positionSpace.applyOnTheRight((Vector_d::Constant(V, 1.0)-diagonals[i]).asDiagonal());
 			fftw_execute(x2p_row);
 			momentumSpace.applyOnTheRight(freePropagator_b.asDiagonal());
 			fftw_execute(p2x_row);
@@ -237,8 +233,8 @@ class Simulation {
 
 	double logProbability_complex () {
 		const int M = 30;
-		std::vector<Eigen::MatrixXd> fvec;
-		std::vector<Eigen::MatrixXd> bvec;
+		std::vector<Matrix_d> fvec;
+		std::vector<Matrix_d> bvec;
 		for (int i=0;i<N;i+=M) {
 			accumulate_forward(i, i+M);
 			fvec.push_back(positionSpace);
@@ -252,13 +248,13 @@ class Simulation {
 	}
 
 	void compute_uv_f (int x, int t) {
-		v_x = Eigen::VectorXd::Zero(V);
+		v_x = Vector_d::Zero(V);
 		v_x[x] = 1.0;
 		for (int i=t+1;i<N;i++) {
 			fftw_execute(x2p_vec);
 			v_p = v_p.array() * freePropagator.array();
 			fftw_execute(p2x_vec);
-			v_x = v_x.array() * (Eigen::VectorXd::Constant(V, 1.0)+diagonals[i]).array();
+			v_x = v_x.array() * (Vector_d::Constant(V, 1.0)+diagonals[i]).array();
 			v_x /= V;
 		}
 		fftw_execute(x2p_vec);
@@ -266,27 +262,27 @@ class Simulation {
 		fftw_execute(p2x_vec);
 		v_x /= V;
 		cache.u = v_x;
-		v_x = Eigen::VectorXd::Zero(V);
+		v_x = Vector_d::Zero(V);
 		v_x[x] = 1.0;
 		for (int i=t-1;i>=0;i--) {
 			fftw_execute(x2p_vec);
 			v_p = v_p.array() * freePropagator.array();
 			fftw_execute(p2x_vec);
-			v_x = v_x.array() * (Eigen::VectorXd::Constant(V, 1.0)+diagonals[i]).array();
+			v_x = v_x.array() * (Vector_d::Constant(V, 1.0)+diagonals[i]).array();
 			v_x /= V;
 		}
 		cache.v = -2*diagonals[t][x]*v_x;
 	}
 
 	void compute_uv_b (int x, int t) {
-		double X = 1-A*A;
-		v_x = Eigen::VectorXd::Zero(V);
+		Real X = 1-A*A;
+		v_x = Vector_d::Zero(V);
 		v_x[x] = 1.0;
 		for (int i=t+1;i<N;i++) {
 			fftw_execute(x2p_vec);
 			v_p = v_p.array() * freePropagator_b.array();
 			fftw_execute(p2x_vec);
-			v_x = v_x.array() * (Eigen::VectorXd::Constant(V, 1.0)-diagonals[i]).array();
+			v_x = v_x.array() * (Vector_d::Constant(V, 1.0)-diagonals[i]).array();
 			v_x /= V*X;
 		}
 		fftw_execute(x2p_vec);
@@ -294,32 +290,32 @@ class Simulation {
 		fftw_execute(p2x_vec);
 		v_x /= V;
 		cache.v_inv = v_x;
-		v_x = Eigen::VectorXd::Zero(V);
+		v_x = Vector_d::Zero(V);
 		v_x[x] = 1.0;
 		for (int i=t-1;i>=0;i--) {
 			fftw_execute(x2p_vec);
 			v_p = v_p.array() * freePropagator_b.array();
 			fftw_execute(p2x_vec);
-			v_x = v_x.array() * (Eigen::VectorXd::Constant(V, 1.0)-diagonals[i]).array();
+			v_x = v_x.array() * (Vector_d::Constant(V, 1.0)-diagonals[i]).array();
 			v_x /= V*X;
 		}
 		cache.u_inv = +2*diagonals[t][x]/X*v_x;
 	}
 
-	Eigen::VectorXcd rank1EV_f (int x, int t, const Eigen::MatrixXd &M) {
+	Vector_cd rank1EV_f (int x, int t, const Matrix_d &M) {
 		compute_uv_f(x, t);
 		return (M+cache.u*cache.v.transpose()).eigenvalues();
 	}
 
-	Eigen::VectorXcd rank1EV_b (int x, int t, const Eigen::MatrixXd &M) {
+	Vector_cd rank1EV_b (int x, int t, const Matrix_d &M) {
 		compute_uv_b(x, t);
 		return (M+cache.u_inv*cache.v_inv.transpose()).eigenvalues();
 	}
 
 	double rank1prob (int x, int t) {
-		Eigen::VectorXcd eva = Eigen::VectorXcd::Ones(V);
-		Eigen::VectorXcd evc = rank1EV_b(x, t, U_s_inv);
-		Eigen::VectorXcd evb = rank1EV_f(x, t, U_s);
+		Vector_cd eva = Vector_cd::Ones(V);
+		Vector_cd evc = rank1EV_b(x, t, U_s_inv);
+		Vector_cd evb = rank1EV_f(x, t, U_s);
 		sort_vector(evb);
 		sort_vector(evc);
 		reverse_vector(evc);
@@ -332,8 +328,8 @@ class Simulation {
 		}
 		cache.ev = eva;
 		std::complex<double> ret = 0.0;
-		ret += (Eigen::VectorXcd::Ones(V) + std::exp(+beta*B*0.5+beta*mu)*eva).array().log().sum();
-		ret += (Eigen::VectorXcd::Ones(V) + std::exp(-beta*B*0.5+beta*mu)*eva).array().log().sum();
+		ret += (Vector_cd::Ones(V) + std::exp(+beta*B*0.5+beta*mu)*eva).array().log().sum();
+		ret += (Vector_cd::Ones(V) + std::exp(-beta*B*0.5+beta*mu)*eva).array().log().sum();
 		return ret.real();
 	}
 
@@ -346,7 +342,7 @@ class Simulation {
 		double trial = rank1prob(x, t);
 		std::complex<double> c =  cache.ev.array().log().sum();
 
-		Eigen::VectorXcd ev1, ev2, ev3;
+		Vector_cd ev1, ev2, ev3;
 
 		//ev1 = cache.ev;
 		//logfile << exact << ' ' << cache.ev.array().log().sum().real() << ' ' << std::norm(cache.ev[0]/cache.ev[V-1]);
@@ -366,12 +362,12 @@ class Simulation {
 		//logfile << ' ' << cache.ev.array().log().sum().real() << ' ' << std::norm(cache.ev[0]/cache.ev[V-1]);
 
 		if ( std::cos(c.imag())<0.99 || std::abs(1.0-c.real()/exact)>1.0e-4 ) {
-			Eigen::VectorXcd eva = Eigen::VectorXcd::Ones(V);
+			Vector_cd eva = Vector_cd::Ones(V);
 			diagonals[t][x] = -diagonals[t][x];
 			accumulate_forward();
-			Eigen::VectorXcd evb = positionSpace.eigenvalues();
+			Vector_cd evb = positionSpace.eigenvalues();
 			accumulate_backward();
-			Eigen::VectorXcd evc = positionSpace.eigenvalues();
+			Vector_cd evc = positionSpace.eigenvalues();
 			diagonals[t][x] = -diagonals[t][x];
 			sort_vector(evb);
 			sort_vector(evc);
@@ -385,8 +381,8 @@ class Simulation {
 			}
 			cache.ev = eva;
 			std::complex<double> ret = 0.0;
-			ret += (Eigen::VectorXcd::Ones(V) + std::exp(+beta*B*0.5+beta*mu)*eva).array().log().sum();
-			ret += (Eigen::VectorXcd::Ones(V) + std::exp(-beta*B*0.5+beta*mu)*eva).array().log().sum();
+			ret += (Vector_cd::Ones(V) + std::exp(+beta*B*0.5+beta*mu)*eva).array().log().sum();
+			ret += (Vector_cd::Ones(V) + std::exp(-beta*B*0.5+beta*mu)*eva).array().log().sum();
 			trial = ret.real();
 			c = cache.ev.array().log().sum();
 			std::cerr << " newest=" << c << std::endl;
@@ -432,7 +428,7 @@ class Simulation {
 		}
 	}
 
-	void extract_data (const Eigen::MatrixXd &M, Eigen::ArrayXd &d, Eigen::ArrayXd &d1, Eigen::ArrayXd &d2, double &K) {
+	void extract_data (const Matrix_d &M, Array_d &d, Array_d &d1, Array_d &d2, double &K) {
 		positionSpace = M;
 		d = positionSpace.diagonal();
 		d1.resize(positionSpace.rows());
@@ -449,9 +445,9 @@ class Simulation {
 	}
 
 	void measure () {
-		Eigen::ArrayXd d_up, d_dn;
-		Eigen::ArrayXd d1_up, d1_dn;
-		Eigen::ArrayXd d2_up, d2_dn;
+		Array_d d_up, d_dn;
+		Array_d d1_up, d1_dn;
+		Array_d d2_up, d2_dn;
 		double K_up, K_dn;
 		double n_up, n_dn, n2;
 		for (size_t i=0;i<fields.size();i++) {
@@ -460,10 +456,10 @@ class Simulation {
 			ret += (1.0 + std::exp(+beta*B*0.5+beta*mu)*ev_s.array()).log().sum();
 			ret += (1.0 + std::exp(-beta*B*0.5+beta*mu)*ev_s.array()).log().sum();
 			double w = std::exp(ret-plog).real();
-			//extract_data(Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(+beta*B*0.5+beta*mu)*U_s).inverse(), d_up, d1_up, d2_up, K_up);
-			extract_data((Eigen::MatrixXd::Identity(V, V) + exp(-beta*B*0.5-beta*mu)*U_s_inv).inverse(), d_up, d1_up, d2_up, K_up);
-			//extract_data(Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(-beta*B*0.5+beta*mu)*U_s).inverse(), d_dn, d1_dn, d2_dn, K_dn);
-			extract_data((Eigen::MatrixXd::Identity(V, V) + exp(+beta*B*0.5-beta*mu)*U_s_inv).inverse(), d_dn, d1_dn, d2_dn, K_dn);
+			//extract_data(Matrix_d::Identity(V, V) - (Matrix_d::Identity(V, V) + exp(+beta*B*0.5+beta*mu)*U_s).inverse(), d_up, d1_up, d2_up, K_up);
+			extract_data((Matrix_d::Identity(V, V) + exp(-beta*B*0.5-beta*mu)*U_s_inv).inverse(), d_up, d1_up, d2_up, K_up);
+			//extract_data(Matrix_d::Identity(V, V) - (Matrix_d::Identity(V, V) + exp(-beta*B*0.5+beta*mu)*U_s).inverse(), d_dn, d1_dn, d2_dn, K_dn);
+			extract_data((Matrix_d::Identity(V, V) + exp(+beta*B*0.5-beta*mu)*U_s_inv).inverse(), d_dn, d1_dn, d2_dn, K_dn);
 			n_up = ( std::exp(+beta*B*0.5+beta*mu)*ev_s.array()*(1.0 + std::exp(+beta*B*0.5+beta*mu)*ev_s.array()).inverse() ).sum().real();
 			n_dn = ( std::exp(-beta*B*0.5+beta*mu)*ev_s.array()*(1.0 + std::exp(-beta*B*0.5+beta*mu)*ev_s.array()).inverse() ).sum().real();
 			n2 = (d_up*d_dn).sum();
