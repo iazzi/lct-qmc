@@ -498,7 +498,6 @@ class Simulation {
 		buf << outfn << "U" << (g/tx) << "_T" << 1.0/(beta*tx) << '_' << Lx << 'x' << Ly << 'x' << Lz << ".dat";
 		outfn = buf.str();
 		std::ofstream out(outfn, reset?std::ios::trunc:std::ios::app);
-		out << "# T mu N \\Delta N^2 M \\Delta M^2" << std::endl;
 		for (size_t i=0;i<fields.size();i++) {
 			out << 1.0/(beta*tx) << ' ' << 0.5*(fields[i]+g)/tx
 				<< ' ' << 1+2*(magnetizations[i].mean()) << ' ' << 4*magnetizations[i].variance()
