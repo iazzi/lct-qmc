@@ -4,7 +4,14 @@
 #include <vector>
 #include <Eigen/Dense>
 
+#define USE_LONG_DOUBLE
+
+#ifdef USE_LONG_DOUBLE
+typedef long double Real;
+#else
 typedef double Real;
+#endif
+
 typedef std::complex<Real> Complex;
 
 typedef Eigen::Matrix<Real, Eigen::Dynamic, Eigen::Dynamic> Matrix_d;

@@ -25,6 +25,17 @@ extern "C" {
 #include <Eigen/Eigenvalues>
 #include <Eigen/QR>
 
+#ifdef USE_LONG_DOUBLE
+# define fftw_plan fftwl_plan
+# define fftw_plan_dft_r2c fftwl_plan_dft_r2c
+# define fftw_plan_dft_c2r fftwl_plan_dft_c2r
+# define fftw_complex fftwl_complex
+# define fftw_plan_many_dft_r2c fftwl_plan_many_dft_r2c
+# define fftw_plan_many_dft_c2r fftwl_plan_many_dft_c2r
+# define fftw_execute fftwl_execute
+# define fftw_destroy_plan fftwl_destroy_plan
+#endif
+
 static const double pi = 3.141592653589793238462643383279502884197;
 
 class Simulation {
@@ -58,7 +69,7 @@ class Simulation {
 	Vector_d freePropagator_x_b;
 
 	Matrix_d positionSpace; // current matrix in position space
-	Eigen::MatrixXcd momentumSpace;
+	Eigen::Matrix<Complex, Eigen::Dynamic, Eigen::Dynamic> momentumSpace;
 
 	Vector_d v_x;
 	Vector_cd v_p;
@@ -122,7 +133,7 @@ class Simulation {
 		v_x = Vector_d::Zero(V);
 		v_p = Vector_cd::Zero(V);
 		positionSpace = Matrix_d::Identity(V, V);
-		momentumSpace = Eigen::MatrixXcd::Identity(V, V);
+		momentumSpace.setIdentity(V, V);
 
 		const int size[] = { Lx, Ly, Lz, };
 		x2p_vec = fftw_plan_dft_r2c(3, size, v_x.data(), reinterpret_cast<fftw_complex*>(v_p.data()), FFTW_PATIENT);
@@ -137,7 +148,7 @@ class Simulation {
 				NULL, V, 1, positionSpace.data(), NULL, V, 1, FFTW_PATIENT);
 
 		positionSpace = Matrix_d::Identity(V, V);
-		momentumSpace = Eigen::MatrixXcd::Identity(V, V);
+		momentumSpace.setIdentity(V, V);
 
 		U_s = Matrix_d::Identity(V, V);
 		U_s_inv = Matrix_d::Identity(V, V);
@@ -321,7 +332,7 @@ class Simulation {
 		reverse_vector(evc);
 		for (int i=0;i<V;i++) {
 			if (std::norm(evb[i]/evb[0])<std::norm(evc[i]/evc[V-1])) {
-				eva[i] = 1.0/evc[i];
+				eva[i] = ((Real)1.0)/evc[i];
 			} else {
 				eva[i] = evb[i];
 			}
@@ -340,14 +351,14 @@ class Simulation {
 		int t = randomTime(generator);
 		double exact = logDetU_s(x, t);
 		double trial = rank1prob(x, t);
-		std::complex<double> c =  cache.ev.array().log().sum();
+		Complex c =  cache.ev.array().log().sum();
 
 		Vector_cd ev1, ev2, ev3;
 
 		//ev1 = cache.ev;
 		//logfile << exact << ' ' << cache.ev.array().log().sum().real() << ' ' << std::norm(cache.ev[0]/cache.ev[V-1]);
 
-		if ( std::cos(c.imag())<0.99 || std::abs(1.0-c.real()/exact)>1.0e-5 ) {
+		if ( std::cos(c.imag())<0.99 || std::abs(1.0-c.real()/exact)>1.0e-4 ) {
 			std::cerr << " recomputing exact = " << exact << " trial=" << c;
 			accumulate_forward();
 			U_s = positionSpace;
@@ -374,7 +385,7 @@ class Simulation {
 			reverse_vector(evc);
 			for (int i=0;i<V;i++) {
 				if (std::norm(evb[i]/evb[0])<std::norm(evc[i]/evc[V-1])) {
-					eva[i] = 1.0/evc[i];
+					eva[i] = ((Real)1.0)/evc[i];
 				} else {
 					eva[i] = evb[i];
 				}
@@ -391,7 +402,7 @@ class Simulation {
 		//logfile << ' ' << cache.ev.array().log().sum().real() << ' ' << std::norm(cache.ev[0]/cache.ev[V-1]);
 		//logfile << std::endl;
 
-		if ( std::cos(c.imag())<0.99 || std::abs(1.0-c.real()/exact)>1.0e-3 ) {
+		if ( std::cos(c.imag())<0.99 ) {
 			std::cerr << exact << ' ' << ev1.array().log().sum().real() << ' ' << ev2.array().log().sum().real() << ' ' << ev3.array().log().sum().real() << std::endl;
 			std::cerr << std::endl << ev1.transpose() << std::endl;
 			std::cerr << ev2.transpose() << std::endl;
