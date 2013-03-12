@@ -222,6 +222,8 @@ Matrix_d reduceSVD_f (std::vector<Matrix_d>& vec) {
 
 	//Vector_cd ev3 = merge_ev_g(eva1, evb1, eva2, evb2);
 	//Vector_cd ev3 = merge_ev(evb1.cast<std::complex<double>>().array()/eva1.array(), evb2.cast<std::complex<double>>().array()/eva2.array());
+
+	Eigen::EigenSolver<Matrix_d> solver;
 	Vector_cd ev3 = merge_ev(eva1.array()/evb1.cast<Complex>().array(), eva2.array()/evb2.cast<Complex>().array());
 	//std::complex<double> p1 = 1.0;
 	//std::complex<double> p2 = 1.0;

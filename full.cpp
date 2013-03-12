@@ -34,6 +34,15 @@ extern "C" {
 # define fftw_plan_many_dft_c2r fftwl_plan_many_dft_c2r
 # define fftw_execute fftwl_execute
 # define fftw_destroy_plan fftwl_destroy_plan
+#elif USE_FLOAT
+# define fftw_plan fftwf_plan
+# define fftw_plan_dft_r2c fftwf_plan_dft_r2c
+# define fftw_plan_dft_c2r fftwf_plan_dft_c2r
+# define fftw_complex fftwf_complex
+# define fftw_plan_many_dft_r2c fftwf_plan_many_dft_r2c
+# define fftw_plan_many_dft_c2r fftwf_plan_many_dft_c2r
+# define fftw_execute fftwf_execute
+# define fftw_destroy_plan fftwf_destroy_plan
 #endif
 
 static const double pi = 3.141592653589793238462643383279502884197;
@@ -243,7 +252,7 @@ class Simulation {
 	}
 
 	double logProbability_complex () {
-		const int M = 30;
+		const int M = 50;
 		std::vector<Matrix_d> fvec;
 		std::vector<Matrix_d> bvec;
 		for (int i=0;i<N;i+=M) {
@@ -404,9 +413,9 @@ class Simulation {
 
 		if ( std::cos(c.imag())<0.99 ) {
 			std::cerr << exact << ' ' << ev1.array().log().sum().real() << ' ' << ev2.array().log().sum().real() << ' ' << ev3.array().log().sum().real() << std::endl;
-			std::cerr << std::endl << ev1.transpose() << std::endl;
-			std::cerr << ev2.transpose() << std::endl;
-			std::cerr << ev3.transpose() << std::endl << std::endl;
+			//std::cerr << std::endl << ev1.transpose() << std::endl;
+			//std::cerr << ev2.transpose() << std::endl;
+			//std::cerr << ev3.transpose() << std::endl << std::endl;
 			diagonals[t][x] = -diagonals[t][x];
 			accumulate_forward();
 			logProbability_complex();
