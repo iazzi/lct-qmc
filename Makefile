@@ -1,5 +1,5 @@
 CXXFLAGS=$(MYCXXFLAGS) -std=c++11 -I $(HOME)/local/include `pkg-config --cflags eigen3 ` -Wall
-LDFLAGS=$(MYLDFLAGS) -L $(HOME)/local/lib `pkg-config --libs eigen3` -lm -lstdc++ -llapack -llua -pthread
+LDFLAGS=$(MYLDFLAGS) -L $(HOME)/local/lib `pkg-config --libs eigen3` -lm -lstdc++ -llapack -llua -pthread -lfftw3 -lfftw3l
 
 all: full
 
@@ -26,12 +26,12 @@ ctsingle: ctsingle.o
 continuoustime.o: continuoustime.cpp ct_aux.hpp
 
 parallel:
-	$(MAKE) all MYCXXFLAGS="-O3 -march=native -DEIGEN_NO_DEBUG -fopenmp" MYLDFLAGS="-fopenmp -lfftw3 -lfftw3_threads -lfftw3l"
+	$(MAKE) all MYCXXFLAGS="-O3 -march=native -DEIGEN_NO_DEBUG -fopenmp" MYLDFLAGS="-fopenmp -lfftw3_threads"
 
 optimized:
-	$(MAKE) all MYCXXFLAGS="-O3 -march=native -DEIGEN_NO_DEBUG" MYLDFLAGS="-lfftw3 -lfftw3l"
+	$(MAKE) all MYCXXFLAGS="-O3 -march=native -DEIGEN_NO_DEBUG" MYLDFLAGS=""
 
 debug:
-	$(MAKE) all MYCXXFLAGS="-g" MYLDFLAGS="-lfftw3 -lfftw3l"
+	$(MAKE) all MYCXXFLAGS="-g" MYLDFLAGS=""
 
 
