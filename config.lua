@@ -37,6 +37,7 @@ for _, y in ipairs{ -5, -4.5, -4, -3.5, -3, -2.5, -2, -1.5, -1, -0.5, 0, 0.5, 1,
 		OUTPUT = 'long_',
 		REWEIGHT = 0,
 		LOGFILE = 'log',
+		DECOMPOSITIONS = 10,
 	} )
 end
 end

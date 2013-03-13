@@ -99,6 +99,7 @@ class Simulation {
 
 	bool reset;
 	int reweight;
+	int decompositions;
 	std::string outfn;
 	std::ofstream logfile;
 
@@ -112,6 +113,11 @@ class Simulation {
 		Vector_d u_inv;
 		Vector_d v_inv;
 		Vector_cd ev;
+		struct {
+			Vector_d S;
+			Matrix_d U;
+			Matrix_d V;
+		} svd;
 	} cache;
 
 	std::vector<double> fields;
@@ -208,6 +214,7 @@ class Simulation {
 		lua_getfield(L, index, "REWEIGHT");  reweight = lua_tointeger(L, -1);      lua_pop(L, 1);
 		lua_getfield(L, index, "OUTPUT");  outfn = lua_tostring(L, -1);            lua_pop(L, 1);
 		lua_getfield(L, index, "LOGFILE");  logfile.open(lua_tostring(L, -1));     lua_pop(L, 1);
+		lua_getfield(L, index, "DECOMPOSITIONS");  decompositions = lua_tointeger(L, -1);     lua_pop(L, 1);
 		init();
 	}
 
@@ -252,7 +259,7 @@ class Simulation {
 	}
 
 	double logProbability_complex () {
-		const int M = 50;
+		const int M = decompositions==0?N:decompositions;
 		std::vector<Matrix_d> fvec;
 		std::vector<Matrix_d> bvec;
 		for (int i=0;i<N;i+=M) {
@@ -263,7 +270,9 @@ class Simulation {
 			accumulate_backward(i, i+M);
 			bvec.push_back(positionSpace);
 		}
-		test_sequences(fvec, bvec);
+		//test_sequences(fvec, bvec);
+		collapseSVD(fvec, cache.svd.S, cache.svd.U, cache.svd.V);
+		//collapseSVD(bvec, cache.svd.S, cache.svd.U, cache.svd.V);
 		return 0.0;
 	}
 
@@ -411,13 +420,16 @@ class Simulation {
 		//logfile << ' ' << cache.ev.array().log().sum().real() << ' ' << std::norm(cache.ev[0]/cache.ev[V-1]);
 		//logfile << std::endl;
 
-		if ( std::cos(c.imag())<0.99 ) {
+		if (std::cos(c.imag())<0.99) {
 			std::cerr << exact << ' ' << ev1.array().log().sum().real() << ' ' << ev2.array().log().sum().real() << ' ' << ev3.array().log().sum().real() << std::endl;
 			//std::cerr << std::endl << ev1.transpose() << std::endl;
 			//std::cerr << ev2.transpose() << std::endl;
 			//std::cerr << ev3.transpose() << std::endl << std::endl;
 			diagonals[t][x] = -diagonals[t][x];
 			accumulate_forward();
+			Eigen::JacobiSVD<Matrix_d> svd;
+			svd.compute(positionSpace);
+			std::cerr << "what? " << svd.singularValues().array().log().sum() << std::endl;
 			logProbability_complex();
 			throw "";
 		}

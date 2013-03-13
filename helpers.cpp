@@ -40,6 +40,38 @@ void dggev (const Matrix_d &A, const Matrix_d &B, Vector_cd &alpha, Vector_d &be
 	}
 }
 
+extern "C" void dgesvd_ (const char *jobu, const char *jobvt,
+		const int &M, const int &N,
+		double *A, const int &lda,
+		double *S,
+		double *U, const int &ldu,
+		double *VT, const int &ldvt,
+		double *work, const int &lwork, int &info);
+
+void dgesvd (const Matrix_d &A, Vector_d &S, Matrix_d &U, Matrix_d &V) {
+	const int N = A.rows();
+	Eigen::MatrixXd a = A.cast<double>();
+	Eigen::VectorXd s = Eigen::VectorXd::Zero(N);
+	Eigen::MatrixXd u = Eigen::MatrixXd::Zero(N, N);
+	Eigen::MatrixXd vt = Eigen::MatrixXd::Zero(N, N);
+	Eigen::ArrayXd work = Eigen::ArrayXd::Zero(5*N);
+	int info = 0;
+	dgesvd_("A", "A", N, N, a.data(), N,
+			s.data(), u.data(), N, vt.data(), N,
+			work.data(), 5*N, info);
+	if (info == 0) {
+		S = s.cast<Real>();
+		U = u.cast<Real>();
+		V = vt.transpose().cast<Real>();
+		//std::cerr << "SVD of matrix\n" << A << "\nU*S*V^t\n" << u*s.asDiagonal()*vt << std::endl;
+	} else if (info<0) {
+		std::cerr << "dgesvd_: error at argument " << -info << std::endl;
+	} else if (info<=N) {
+		std::cerr << "DBDSQR iteration failed at superdiagonal " << info << std::endl;
+	} else {
+	}
+}
+
 void sort_vector (Vector_cd &v) {
 	const int N = v.size();
 	for (int i=0;i<N;i++) {
@@ -158,49 +190,22 @@ Vector_cd merge_ev_g (Vector_cd eva1, Vector_d evb1, Vector_cd eva2, Vector_d ev
 	return ret;
 }
 
-std::vector<Vector_cd> evlist (std::vector<Matrix_d>& vec) {
-	assert(vec[0].rows()==vec[0].cols());
-	const int V = vec[0].rows();
-	std::vector<Vector_cd> retlist;
-	Eigen::JacobiSVD<Matrix_d, Eigen::NoQRPreconditioner> svd;
-	Matrix_d ret = Matrix_d::Identity(V, V);
-	Matrix_d Y = Matrix_d::Identity(V, V);
-	Matrix_d Z = Matrix_d::Identity(V, V);
-	Array_d D;
-	for (auto X : vec) {
-		svd.compute(X*Y*Z, Eigen::ComputeFullU | Eigen::ComputeFullV);
-		ret.applyOnTheLeft(svd.matrixV().transpose());
-		Y = svd.matrixU();
-		Z = svd.singularValues().asDiagonal();
-		D = svd.singularValues();
-		{
-			Vector_cd eva;
-			Vector_d evb;
-			dggev(Y.transpose()*ret.transpose(), Z, eva, evb);
-			std::cerr << (evb.cast<Complex>().array()/eva.array()).transpose() << std::endl;
-			dggev(Y.transpose()*ret.transpose(), D.inverse().matrix().asDiagonal(), eva, evb);
-			std::cerr << (evb.cast<Complex>().array()/eva.array()).transpose() << std::endl;
-		}
-	}
-	std::cerr << Z.diagonal().transpose() << std::endl;
-	return retlist;
-}
-
-
 Matrix_d reduceSVD_f (std::vector<Matrix_d>& vec) {
 	assert(vec[0].rows()==vec[0].cols());
 	const int V = vec[0].rows();
 	Eigen::JacobiSVD<Matrix_d, Eigen::NoQRPreconditioner> svd;
 	Matrix_d ret = Matrix_d::Identity(V, V);
+	Matrix_d X = Matrix_d::Identity(V, V);
 	Matrix_d Y = Matrix_d::Identity(V, V);
 	Matrix_d Z = Matrix_d::Identity(V, V);
-	Array_d D;
+	Vector_d D;
 	for (auto X : vec) {
-		svd.compute(X*Y*Z, Eigen::ComputeFullU | Eigen::ComputeFullV);
-		ret.applyOnTheLeft(svd.matrixV().transpose());
-		Y = svd.matrixU();
-		Z = svd.singularValues().asDiagonal();
-		D = svd.singularValues();
+		dgesvd((X*Y).eval()*Z, D, Y, X);
+		//svd.compute((X*Y).eval()*Z, Eigen::ComputeFullU | Eigen::ComputeFullV);
+		ret.applyOnTheLeft(X.transpose());
+		//Y = svd.matrixU();
+		//D = svd.singularValues();
+		Z = D.asDiagonal();
 	}
 	Vector_cd ev1, ev2;
 	std::cerr << Z.diagonal().transpose() << std::endl;
@@ -217,7 +222,7 @@ Matrix_d reduceSVD_f (std::vector<Matrix_d>& vec) {
 
 	dggev(Z, Y.transpose()*ret.transpose(), eva1, evb1);
 	std::cerr << (eva1.array()/evb1.cast<Complex>().array()).transpose() << std::endl;
-	dggev(D.inverse().matrix().asDiagonal(), Y.transpose()*ret.transpose(), eva2, evb2);
+	dggev(D.array().inverse().matrix().asDiagonal(), Y.transpose()*ret.transpose(), eva2, evb2);
 	std::cerr << (eva2.array()/evb2.cast<Complex>().array()).transpose() << std::endl;
 
 	//Vector_cd ev3 = merge_ev_g(eva1, evb1, eva2, evb2);
@@ -237,6 +242,26 @@ Matrix_d reduceSVD_f (std::vector<Matrix_d>& vec) {
 	//}
 	//std::cerr << p1 << ' ' << p2 << ' ' << p3 << ' ' << s << std::endl;
 	return Y*Z*ret;
+}
+
+void collapseSVD (std::vector<Matrix_d>& vec, Vector_d &S, Matrix_d &U, Matrix_d &V) {
+	assert(vec[0].rows()==vec[0].cols());
+	const int N = vec[0].rows();
+	Matrix_d ret = Matrix_d::Identity(N, N);
+	Matrix_d X = Matrix_d::Identity(N, N);
+	Matrix_d Y = Matrix_d::Identity(N, N);
+	Matrix_d Z = Matrix_d::Identity(N, N);
+	Vector_d D = Vector_d::Ones(N);
+	for (auto X : vec) {
+		dgesvd((X*Y).eval()*D.asDiagonal(), D, Y, X);
+		ret.applyOnTheLeft(X.transpose());
+		Z = D.asDiagonal();
+	}
+	//std::cerr << Z.diagonal().transpose() << std::endl;
+	std::cerr << "alt guess = " << D.array().log().sum() << std::endl;
+	S = D.cast<Real>();
+	U = Y.cast<Real>();
+	V = ret.cast<Real>().transpose();
 }
 
 Matrix_d reduceSVD_b (std::vector<Matrix_d>& vec) {
@@ -277,7 +302,7 @@ void test_sequences (std::vector<Matrix_d>& fvec, std::vector<Matrix_d>& bvec) {
 	std::cerr << "straight products are inverse? " << (fp*bp).eval().isIdentity(1e-3) << ", " << (bp*fp).eval().isIdentity(1e-3) << std::endl;
 	//std::cerr << fp << std::endl << std::endl << bp << std::endl << std::endl;
 	std::cerr << "SVDs: " << std::endl << fp.jacobiSvd().singularValues().transpose() << std::endl << bp.jacobiSvd().singularValues().array().inverse().transpose() << std::endl;
-	std::cerr << "EVs: " << std::endl << fp.eigenvalues().transpose() << std::endl << bp.eigenvalues().array().transpose() << std::endl;
+	std::cerr << "EVs: " << std::endl << fp.eigenvalues().transpose() << std::endl << bp.eigenvalues().transpose() << std::endl;
 	fp.setIdentity(V, V);
 	bp.setIdentity(V, V);
 	for (int i=0;i<N;i++) {
