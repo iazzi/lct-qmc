@@ -272,8 +272,20 @@ class Simulation {
 		}
 		//test_sequences(fvec, bvec);
 		collapseSVD(fvec, cache.svd.S, cache.svd.U, cache.svd.V);
+		Complex ret = 0.0;
+		Vector_d S;
+		Matrix_d U;
+		Matrix_d V;
+		U = cache.svd.U.transpose()*cache.svd.V;
+		U.diagonal() += std::exp(+beta*B*0.5+beta*mu)*cache.svd.S;
+		dgesvd(U, S, U, V); // 1+U*S*V^t -> (V + U*S) V^t -> U (U^t*V + S) V^t
+		U = cache.svd.U.transpose()*cache.svd.V;
+		ret += S.array().log().sum();
+		U.diagonal() += std::exp(-beta*B*0.5+beta*mu)*cache.svd.S;
+		dgesvd(U, S, U, V); // 1+U*S*V^t -> (V + U*S) V^t -> U (U^t*V + S) V^t
 		//collapseSVD(bvec, cache.svd.S, cache.svd.U, cache.svd.V);
-		return 0.0;
+		ret += S.array().log().sum();
+		return ret.real();
 	}
 
 	void compute_uv_f (int x, int t) {
@@ -376,7 +388,7 @@ class Simulation {
 		//ev1 = cache.ev;
 		//logfile << exact << ' ' << cache.ev.array().log().sum().real() << ' ' << std::norm(cache.ev[0]/cache.ev[V-1]);
 
-		if ( std::cos(c.imag())<0.99 || std::abs(1.0-c.real()/exact)>1.0e-4 ) {
+		if ( std::cos(c.imag())<0.99 || std::abs(1.0-c.real()/exact)>1.0e-5 ) {
 			std::cerr << " recomputing exact = " << exact << " trial=" << c;
 			accumulate_forward();
 			U_s = positionSpace;
@@ -433,6 +445,11 @@ class Simulation {
 			logProbability_complex();
 			throw "";
 		}
+		//std::cerr << "exact " << exact << "\nrank1 " << c << std::endl;
+		//diagonals[t][x] = -diagonals[t][x];
+		//double other = logProbability_complex();
+		//diagonals[t][x] = -diagonals[t][x];
+		//std::cerr << "probabilities: " << trial << " <-> " << other << std::endl;
 		if (-trialDistribution(generator)<trial-plog) {
 			plog = trial;
 			diagonals[t][x] = -diagonals[t][x];

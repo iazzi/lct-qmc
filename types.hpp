@@ -1,7 +1,7 @@
 #ifndef REAL_TYPES_HPP
 #define REAL_TYPES_HPP
 
-#define USE_LONG_DOUBLE
+//#define USE_LONG_DOUBLE
 
 #ifdef USE_LONG_DOUBLE
 typedef long double Real;
