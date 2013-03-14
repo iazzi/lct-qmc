@@ -16,7 +16,7 @@ local _, threads = (os.getenv("LSB_HOSTS") or ''):gsub("(%S+)", "%1")
 if threads<1 then threads = 1 end
 print("using "..threads.." threads")
 
-for x = 0.1, 0.55, 0.05 do
+for x = 0.2, 0.55, 0.05 do
 for _, y in ipairs{ -5, -4.5, -4, -3.5, -3, -2.5, -2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2, } do
 	tasks:insert( flip_params{
 		Lx = 4,
