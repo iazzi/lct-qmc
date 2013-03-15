@@ -508,21 +508,26 @@ class Simulation {
 			//extract_data(Matrix_d::Identity(V, V) - (Matrix_d::Identity(V, V) + exp(+beta*B*0.5+beta*mu)*U_s).inverse(), d_up, d1_up, d2_up, K_up);
 			extract_data((Matrix_d::Identity(V, V) + exp(-beta*B*0.5-beta*mu)*U_s_inv).inverse(), d_up, d1_up, d2_up, K_up);
 			//extract_data(Matrix_d::Identity(V, V) - (Matrix_d::Identity(V, V) + exp(-beta*B*0.5+beta*mu)*U_s).inverse(), d_dn, d1_dn, d2_dn, K_dn);
-			extract_data((Matrix_d::Identity(V, V) + exp(+beta*B*0.5-beta*mu)*U_s_inv).inverse(), d_dn, d1_dn, d2_dn, K_dn);
-			n_up = ( std::exp(+beta*B*0.5+beta*mu)*ev_s.array()*(1.0 + std::exp(+beta*B*0.5+beta*mu)*ev_s.array()).inverse() ).sum().real();
-			n_dn = ( std::exp(-beta*B*0.5+beta*mu)*ev_s.array()*(1.0 + std::exp(-beta*B*0.5+beta*mu)*ev_s.array()).inverse() ).sum().real();
+			extract_data((Matrix_d::Identity(V, V) + exp(-beta*B*0.5+beta*mu)*U_s).inverse(), d_dn, d1_dn, d2_dn, K_dn);
+			n_up = d_up.sum();
+			n_dn = d_dn.sum();
 			n2 = (d_up*d_dn).sum();
 			if (std::cos(ret.imag())<0.99 && std::cos(ret.imag())>0.01) {
 				//throw 1;
 			}
 			densities[i].add((n_up + n_dn) / V, w);
 			magnetizations[i].add((n_up - n_dn) / 2.0 / V, w);
-			kinetic[i].add(K_up+K_dn, w);
-			interaction[i].add(g*(n_up-n2), w);
-			double ssz = - (d1_up*d2_up).sum() - (d1_dn*d2_dn).sum() - 2.0*n_up - 2.0*n_dn;
+			kinetic[i].add(K_up-K_dn, w);
+			interaction[i].add(g*n2, w);
+			double ssz = 0.0;
+			//- (d1_up*d2_up).sum() - (d1_dn*d2_dn).sum();
 			for (int j=0;j<V;j++) {
-				ssz += d_up[j]*d_up[(j+1)%V] + d_dn[j]*d_dn[(j+1)%V];
-				ssz += d_up[j]*d_dn[(j+1)%V] + d_dn[j]*d_up[(j+1)%V];
+				int k = 1;
+				int x = j;
+				int y = (j+k)%V;
+				ssz += d_up[x]*d_up[y] + d_dn[x]*d_dn[y];
+				ssz -= d_up[x]*d_dn[y] + d_dn[x]*d_up[y];
+				ssz -= d1_up[x]*d2_up[x] + d1_dn[x]*d2_dn[x];
 			}
 			spincorrelation[i].add(0.25*ssz, w);
 		}
@@ -538,8 +543,8 @@ class Simulation {
 		std::ofstream out(outfn, reset?std::ios::trunc:std::ios::app);
 		for (size_t i=0;i<fields.size();i++) {
 			out << 1.0/(beta*tx) << ' ' << 0.5*(fields[i]+g)/tx
-				<< ' ' << 1+2*(magnetizations[i].mean()) << ' ' << 4*magnetizations[i].variance()
-				<< ' ' << 0.5*(densities[i].mean()-1.0) << ' ' << 0.25*densities[i].variance()
+				<< ' ' << densities[i].mean() << ' ' << densities[i].variance()
+				<< ' ' << magnetizations[i].mean() << ' ' << magnetizations[i].variance()
 				<< ' ' << kinetic[i].mean()/tx/V << ' ' << kinetic[i].variance()
 				<< ' ' << interaction[i].mean()/tx/V << ' ' << interaction[i].variance()
 				<< ' ' << spincorrelation[i].mean()/V << ' ' << spincorrelation[i].variance() << std::endl;
