@@ -127,6 +127,12 @@ class Simulation {
 	std::vector<weighted_measurement<double>> interaction;
 	std::vector<weighted_measurement<double>> spincorrelation;
 
+	int shift_x (int x, int k) {
+		int a = (x/Ly/Lz)%Lx;
+		int b = x%(Lx*Lz);
+		return ((a+k)%Lx)*Ly*Lz + b;
+	}
+
 	public:
 
 	void init () {
@@ -524,7 +530,7 @@ class Simulation {
 			for (int j=0;j<V;j++) {
 				int k = 1;
 				int x = j;
-				int y = (j+k)%V;
+				int y = shift_x(j, k);
 				ssz += d_up[x]*d_up[y] + d_dn[x]*d_dn[y];
 				ssz -= d_up[x]*d_dn[y] + d_dn[x]*d_up[y];
 				ssz -= d1_up[x]*d2_up[x] + d1_dn[x]*d2_dn[x];
