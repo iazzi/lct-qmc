@@ -512,9 +512,11 @@ class Simulation {
 			ret += (1.0 + std::exp(-beta*B*0.5+beta*mu)*ev_s.array()).log().sum();
 			double w = std::exp(ret-plog).real();
 			//extract_data(Matrix_d::Identity(V, V) - (Matrix_d::Identity(V, V) + exp(+beta*B*0.5+beta*mu)*U_s).inverse(), d_up, d1_up, d2_up, K_up);
-			extract_data((Matrix_d::Identity(V, V) + exp(-beta*B*0.5-beta*mu)*U_s_inv).inverse(), d_up, d1_up, d2_up, K_up);
+			Matrix_d rho_up = (Matrix_d::Identity(V, V) + exp(-beta*B*0.5-beta*mu)*U_s_inv).inverse();
+			extract_data(rho_up, d_up, d1_up, d2_up, K_up);
 			//extract_data(Matrix_d::Identity(V, V) - (Matrix_d::Identity(V, V) + exp(-beta*B*0.5+beta*mu)*U_s).inverse(), d_dn, d1_dn, d2_dn, K_dn);
-			extract_data((Matrix_d::Identity(V, V) + exp(-beta*B*0.5+beta*mu)*U_s).inverse(), d_dn, d1_dn, d2_dn, K_dn);
+			Matrix_d rho_dn = (Matrix_d::Identity(V, V) + exp(-beta*B*0.5+beta*mu)*U_s).inverse();
+			extract_data(rho_dn, d_dn, d1_dn, d2_dn, K_dn);
 			n_up = d_up.sum();
 			n_dn = d_dn.sum();
 			n2 = (d_up*d_dn).sum();
@@ -527,13 +529,14 @@ class Simulation {
 			interaction[i].add(g*n2, w);
 			double ssz = 0.0;
 			//- (d1_up*d2_up).sum() - (d1_dn*d2_dn).sum();
-			for (int j=0;j<V;j++) {
-				int k = 1;
-				int x = j;
-				int y = shift_x(j, k);
-				ssz += d_up[x]*d_up[y] + d_dn[x]*d_dn[y];
-				ssz -= d_up[x]*d_dn[y] + d_dn[x]*d_up[y];
-				ssz -= d1_up[x]*d2_up[x] + d1_dn[x]*d2_dn[x];
+			for (int k=0;k<1;k++) {
+				for (int j=0;j<V;j++) {
+					int x = j;
+					int y = shift_x(j, k+1);
+					ssz += rho_up(x, x)*rho_up(y, y) + rho_dn(x, x)*rho_dn(y, y);
+					ssz -= rho_up(x, x)*rho_dn(y, y) + rho_dn(x, x)*rho_up(y, y);
+					ssz -= rho_up(x, y)*rho_up(y, x) + rho_dn(x, y)*rho_dn(y, x);
+				}
 			}
 			spincorrelation[i].add(0.25*ssz, w);
 		}
