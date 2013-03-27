@@ -120,16 +120,15 @@ class Simulation {
 		} svd;
 	} cache;
 
-	std::vector<double> fields;
-	std::vector<weighted_measurement<double>> densities;
-	std::vector<weighted_measurement<double>> magnetizations;
-	std::vector<weighted_measurement<double>> kinetic;
-	std::vector<weighted_measurement<double>> interaction;
-	std::vector<weighted_measurement<double>> spincorrelation;
+	mymeasurement<double> density;
+	mymeasurement<double> magnetization;
+	mymeasurement<double> kinetic;
+	mymeasurement<double> interaction;
+	std::vector<mymeasurement<double>> spincorrelation;
 
 	int shift_x (int x, int k) {
 		int a = (x/Ly/Lz)%Lx;
-		int b = x%(Lx*Lz);
+		int b = x%(Ly*Lz);
 		return ((a+k)%Lx)*Ly*Lz + b;
 	}
 
@@ -189,14 +188,8 @@ class Simulation {
 		U_s_inv = positionSpace;
 		plog = -1.0e-10;
 
-		for (int i=-reweight;i<=reweight;i++) {
-			double f = B + double(i)/10.0;
-			fields.push_back(f);
-			densities.push_back(weighted_measurement<double>());
-			magnetizations.push_back(weighted_measurement<double>());
-			kinetic.push_back(weighted_measurement<double>());
-			interaction.push_back(weighted_measurement<double>());
-			spincorrelation.push_back(weighted_measurement<double>());
+		for (int i=0;i<=Lx/2;i++) {
+			spincorrelation.push_back(mymeasurement<double>());
 		}
 	}
 
@@ -483,15 +476,15 @@ class Simulation {
 		}
 	}
 
-	void extract_data (const Matrix_d &M, Array_d &d, Array_d &d1, Array_d &d2, double &K) {
+	void extract_data (const Matrix_d &M, double &K) {
 		positionSpace = M;
-		d = positionSpace.diagonal();
-		d1.resize(positionSpace.rows());
-		d2.resize(positionSpace.rows());
+		//d = positionSpace.diagonal();
+		//d1.resize(positionSpace.rows());
+		//d2.resize(positionSpace.rows());
 		// get super- and sub- diagonal
 		for (int i=0;i<V;i++) {
-			d1[i] = positionSpace(i, (i+1)%V);
-			d2[i] = positionSpace((i+1)%V, i);
+			//d1[i] = positionSpace(i, (i+1)%V);
+			//d2[i] = positionSpace((i+1)%V, i);
 		}
 		fftw_execute(x2p_col);
 		momentumSpace.applyOnTheLeft(energies.asDiagonal());
@@ -500,45 +493,47 @@ class Simulation {
 	}
 
 	void measure () {
-		Array_d d_up, d_dn;
-		Array_d d1_up, d1_dn;
-		Array_d d2_up, d2_dn;
 		double K_up, K_dn;
 		double n_up, n_dn, n2;
-		for (size_t i=0;i<fields.size();i++) {
-			double B = fields[i];
-			std::complex<double> ret = 0.0;
-			ret += (1.0 + std::exp(+beta*B*0.5+beta*mu)*ev_s.array()).log().sum();
-			ret += (1.0 + std::exp(-beta*B*0.5+beta*mu)*ev_s.array()).log().sum();
-			double w = std::exp(ret-plog).real();
+		{
 			//extract_data(Matrix_d::Identity(V, V) - (Matrix_d::Identity(V, V) + exp(+beta*B*0.5+beta*mu)*U_s).inverse(), d_up, d1_up, d2_up, K_up);
 			Matrix_d rho_up = (Matrix_d::Identity(V, V) + exp(-beta*B*0.5-beta*mu)*U_s_inv).inverse();
-			extract_data(rho_up, d_up, d1_up, d2_up, K_up);
+			extract_data(rho_up, K_up);
 			//extract_data(Matrix_d::Identity(V, V) - (Matrix_d::Identity(V, V) + exp(-beta*B*0.5+beta*mu)*U_s).inverse(), d_dn, d1_dn, d2_dn, K_dn);
 			Matrix_d rho_dn = (Matrix_d::Identity(V, V) + exp(-beta*B*0.5+beta*mu)*U_s).inverse();
-			extract_data(rho_dn, d_dn, d1_dn, d2_dn, K_dn);
-			n_up = d_up.sum();
-			n_dn = d_dn.sum();
-			n2 = (d_up*d_dn).sum();
-			if (std::cos(ret.imag())<0.99 && std::cos(ret.imag())>0.01) {
-				//throw 1;
-			}
-			densities[i].add((n_up + n_dn) / V, w);
-			magnetizations[i].add((n_up - n_dn) / 2.0 / V, w);
-			kinetic[i].add(K_up-K_dn, w);
-			interaction[i].add(g*n2, w);
-			double ssz = 0.0;
+			extract_data(rho_dn, K_dn);
+			n_up = rho_up.diagonal().array().sum();
+			n_dn = rho_dn.diagonal().array().sum();
+			n2 = (rho_up.diagonal().array()*rho_dn.diagonal().array()).sum();
+			density.add((n_up + n_dn) / V);
+			magnetization.add((n_up - n_dn) / 2.0 / V);
+			kinetic.add(K_up-K_dn);
+			interaction.add(g*n2);
 			//- (d1_up*d2_up).sum() - (d1_dn*d2_dn).sum();
-			for (int k=0;k<1;k++) {
+			for (int k=0;k<=Lx/2;k++) {
+				double ssz = 0.0;
 				for (int j=0;j<V;j++) {
 					int x = j;
-					int y = shift_x(j, k+1);
+					int y = shift_x(j, k);
 					ssz += rho_up(x, x)*rho_up(y, y) + rho_dn(x, x)*rho_dn(y, y);
 					ssz -= rho_up(x, x)*rho_dn(y, y) + rho_dn(x, x)*rho_up(y, y);
 					ssz -= rho_up(x, y)*rho_up(y, x) + rho_dn(x, y)*rho_dn(y, x);
 				}
+				spincorrelation[k].add(0.25*ssz);
+				if (isnan(ssz)) {
+					std::cerr << "explain:" << std::endl;
+					std::cerr << "k=" << k << " ssz=" << ssz << std::endl;
+					for (int j=0;j<V;j++) {
+						int x = j;
+						int y = shift_x(j, k);
+						std::cerr << " j=" << j
+							<< " a_j=" << (rho_up(x, x)*rho_up(y, y) + rho_dn(x, x)*rho_dn(y, y))
+							<< " b_j=" << (rho_up(x, x)*rho_dn(y, y) + rho_dn(x, x)*rho_up(y, y))
+							<< " c_j=" << (rho_up(x, y)*rho_up(y, x) + rho_dn(x, y)*rho_dn(y, x)) << std::endl;
+					}
+					throw "";
+				}
 			}
-			spincorrelation[i].add(0.25*ssz, w);
 		}
 	}
 
@@ -550,15 +545,14 @@ class Simulation {
 		buf << outfn << "U" << (g/tx) << "_T" << 1.0/(beta*tx) << '_' << Lx << 'x' << Ly << 'x' << Lz << ".dat";
 		outfn = buf.str();
 		std::ofstream out(outfn, reset?std::ios::trunc:std::ios::app);
-		for (size_t i=0;i<fields.size();i++) {
-			out << 1.0/(beta*tx) << ' ' << 0.5*(fields[i]+g)/tx
-				<< ' ' << densities[i].mean() << ' ' << densities[i].variance()
-				<< ' ' << magnetizations[i].mean() << ' ' << magnetizations[i].variance()
-				<< ' ' << kinetic[i].mean()/tx/V << ' ' << kinetic[i].variance()
-				<< ' ' << interaction[i].mean()/tx/V << ' ' << interaction[i].variance()
-				<< ' ' << spincorrelation[i].mean()/V << ' ' << spincorrelation[i].variance() << std::endl;
-		}
-		out << std::endl;
+		out << 1.0/(beta*tx) << ' ' << 0.5*(B+g)/tx
+			<< ' ' << density.mean() << ' ' << density.variance()
+			<< ' ' << magnetization.mean() << ' ' << magnetization.variance()
+			<< ' ' << kinetic.mean()/tx/V << ' ' << kinetic.variance()
+			<< ' ' << interaction.mean()/tx/V << ' ' << interaction.variance();
+		for (int i=0;i<=Lx/2;i++)
+			out << ' ' << spincorrelation[i].mean()/V << ' ' << spincorrelation[i].variance();
+		out << std::endl << std::endl;
 	}
 
 	double params () {
