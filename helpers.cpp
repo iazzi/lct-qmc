@@ -258,7 +258,7 @@ void collapseSVD (std::vector<Matrix_d>& vec, Vector_d &S, Matrix_d &U, Matrix_d
 		Z = D.asDiagonal();
 	}
 	//std::cerr << Z.diagonal().transpose() << std::endl;
-	std::cerr << "alt guess = " << D.array().log().sum() << std::endl;
+	std::cerr << "collapseSVD guess = " << D.array().log().sum() << std::endl;
 	S = D.cast<Real>();
 	U = Y.cast<Real>();
 	V = ret.cast<Real>().transpose();

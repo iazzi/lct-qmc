@@ -284,6 +284,11 @@ class Simulation {
 		dgesvd(U, S, U, V); // 1+U*S*V^t -> (V + U*S) V^t -> U (U^t*V + S) V^t
 		//collapseSVD(bvec, cache.svd.S, cache.svd.U, cache.svd.V);
 		ret += S.array().log().sum();
+
+		if (std::cos(ret.imag())<0.99) {
+			std::cerr << "prob_complex = " << ret << " det=" << cache.svd.S.array().log().sum() << std::endl;
+			throw "";
+		}
 		return ret.real();
 	}
 
@@ -402,30 +407,6 @@ class Simulation {
 		//logfile << ' ' << cache.ev.array().log().sum().real() << ' ' << std::norm(cache.ev[0]/cache.ev[V-1]);
 
 		if ( std::cos(c.imag())<0.99 || std::abs(1.0-c.real()/exact)>1.0e-4 ) {
-			Vector_cd eva = Vector_cd::Ones(V);
-			diagonals[t][x] = -diagonals[t][x];
-			accumulate_forward();
-			Vector_cd evb = positionSpace.eigenvalues();
-			accumulate_backward();
-			Vector_cd evc = positionSpace.eigenvalues();
-			diagonals[t][x] = -diagonals[t][x];
-			sort_vector(evb);
-			sort_vector(evc);
-			reverse_vector(evc);
-			for (int i=0;i<V;i++) {
-				if (std::norm(evb[i]/evb[0])<std::norm(evc[i]/evc[V-1])) {
-					eva[i] = ((Real)1.0)/evc[i];
-				} else {
-					eva[i] = evb[i];
-				}
-			}
-			cache.ev = eva;
-			std::complex<double> ret = 0.0;
-			ret += (Vector_cd::Ones(V) + std::exp(+beta*B*0.5+beta*mu)*eva).array().log().sum();
-			ret += (Vector_cd::Ones(V) + std::exp(-beta*B*0.5+beta*mu)*eva).array().log().sum();
-			trial = ret.real();
-			c = cache.ev.array().log().sum();
-			std::cerr << " newest=" << c << std::endl;
 		}
 		//ev3 = cache.ev;
 		//logfile << ' ' << cache.ev.array().log().sum().real() << ' ' << std::norm(cache.ev[0]/cache.ev[V-1]);
@@ -433,16 +414,9 @@ class Simulation {
 
 		if (std::cos(c.imag())<0.99) {
 			std::cerr << exact << ' ' << ev1.array().log().sum().real() << ' ' << ev2.array().log().sum().real() << ' ' << ev3.array().log().sum().real() << std::endl;
-			//std::cerr << std::endl << ev1.transpose() << std::endl;
-			//std::cerr << ev2.transpose() << std::endl;
-			//std::cerr << ev3.transpose() << std::endl << std::endl;
 			diagonals[t][x] = -diagonals[t][x];
-			accumulate_forward();
-			Eigen::JacobiSVD<Matrix_d> svd;
-			svd.compute(positionSpace);
-			std::cerr << "what? " << svd.singularValues().array().log().sum() << std::endl;
-			logProbability_complex();
-			throw "";
+			c = logProbability_complex();
+			diagonals[t][x] = -diagonals[t][x];
 		}
 		//std::cerr << "exact " << exact << "\nrank1 " << c << std::endl;
 		//diagonals[t][x] = -diagonals[t][x];
@@ -552,7 +526,7 @@ class Simulation {
 			<< ' ' << interaction.mean()/tx/V << ' ' << interaction.variance();
 		for (int i=0;i<=Lx/2;i++)
 			out << ' ' << spincorrelation[i].mean()/V << ' ' << spincorrelation[i].variance();
-		out << std::endl << std::endl;
+		out << std::endl;
 	}
 
 	double params () {
