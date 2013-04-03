@@ -11,7 +11,7 @@
 #include "helpers.hpp"
 #include "measurements.hpp"
 #include "weighted_measurements.hpp"
-
+#include "logger.hpp"
 
 extern "C" {
 #include <fftw3.h>
@@ -97,6 +97,8 @@ class Simulation {
 	mymeasurement<double> m_dens;
 	mymeasurement<double> m_magn;
 
+	int thermalization_sweeps;
+	int total_sweeps;
 	bool reset;
 	int reweight;
 	int decompositions;
@@ -194,6 +196,8 @@ class Simulation {
 	}
 
 	Simulation (lua_State *L, int index, int seed = 42) : distribution(0.5), trialDistribution(1.0), steps(0) {
+		lua_getfield(L, index, "THERMALIZATION"); thermalization_sweeps = lua_tointeger(L, -1); lua_pop(L, 1);
+		lua_getfield(L, index, "SWEEPS"); total_sweeps = lua_tointeger(L, -1); lua_pop(L, 1);
 		lua_getfield(L, index, "SEED"); generator.seed(lua_tointeger(L, -1)+seed); lua_pop(L, 1);
 		lua_getfield(L, index, "Lx");   this->Lx = lua_tointeger(L, -1);           lua_pop(L, 1);
 		lua_getfield(L, index, "Ly");   this->Ly = lua_tointeger(L, -1);           lua_pop(L, 1);
@@ -285,7 +289,7 @@ class Simulation {
 		//collapseSVD(bvec, cache.svd.S, cache.svd.U, cache.svd.V);
 		ret += S.array().log().sum();
 
-		if (std::cos(ret.imag())<0.99) {
+		if (std::cos(ret.imag())<0.99 || std::isnan(ret.real()) || std::isnan(ret.imag())) {
 			std::cerr << "prob_complex = " << ret << " det=" << cache.svd.S.array().log().sum() << std::endl;
 			throw "";
 		}
@@ -529,8 +533,10 @@ class Simulation {
 		out << std::endl;
 	}
 
-	double params () {
-		return 1.0/(beta*tx);
+	std::string params () {
+		std::ostringstream buf;
+		buf << "T=" << 1.0/(beta*tx);
+		return buf.str();
 	}
 
 	~Simulation () {
@@ -555,47 +561,58 @@ int main (int argc, char **argv) {
 		return -1;
 	}
 
-	for (int i=1;i<=lua_gettop(L);i++) {
-		lua_getfield(L, i, "THREADS");
-		int nthreads = lua_tointeger(L ,-1);
-		lua_pop(L, 1);
-		lua_getfield(L, i, "THERMALIZATION");
-		int thermalization_sweeps = lua_tointeger(L, -1);
-		lua_pop(L, 1);
-		lua_getfield(L, i, "SWEEPS");
-		int total_sweeps = lua_tointeger(L, -1);
-		lua_pop(L, 1);
-		std::vector<std::thread> threads(nthreads);
-		std::mutex lock;
-		for (int j=0;j<nthreads;j++) {
-			threads[j] = std::thread( [=,&lock] () {
+	int nthreads = 1;
+	lua_getfield(L, -1, "THREADS");
+	if (lua_tointeger(L, -1)) {
+		nthreads = lua_tointeger(L, -1);
+	}
+	lua_pop(L, 1);
+	std::vector<std::thread> threads(nthreads);
+	Logger log;
+	std::mutex lock;
+	for (int j=0;j<nthreads;j++) {
+		int i = 1;
+		threads[j] = std::thread( [=, &log, &lock, &i] () {
+				log << "thread" << j << "starting";
+				while (true) {
 					lock.lock();
-					Simulation simulation(L, i, j);
+					lua_rawgeti(L, -1, i);
+					if (lua_isnil(L, -1)) {
+						log << "thread" << j << "terminating";
+						lua_pop(L, 1);
+						lock.unlock();
+						break;
+					}
+					log << "thread" << j << "running simulation" << i;
+					lua_getfield(L, -1, "THERMALIZATION"); int thermalization_sweeps = lua_tointeger(L, -1); lua_pop(L, 1);
+					lua_getfield(L, -1, "SWEEPS"); int total_sweeps = lua_tointeger(L, -1); lua_pop(L, 1);
+					Simulation simulation(L, -1);
+					lua_pop(L, 1);
+					i++;
 					lock.unlock();
 					try {
-
 						for (int i=0;i<thermalization_sweeps;i++) {
-							if (i%100==0) { std::cout << "\r" << i; std::cout.flush(); }
+							if (i%1000==0) { log << "thread" << j << "thermalizing: " << i << '/' << thermalization_sweeps; }
 							simulation.update();
 						}
-						std::cout << '\r' << thermalization_sweeps << "\n"; std::cout.flush();
+						log << "thread" << j << "thermalized";
 						for (int i=0;i<total_sweeps;i++) {
-							if (i%100==0) { std::cout << "\r" << i; std::cout.flush(); }
+							if (i%1000==0) { log << "thread" << j << "running: " << i << '/' << total_sweeps; }
 							simulation.update();
 							simulation.measure();
-					}
-						std::cout << '\r' << total_sweeps << "\n"; std::cout.flush();
+						}
+						log << "thread" << j << "finished simulation" << i;
 						lock.lock();
 						simulation.output_results();
 						lock.unlock();
 					} catch (...) {
-						std::cerr << "caught exception in main() " << std::endl;
+						log << "thread" << j << "caught exception in simulation" << i;
 						std::cerr << " with params " << simulation.params() << std::endl;
 					}
-			});
-		}
-		for (std::thread& t : threads) t.join();
+				}
+		});
 	}
+	for (std::thread& t : threads) t.join();
 
 	lua_close(L);
 	return 0;

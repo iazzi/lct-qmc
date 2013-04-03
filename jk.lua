@@ -42,7 +42,10 @@ for _, fn in ipairs{...} do
 	for l in f:lines() do
 		if l:match('^%s*$') or l:match('%#.*') then
 		else
-			local values = { l:match(('(%S+)%s*'):rep(12)) }
+			local values = {}
+			for m in l:gmatch('(%S+)') do
+				table.insert(values, m)
+			end
 			for i, v in ipairs(values) do
 				values[i] = tonumber(v)
 			end
