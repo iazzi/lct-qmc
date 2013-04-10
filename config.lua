@@ -8,7 +8,8 @@ end
 local tasks = setmetatable({}, { __index=table })
 
 local t = 0.2
-local U = 10*t
+local U = 1.44*t
+local tx, ty, tz = t, t/7.36, t/7.36
 local J = 4*t*t/U
 local L = 4;
 local seed = os.time()
@@ -17,31 +18,35 @@ local _, threads = (os.getenv("LSB_HOSTS") or ''):gsub("(%S+)", "%1")
 if threads<1 then threads = 1 end
 print("using "..threads.." threads")
 
-tasks.THREADS = 1
+tasks.THREADS = threads
 
-for x = 0.9, 1.1, 1.05 do
-for _, y in ipairs{ 0, } do
-	tasks:insert( flip_params{
-		Lx = 16,
-		Ly = 1,
-		Lz = 1,
-		T = x*J,
-		N = 100/x,
-		tx = t,
-		ty = 0.14*t,
-		tz = 1*t,
-		U = U,
-		mu = y*t,
-		B = 0.0,
-		THERMALIZATION = 10000,
-		SWEEPS = 100000,
-		SEED = seed,
-		OUTPUT = 'af6_',
-		REWEIGHT = 0,
-		LOGFILE = 'af_log',
-		DECOMPOSITIONS = 10,
-	} )
-end
+local mu_min, mu_max = -4*(tx+ty+tz), U/2
+local d_mu = (mu_max-mu_min)/30
+
+for x = 0.9, 1.1, 0.025 do
+	for y = mu_min, mu_max+d_mu/2, d_mu do
+		for _ = 1, 50 do
+			tasks:insert( flip_params{
+				Lx = 16,
+				Ly = 2,
+				Lz = 2,
+				T = x*t,
+				N = 100/x,
+				tx = tx,
+				ty = ty,
+				tz = tz,
+				U = U,
+				mu = y,
+				B = 0.0,
+				THERMALIZATION = 10000,
+				SWEEPS = 10000,
+				SEED = seed,
+				OUTPUT = 'experiment6_',
+				REWEIGHT = 0,
+				DECOMPOSITIONS = 100,
+			} )
+		end
+	end
 end
 
 return tasks

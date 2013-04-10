@@ -6,6 +6,7 @@
 #include <chrono>
 #include <thread>
 #include <mutex>
+#include <atomic>
 #include <functional>
 
 #include "helpers.hpp"
@@ -103,7 +104,7 @@ class Simulation {
 	int reweight;
 	int decompositions;
 	std::string outfn;
-	std::ofstream logfile;
+	//std::ofstream logfile;
 
 	Matrix_d U_s;
 	Matrix_d U_s_inv;
@@ -216,7 +217,7 @@ class Simulation {
 		lua_getfield(L, index, "RESET");  reset = lua_toboolean(L, -1);            lua_pop(L, 1);
 		lua_getfield(L, index, "REWEIGHT");  reweight = lua_tointeger(L, -1);      lua_pop(L, 1);
 		lua_getfield(L, index, "OUTPUT");  outfn = lua_tostring(L, -1);            lua_pop(L, 1);
-		lua_getfield(L, index, "LOGFILE");  logfile.open(lua_tostring(L, -1));     lua_pop(L, 1);
+		//lua_getfield(L, index, "LOGFILE");  logfile.open(lua_tostring(L, -1));     lua_pop(L, 1);
 		lua_getfield(L, index, "DECOMPOSITIONS");  decompositions = lua_tointeger(L, -1);     lua_pop(L, 1);
 		init();
 	}
@@ -488,7 +489,7 @@ class Simulation {
 			kinetic.add(K_up-K_dn);
 			interaction.add(g*n2);
 			//- (d1_up*d2_up).sum() - (d1_dn*d2_dn).sum();
-			for (int k=0;k<=Lx/2;k++) {
+			for (int k=1;k<=Lx/2;k++) {
 				double ssz = 0.0;
 				for (int j=0;j<V;j++) {
 					int x = j;
@@ -528,14 +529,14 @@ class Simulation {
 			<< ' ' << magnetization.mean() << ' ' << magnetization.variance()
 			<< ' ' << kinetic.mean()/tx/V << ' ' << kinetic.variance()
 			<< ' ' << interaction.mean()/tx/V << ' ' << interaction.variance();
-		for (int i=0;i<=Lx/2;i++)
+		for (int i=1;i<=Lx/2;i++)
 			out << ' ' << spincorrelation[i].mean()/V << ' ' << spincorrelation[i].variance();
 		out << std::endl;
 	}
 
 	std::string params () {
 		std::ostringstream buf;
-		buf << "T=" << 1.0/(beta*tx);
+		buf << "T=" << 1.0/(beta*tx) << "";
 		return buf.str();
 	}
 
@@ -570,9 +571,11 @@ int main (int argc, char **argv) {
 	std::vector<std::thread> threads(nthreads);
 	Logger log;
 	std::mutex lock;
+	std::atomic<int> failed;
+	failed = 0;
 	for (int j=0;j<nthreads;j++) {
 		int i = 1;
-		threads[j] = std::thread( [=, &log, &lock, &i] () {
+		threads[j] = std::thread( [=, &log, &lock, &i, &failed] () {
 				log << "thread" << j << "starting";
 				while (true) {
 					lock.lock();
@@ -586,7 +589,7 @@ int main (int argc, char **argv) {
 					log << "thread" << j << "running simulation" << i;
 					lua_getfield(L, -1, "THERMALIZATION"); int thermalization_sweeps = lua_tointeger(L, -1); lua_pop(L, 1);
 					lua_getfield(L, -1, "SWEEPS"); int total_sweeps = lua_tointeger(L, -1); lua_pop(L, 1);
-					Simulation simulation(L, -1);
+					Simulation simulation(L, -1, i);
 					lua_pop(L, 1);
 					i++;
 					lock.unlock();
@@ -601,11 +604,12 @@ int main (int argc, char **argv) {
 							simulation.update();
 							simulation.measure();
 						}
-						log << "thread" << j << "finished simulation" << i;
+						log << "thread" << j << "finished simulation" << i; // i has changed!
 						lock.lock();
 						simulation.output_results();
 						lock.unlock();
 					} catch (...) {
+						failed++;
 						log << "thread" << j << "caught exception in simulation" << i;
 						std::cerr << " with params " << simulation.params() << std::endl;
 					}
@@ -613,6 +617,8 @@ int main (int argc, char **argv) {
 		});
 	}
 	for (std::thread& t : threads) t.join();
+
+	std::cout << failed << " tasks failed" << std::endl;
 
 	lua_close(L);
 	return 0;
