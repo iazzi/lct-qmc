@@ -277,21 +277,24 @@ class Simulation {
 		//test_sequences(fvec, bvec);
 		collapseSVD(fvec, cache.svd.S, cache.svd.U, cache.svd.V);
 		Complex ret = 0.0;
+		double sign;
 		Vector_d S;
 		Matrix_d U;
 		Matrix_d V;
 		U = cache.svd.U.transpose()*cache.svd.V;
 		U.diagonal() += std::exp(+beta*B*0.5+beta*mu)*cache.svd.S;
 		dgesvd(U, S, U, V); // 1+U*S*V^t -> (V + U*S) V^t -> U (U^t*V + S) V^t
+		sign = (U*V).determinant();
 		U = cache.svd.U.transpose()*cache.svd.V;
 		ret += S.array().log().sum();
 		U.diagonal() += std::exp(-beta*B*0.5+beta*mu)*cache.svd.S;
 		dgesvd(U, S, U, V); // 1+U*S*V^t -> (V + U*S) V^t -> U (U^t*V + S) V^t
+		sign *= (U*V).determinant();
 		//collapseSVD(bvec, cache.svd.S, cache.svd.U, cache.svd.V);
 		ret += S.array().log().sum();
 
-		if (std::cos(ret.imag())<0.99 || std::isnan(ret.real()) || std::isnan(ret.imag())) {
-			std::cerr << "prob_complex = " << ret << " det=" << cache.svd.S.array().log().sum() << std::endl;
+		if ( (sign)<1e-5 || std::isnan(ret.real()) || std::isnan(ret.imag())) {
+			std::cerr << "prob_complex = " << ret << " det=" << cache.svd.S.array().log().sum() << " " << sign << std::endl;
 			throw "";
 		}
 		return ret.real();
