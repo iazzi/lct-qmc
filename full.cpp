@@ -399,6 +399,7 @@ class Simulation {
 
 		//ev1 = cache.ev;
 		//logfile << exact << ' ' << cache.ev.array().log().sum().real() << ' ' << std::norm(cache.ev[0]/cache.ev[V-1]);
+		//std::cerr << "proposing flip (" << x << ", " << t << ")"<< std::endl;
 
 		if ( std::cos(c.imag())<0.99 || std::abs(1.0-c.real()/exact)>1.0e-5 ) {
 			std::cerr << " recomputing exact = " << exact << " trial=" << c;
@@ -430,7 +431,8 @@ class Simulation {
 		//diagonals[t][x] = -diagonals[t][x];
 		//double other = logProbability_complex();
 		//diagonals[t][x] = -diagonals[t][x];
-		//std::cerr << "probabilities: " << trial << " <-> " << other << std::endl;
+		//std::cerr << "probabilities: " << trial << " <-> " << plog << " = " << trial-plog << std::endl;
+
 		if (-trialDistribution(generator)<trial-plog) {
 			plog = trial;
 			diagonals[t][x] = -diagonals[t][x];
@@ -576,11 +578,13 @@ int main (int argc, char **argv) {
 	std::mutex lock;
 	std::atomic<int> failed;
 	failed = 0;
+	std::atomic<int> current;
+	current = 1;
 	for (int j=0;j<nthreads;j++) {
-		int i = 1;
-		threads[j] = std::thread( [=, &log, &lock, &i, &failed] () {
+		threads[j] = std::thread( [=, &log, &lock, &current, &failed] () {
 				log << "thread" << j << "starting";
 				while (true) {
+					int i = current.fetch_add(1);
 					lock.lock();
 					lua_rawgeti(L, -1, i);
 					if (lua_isnil(L, -1)) {
@@ -594,7 +598,6 @@ int main (int argc, char **argv) {
 					lua_getfield(L, -1, "SWEEPS"); int total_sweeps = lua_tointeger(L, -1); lua_pop(L, 1);
 					Simulation simulation(L, -1, i);
 					lua_pop(L, 1);
-					i++;
 					lock.unlock();
 					try {
 						for (int i=0;i<thermalization_sweeps;i++) {
