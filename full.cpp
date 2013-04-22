@@ -95,9 +95,6 @@ class Simulation {
 
 	double plog;
 
-	mymeasurement<double> m_dens;
-	mymeasurement<double> m_magn;
-
 	int thermalization_sweeps;
 	int total_sweeps;
 	bool reset;
@@ -454,14 +451,6 @@ class Simulation {
 
 	double extract_data (const Matrix_d &M) {
 		positionSpace = M;
-		//d = positionSpace.diagonal();
-		//d1.resize(positionSpace.rows());
-		//d2.resize(positionSpace.rows());
-		// get super- and sub- diagonal
-		for (int i=0;i<V;i++) {
-			//d1[i] = positionSpace(i, (i+1)%V);
-			//d2[i] = positionSpace((i+1)%V, i);
-		}
 		fftw_execute(x2p_col);
 		momentumSpace.applyOnTheLeft(energies.asDiagonal());
 		fftw_execute(p2x_col);
