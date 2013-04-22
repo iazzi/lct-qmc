@@ -108,7 +108,6 @@ class Simulation {
 
 	Matrix_d U_s;
 	Matrix_d U_s_inv;
-	Vector_cd ev_s;
 
 	struct {
 		Vector_d u;
@@ -133,6 +132,12 @@ class Simulation {
 		int a = (x/Ly/Lz)%Lx;
 		int b = x%(Ly*Lz);
 		return ((a+k)%Lx)*Ly*Lz + b;
+	}
+
+	int shift_y (int y, int k) {
+		int a = (y/Lz)%Ly;
+		int b = y-a*Lz;
+		return ((a+k)%Ly)*Lz + b;
 	}
 
 	public:
@@ -277,14 +282,14 @@ class Simulation {
 		//test_sequences(fvec, bvec);
 		collapseSVD(fvec, cache.svd.S, cache.svd.U, cache.svd.V);
 		Complex ret = 0.0;
-		double sign;
+		double sign = 1.0;
 		Vector_d S;
 		Matrix_d U;
 		Matrix_d V;
 		U = cache.svd.U.transpose()*cache.svd.V;
 		U.diagonal() += std::exp(+beta*B*0.5+beta*mu)*cache.svd.S;
 		dgesvd(U, S, U, V); // 1+U*S*V^t -> (V + U*S) V^t -> U (U^t*V + S) V^t
-		sign = (U*V).determinant();
+		sign *= (U*V).determinant();
 		U = cache.svd.U.transpose()*cache.svd.V;
 		ret += S.array().log().sum();
 		U.diagonal() += std::exp(-beta*B*0.5+beta*mu)*cache.svd.S;
@@ -389,17 +394,12 @@ class Simulation {
 	bool metropolis (int M = 0) {
 		steps++;
 		bool ret = false;
+		bool svd = false;
 		int x = randomPosition(generator);
 		int t = randomTime(generator);
 		double exact = logDetU_s(x, t);
 		double trial = rank1prob(x, t);
 		Complex c =  cache.ev.array().log().sum();
-
-		Vector_cd ev1, ev2, ev3;
-
-		//ev1 = cache.ev;
-		//logfile << exact << ' ' << cache.ev.array().log().sum().real() << ' ' << std::norm(cache.ev[0]/cache.ev[V-1]);
-		//std::cerr << "proposing flip (" << x << ", " << t << ")"<< std::endl;
 
 		if ( std::cos(c.imag())<0.99 || std::abs(1.0-c.real()/exact)>1.0e-5 ) {
 			std::cerr << " recomputing exact = " << exact << " trial=" << c;
@@ -412,33 +412,25 @@ class Simulation {
 			std::cerr << " new =" << c << std::endl;
 			std::cerr << "CN = " << cache.ev[0]/cache.ev[V-1] << std::endl;
 		}
-		//ev2 = cache.ev;
-		//logfile << ' ' << cache.ev.array().log().sum().real() << ' ' << std::norm(cache.ev[0]/cache.ev[V-1]);
-
-		if ( std::cos(c.imag())<0.99 || std::abs(1.0-c.real()/exact)>1.0e-4 ) {
-		}
-		//ev3 = cache.ev;
-		//logfile << ' ' << cache.ev.array().log().sum().real() << ' ' << std::norm(cache.ev[0]/cache.ev[V-1]);
-		//logfile << std::endl;
 
 		if (std::cos(c.imag())<0.99) {
-			std::cerr << exact << ' ' << ev1.array().log().sum().real() << ' ' << ev2.array().log().sum().real() << ' ' << ev3.array().log().sum().real() << std::endl;
+			std::cerr << exact << std::endl;
 			diagonals[t][x] = -diagonals[t][x];
 			c = logProbability_complex();
 			diagonals[t][x] = -diagonals[t][x];
+			svd = true;
 		}
-		//std::cerr << "exact " << exact << "\nrank1 " << c << std::endl;
-		//diagonals[t][x] = -diagonals[t][x];
-		//double other = logProbability_complex();
-		//diagonals[t][x] = -diagonals[t][x];
-		//std::cerr << "probabilities: " << trial << " <-> " << plog << " = " << trial-plog << std::endl;
 
 		if (-trialDistribution(generator)<trial-plog) {
 			plog = trial;
 			diagonals[t][x] = -diagonals[t][x];
-			U_s = U_s+cache.u*cache.v.transpose();
-			U_s_inv = U_s_inv+cache.u_inv*cache.v_inv.transpose();
-			ev_s = cache.ev;
+			if (svd) {
+				U_s = cache.svd.U * cache.svd.S.asDiagonal() * cache.svd.V.transpose();
+				U_s_inv = cache.svd.V * cache.svd.S.array().inverse().matrix().asDiagonal() * cache.svd.U.transpose();
+			} else {
+				U_s = U_s+cache.u*cache.v.transpose();
+				U_s_inv = U_s_inv+cache.u_inv*cache.v_inv.transpose();
+			}
 			ret = true;
 		} else {
 			ret = false;
@@ -460,7 +452,7 @@ class Simulation {
 		}
 	}
 
-	void extract_data (const Matrix_d &M, double &K) {
+	double extract_data (const Matrix_d &M) {
 		positionSpace = M;
 		//d = positionSpace.diagonal();
 		//d1.resize(positionSpace.rows());
@@ -473,50 +465,44 @@ class Simulation {
 		fftw_execute(x2p_col);
 		momentumSpace.applyOnTheLeft(energies.asDiagonal());
 		fftw_execute(p2x_col);
-		K = positionSpace.trace() / V;
+		return positionSpace.trace() / V;
 	}
 
 	void measure () {
-		double K_up, K_dn;
-		double n_up, n_dn, n2;
-		{
-			//extract_data(Matrix_d::Identity(V, V) - (Matrix_d::Identity(V, V) + exp(+beta*B*0.5+beta*mu)*U_s).inverse(), d_up, d1_up, d2_up, K_up);
-			Matrix_d rho_up = (Matrix_d::Identity(V, V) + exp(-beta*B*0.5-beta*mu)*U_s_inv).inverse();
-			extract_data(rho_up, K_up);
-			//extract_data(Matrix_d::Identity(V, V) - (Matrix_d::Identity(V, V) + exp(-beta*B*0.5+beta*mu)*U_s).inverse(), d_dn, d1_dn, d2_dn, K_dn);
-			Matrix_d rho_dn = (Matrix_d::Identity(V, V) + exp(-beta*B*0.5+beta*mu)*U_s).inverse();
-			extract_data(rho_dn, K_dn);
-			n_up = rho_up.diagonal().array().sum();
-			n_dn = rho_dn.diagonal().array().sum();
-			n2 = (rho_up.diagonal().array()*rho_dn.diagonal().array()).sum();
-			density.add((n_up + n_dn) / V);
-			magnetization.add((n_up - n_dn) / 2.0 / V);
-			kinetic.add(K_up-K_dn);
-			interaction.add(g*n2);
-			//- (d1_up*d2_up).sum() - (d1_dn*d2_dn).sum();
-			for (int k=1;k<=Lx/2;k++) {
-				double ssz = 0.0;
+		Matrix_d rho_up = (Matrix_d::Identity(V, V) + exp(-beta*B*0.5-beta*mu)*U_s_inv).inverse();
+		Matrix_d rho_dn = (Matrix_d::Identity(V, V) + exp(-beta*B*0.5+beta*mu)*U_s).inverse();
+		double K_up = extract_data(rho_up);
+		double K_dn = extract_data(rho_dn);
+		double n_up = rho_up.diagonal().array().sum();
+		double n_dn = rho_dn.diagonal().array().sum();
+		double n2 = (rho_up.diagonal().array()*rho_dn.diagonal().array()).sum();
+		density.add((n_up + n_dn) / V);
+		magnetization.add((n_up - n_dn) / 2.0 / V);
+		kinetic.add(K_up-K_dn);
+		interaction.add(g*n2);
+		//- (d1_up*d2_up).sum() - (d1_dn*d2_dn).sum();
+		for (int k=1;k<=Lx/2;k++) {
+			double ssz = 0.0;
+			for (int j=0;j<V;j++) {
+				int x = j;
+				int y = shift_x(j, k);
+				ssz += rho_up(x, x)*rho_up(y, y) + rho_dn(x, x)*rho_dn(y, y);
+				ssz -= rho_up(x, x)*rho_dn(y, y) + rho_dn(x, x)*rho_up(y, y);
+				ssz -= rho_up(x, y)*rho_up(y, x) + rho_dn(x, y)*rho_dn(y, x);
+			}
+			spincorrelation[k].add(0.25*ssz);
+			if (isnan(ssz)) {
+				std::cerr << "explain:" << std::endl;
+				std::cerr << "k=" << k << " ssz=" << ssz << std::endl;
 				for (int j=0;j<V;j++) {
 					int x = j;
 					int y = shift_x(j, k);
-					ssz += rho_up(x, x)*rho_up(y, y) + rho_dn(x, x)*rho_dn(y, y);
-					ssz -= rho_up(x, x)*rho_dn(y, y) + rho_dn(x, x)*rho_up(y, y);
-					ssz -= rho_up(x, y)*rho_up(y, x) + rho_dn(x, y)*rho_dn(y, x);
+					std::cerr << " j=" << j
+						<< " a_j=" << (rho_up(x, x)*rho_up(y, y) + rho_dn(x, x)*rho_dn(y, y))
+						<< " b_j=" << (rho_up(x, x)*rho_dn(y, y) + rho_dn(x, x)*rho_up(y, y))
+						<< " c_j=" << (rho_up(x, y)*rho_up(y, x) + rho_dn(x, y)*rho_dn(y, x)) << std::endl;
 				}
-				spincorrelation[k].add(0.25*ssz);
-				if (isnan(ssz)) {
-					std::cerr << "explain:" << std::endl;
-					std::cerr << "k=" << k << " ssz=" << ssz << std::endl;
-					for (int j=0;j<V;j++) {
-						int x = j;
-						int y = shift_x(j, k);
-						std::cerr << " j=" << j
-							<< " a_j=" << (rho_up(x, x)*rho_up(y, y) + rho_dn(x, x)*rho_dn(y, y))
-							<< " b_j=" << (rho_up(x, x)*rho_dn(y, y) + rho_dn(x, x)*rho_up(y, y))
-							<< " c_j=" << (rho_up(x, y)*rho_up(y, x) + rho_dn(x, y)*rho_dn(y, x)) << std::endl;
-					}
-					throw "";
-				}
+				throw "";
 			}
 		}
 	}
