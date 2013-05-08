@@ -13,6 +13,7 @@ class Logger {
 	Logger(std::ostream& o) : m_stream(&o), m_separator(' ') { }
 	~Logger() { }
 	std::ostream& stream() { return *m_stream; }
+	std::ostream& stream(std::ostream& s) { m_stream = &s; return *m_stream; }
 	void lock() { m_mutex.lock(); }
 	void unlock() { m_mutex.unlock(); }
 	char separator() { return m_separator; }
