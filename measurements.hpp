@@ -16,40 +16,43 @@ class mymeasurement {
 	public:
 		void add (const T &x, size_t i = 0) {
 			if (i==n_.size()) {
-				sums_.push_back(0.0);
-				squared_sums_.push_back(0.0);
-				x_.push_back(0.0);
+				sums_.push_back(x);
+				squared_sums_.push_back(x*x);
+				x_.push_back(T());
 				n_.push_back(0);
+			} else {
+				sums_[i] += x;
+				squared_sums_[i] += x * x;
 			}
-			sums_[i] += x;
-			squared_sums_[i] += x * x;
 			n_[i] += 1;
 			if (n_[i]%2==1) {
 				x_[i] = x;
 			} else {
-				double nx = (x + x_[i]) / 2.0;
-				x_[i] = 0.0;
+				T nx = (x + x_[i]) / 2.0;
+				x_[i] = T();
 				add(nx, i+1);
 			}
 		}
 
 		void add_plain (const T &x) {
-			for (int i=0;;i++) {
+			T nx = x;
+			for (size_t i=0;;i++) {
 				if (i==n_.size()) {
-					sums_.push_back(0.0);
-					squared_sums_.push_back(0.0);
-					x_.push_back(0.0);
+					sums_.push_back(nx);
+					squared_sums_.push_back(nx*nx);
+					x_.push_back(T());
 					n_.push_back(0);
+				} else {
+					sums_[i] += nx;
+					squared_sums_[i] += nx * nx;
 				}
-				sums_[i] += x;
-				squared_sums_[i] += x * x;
 				n_[i] += 1;
 				if (n_[i]%2==1) {
-					x_[i] = x;
+					x_[i] = nx;
 					break;
 				} else {
-					double nx = (x + x_[i]) / 2.0;
-					x_[i] = 0.0;
+					nx = (nx + x_[i]) / 2.0;
+					x_[i] = T();
 				}
 			}
 		}
