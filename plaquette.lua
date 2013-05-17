@@ -22,9 +22,9 @@ print("using "..tasks.THREADS.." threads")
 local mu_min, mu_max = -4*(tx+ty+tz), U/2
 local d_mu = (mu_max-mu_min)/30
 
-for x = 0.2, 1.0, 0.025 do
-	for y = mu_min, mu_max+d_mu/2, d_mu do
-		for _ = 1, 10 do
+for x = 0.4, 1.0, 0.025 do
+	for y = mu_max, mu_max-6*d_mu, -d_mu do
+		for _ = 1, 50 do
 			tasks:insert( flip_params{
 				Lx = L,
 				Ly = L,
@@ -38,7 +38,7 @@ for x = 0.2, 1.0, 0.025 do
 				mu = y,
 				B = 0.0,
 				THERMALIZATION = 10000,
-				SWEEPS = 10000,
+				SWEEPS = 100000,
 				SEED = seed,
 				OUTPUT = 'pl_',
 				REWEIGHT = 0,

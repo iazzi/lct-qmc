@@ -62,6 +62,8 @@ class Simulation {
 	double tx, ty, tz; // nearest neighbour hopping
 	double Vx, Vy, Vz; // trap strength
 
+	double staggered_field;
+
 	std::vector<Vector_d> diagonals;
 
 	std::mt19937_64 generator;
@@ -75,8 +77,10 @@ class Simulation {
 	Vector_d energies;
 	Vector_d freePropagator;
 	Vector_d freePropagator_b;
+	Vector_d potential;
 	Vector_d freePropagator_x;
 	Vector_d freePropagator_x_b;
+	Array_d staggering;
 
 	Matrix_d positionSpace; // current matrix in position space
 	Eigen::Matrix<Complex, Eigen::Dynamic, Eigen::Dynamic> momentumSpace;
@@ -98,7 +102,7 @@ class Simulation {
 	int thermalization_sweeps;
 	int total_sweeps;
 	bool reset;
-	int reweight;
+	//int reweight;
 	int decompositions;
 	std::string outfn;
 	//std::ofstream logfile;
@@ -123,7 +127,11 @@ class Simulation {
 	mymeasurement<double> magnetization;
 	mymeasurement<double> kinetic;
 	mymeasurement<double> interaction;
+	std::vector<mymeasurement<double>> d_up;
+	std::vector<mymeasurement<double>> d_dn;
 	std::vector<mymeasurement<double>> spincorrelation;
+	mymeasurement<double> sws;
+	mymeasurement<double> staggered_magnetization;
 
 	int shift_x (int x, int k) {
 		int a = (x/Ly/Lz)%Lx;
@@ -181,10 +189,21 @@ class Simulation {
 		energies = Vector_d::Zero(V);
 		freePropagator = Vector_d::Zero(V);
 		freePropagator_b = Vector_d::Zero(V);
+		potential = Vector_d::Zero(V);
+		freePropagator_x = Vector_d::Zero(V);
+		freePropagator_x_b = Vector_d::Zero(V);
+		staggering = Array_d::Zero(V);
 		for (int i=0;i<V;i++) {
+			int x = (i/Ly/Lz)%Lx;
+			int y = (i/Lz)%Ly;
+			int z = i%Lz;
 			energies[i] += -2.0 * ( tx * cos(2.0*((i/Ly/Lz)%Lx)*pi/Lx) + ty * cos(2.0*((i/Lz)%Ly)*pi/Ly) + tz * cos(2.0*(i%Lz)*pi/Lz) );
 			freePropagator[i] = exp(-dt*energies[i]);
 			freePropagator_b[i] = exp(dt*energies[i]);
+			potential[i] = (x+y+z)%2?-staggered_field:staggered_field;
+			freePropagator_x[i] = exp(-dt*potential[i]);
+			freePropagator_x_b[i] = exp(dt*potential[i]);
+			staggering[i] = (x+y+z)%2?-1.0:1.0;
 		}
 
 		accumulate_forward();
@@ -193,15 +212,19 @@ class Simulation {
 		U_s_inv = positionSpace;
 		plog = -1.0e-10;
 
+		for (int i=0;i<V;i++) {
+			d_up.push_back(mymeasurement<double>());
+			d_dn.push_back(mymeasurement<double>());
+		}
 		for (int i=0;i<=Lx/2;i++) {
 			spincorrelation.push_back(mymeasurement<double>());
 		}
 	}
 
-	Simulation (lua_State *L, int index, int seed = 42) : distribution(0.5), trialDistribution(1.0), steps(0) {
+	Simulation (lua_State *L, int index) : distribution(0.5), trialDistribution(1.0), steps(0) {
 		lua_getfield(L, index, "THERMALIZATION"); thermalization_sweeps = lua_tointeger(L, -1); lua_pop(L, 1);
 		lua_getfield(L, index, "SWEEPS"); total_sweeps = lua_tointeger(L, -1); lua_pop(L, 1);
-		lua_getfield(L, index, "SEED"); generator.seed(lua_tointeger(L, -1)+seed); lua_pop(L, 1);
+		lua_getfield(L, index, "SEED"); generator.seed(lua_tointeger(L, -1)); lua_pop(L, 1);
 		lua_getfield(L, index, "Lx");   this->Lx = lua_tointeger(L, -1);           lua_pop(L, 1);
 		lua_getfield(L, index, "Ly");   this->Ly = lua_tointeger(L, -1);           lua_pop(L, 1);
 		lua_getfield(L, index, "Lz");   this->Lz = lua_tointeger(L, -1);           lua_pop(L, 1);
@@ -216,8 +239,9 @@ class Simulation {
 		lua_getfield(L, index, "U");    g = -lua_tonumber(L, -1);                  lua_pop(L, 1); // FIXME: check this // should be right as seen in A above
 		lua_getfield(L, index, "mu");   mu = lua_tonumber(L, -1);                  lua_pop(L, 1);
 		lua_getfield(L, index, "B");    B = lua_tonumber(L, -1);                   lua_pop(L, 1);
+		lua_getfield(L, index, "h");    staggered_field = lua_tonumber(L, -1);     lua_pop(L, 1);
 		lua_getfield(L, index, "RESET");  reset = lua_toboolean(L, -1);            lua_pop(L, 1);
-		lua_getfield(L, index, "REWEIGHT");  reweight = lua_tointeger(L, -1);      lua_pop(L, 1);
+		//lua_getfield(L, index, "REWEIGHT");  reweight = lua_tointeger(L, -1);      lua_pop(L, 1);
 		lua_getfield(L, index, "OUTPUT");  outfn = lua_tostring(L, -1);            lua_pop(L, 1);
 		//lua_getfield(L, index, "LOGFILE");  logfile.open(lua_tostring(L, -1));     lua_pop(L, 1);
 		lua_getfield(L, index, "DECOMPOSITIONS");  decompositions = lua_tointeger(L, -1);     lua_pop(L, 1);
@@ -242,7 +266,7 @@ class Simulation {
 		end = end<0?N:end;
 		end = end>N?N:end;
 		for (int i=start;i<end;i++) {
-			positionSpace.applyOnTheLeft((Vector_d::Constant(V, 1.0)+diagonals[i]).asDiagonal());
+			positionSpace.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonals[i]).array()*freePropagator_x.array()).matrix().asDiagonal());
 			fftw_execute(x2p_col);
 			momentumSpace.applyOnTheLeft(freePropagator.asDiagonal());
 			fftw_execute(p2x_col);
@@ -256,7 +280,7 @@ class Simulation {
 		end = end<0?N:end;
 		end = end>N?N:end;
 		for (int i=start;i<end;i++) {
-			positionSpace.applyOnTheRight((Vector_d::Constant(V, 1.0)-diagonals[i]).asDiagonal());
+			positionSpace.applyOnTheRight(((Vector_d::Constant(V, 1.0)-diagonals[i]).array()*freePropagator_x_b.array()).matrix().asDiagonal());
 			fftw_execute(x2p_row);
 			momentumSpace.applyOnTheRight(freePropagator_b.asDiagonal());
 			fftw_execute(p2x_row);
@@ -309,21 +333,21 @@ class Simulation {
 			fftw_execute(x2p_vec);
 			v_p = v_p.array() * freePropagator.array();
 			fftw_execute(p2x_vec);
-			v_x = v_x.array() * (Vector_d::Constant(V, 1.0)+diagonals[i]).array();
+			v_x = v_x.array() * (Vector_d::Constant(V, 1.0)+diagonals[i]).array() * freePropagator_x.array();
 			v_x /= V;
 		}
 		fftw_execute(x2p_vec);
 		v_p = v_p.array() * freePropagator.array();
 		fftw_execute(p2x_vec);
 		v_x /= V;
-		cache.u = v_x;
+		cache.u = v_x * freePropagator_x[x];
 		v_x = Vector_d::Zero(V);
 		v_x[x] = 1.0;
 		for (int i=t-1;i>=0;i--) {
 			fftw_execute(x2p_vec);
 			v_p = v_p.array() * freePropagator.array();
 			fftw_execute(p2x_vec);
-			v_x = v_x.array() * (Vector_d::Constant(V, 1.0)+diagonals[i]).array();
+			v_x = v_x.array() * (Vector_d::Constant(V, 1.0)+diagonals[i]).array() * freePropagator_x.array();
 			v_x /= V;
 		}
 		cache.v = -2*diagonals[t][x]*v_x;
@@ -337,21 +361,21 @@ class Simulation {
 			fftw_execute(x2p_vec);
 			v_p = v_p.array() * freePropagator_b.array();
 			fftw_execute(p2x_vec);
-			v_x = v_x.array() * (Vector_d::Constant(V, 1.0)-diagonals[i]).array();
+			v_x = v_x.array() * (Vector_d::Constant(V, 1.0)-diagonals[i]).array() * freePropagator_x_b.array();
 			v_x /= V*X;
 		}
 		fftw_execute(x2p_vec);
 		v_p = v_p.array() * freePropagator_b.array();
 		fftw_execute(p2x_vec);
 		v_x /= V;
-		cache.v_inv = v_x;
+		cache.v_inv = v_x * freePropagator_x_b[x];
 		v_x = Vector_d::Zero(V);
 		v_x[x] = 1.0;
 		for (int i=t-1;i>=0;i--) {
 			fftw_execute(x2p_vec);
 			v_p = v_p.array() * freePropagator_b.array();
 			fftw_execute(p2x_vec);
-			v_x = v_x.array() * (Vector_d::Constant(V, 1.0)-diagonals[i]).array();
+			v_x = v_x.array() * (Vector_d::Constant(V, 1.0)-diagonals[i]).array() * freePropagator_x_b.array();
 			v_x /= V*X;
 		}
 		cache.u_inv = +2*diagonals[t][x]/X*v_x;
@@ -470,6 +494,10 @@ class Simulation {
 		kinetic.add(K_up-K_dn);
 		interaction.add(g*n2);
 		//- (d1_up*d2_up).sum() - (d1_dn*d2_dn).sum();
+		for (int i=0;i<V;i++) {
+			d_up[i].add(rho_up(i, i));
+			d_dn[i].add(rho_dn(i, i));
+		}
 		for (int k=1;k<=Lx/2;k++) {
 			double ssz = 0.0;
 			for (int j=0;j<V;j++) {
@@ -480,6 +508,7 @@ class Simulation {
 				ssz -= rho_up(x, y)*rho_up(y, x) + rho_dn(x, y)*rho_dn(y, x);
 			}
 			spincorrelation[k].add(0.25*ssz);
+			staggered_magnetization.add((rho_up.diagonal().array()*staggering - rho_dn.diagonal().array()*staggering).sum()/V);
 			if (isnan(ssz)) {
 				std::cerr << "explain:" << std::endl;
 				std::cerr << "k=" << k << " ssz=" << ssz << std::endl;
@@ -507,10 +536,18 @@ class Simulation {
 		out << 1.0/(beta*tx) << ' ' << 0.5*(B+g)/tx
 			<< ' ' << density.mean() << ' ' << density.variance()
 			<< ' ' << magnetization.mean() << ' ' << magnetization.variance()
-			<< ' ' << kinetic.mean()/tx/V << ' ' << kinetic.variance()
-			<< ' ' << interaction.mean()/tx/V << ' ' << interaction.variance();
-		for (int i=1;i<=Lx/2;i++)
-			out << ' ' << spincorrelation[i].mean()/V << ' ' << spincorrelation[i].variance();
+			<< ' ' << kinetic.mean()/tx/V << ' ' << kinetic.variance()/tx/tx/V/V
+			<< ' ' << interaction.mean()/tx/V << ' ' << interaction.variance()/tx/tx/V/V
+			<< ' ' << -staggered_magnetization.mean()/staggered_field << ' ' << staggered_magnetization.variance();
+		for (int i=0;i<V;i++) {
+			//out << ' ' << d_up[i].mean();
+		}
+		for (int i=0;i<V;i++) {
+			//out << ' ' << d_dn[i].mean();
+		}
+		for (int i=1;i<=Lx/2;i++) {
+			//out << ' ' << spincorrelation[i].mean()/V << ' ' << spincorrelation[i].variance();
+		}
 		out << std::endl;
 	}
 
@@ -571,7 +608,7 @@ int main (int argc, char **argv) {
 					log << "thread" << j << "running simulation" << i;
 					lua_getfield(L, -1, "THERMALIZATION"); int thermalization_sweeps = lua_tointeger(L, -1); lua_pop(L, 1);
 					lua_getfield(L, -1, "SWEEPS"); int total_sweeps = lua_tointeger(L, -1); lua_pop(L, 1);
-					Simulation simulation(L, -1, i);
+					Simulation simulation(L, -1);
 					lua_pop(L, 1);
 					lock.unlock();
 					try {
@@ -585,14 +622,13 @@ int main (int argc, char **argv) {
 							simulation.update();
 							simulation.measure();
 						}
-						log << "thread" << j << "finished simulation" << i; // i has changed!
+						log << "thread" << j << "finished simulation" << i;
 						lock.lock();
 						simulation.output_results();
 						lock.unlock();
 					} catch (...) {
 						failed++;
-						log << "thread" << j << "caught exception in simulation" << i;
-						std::cerr << " with params " << simulation.params() << std::endl;
+						log << "thread" << j << "caught exception in simulation" << i << " with params " << simulation.params();
 					}
 				}
 		});

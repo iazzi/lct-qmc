@@ -7,9 +7,9 @@ end
 
 local tasks = setmetatable({}, { __index=table })
 
-local t = 0.2
-local U = 1.44*t
-local tx, ty, tz = t, t/7.36, t/7.36
+local t = 0.3
+local U = 4*t
+local tx, ty, tz = t, t, t
 local J = 4*t*t/U
 local L = 4;
 local seed = os.time()
@@ -20,29 +20,31 @@ print("using "..threads.." threads")
 
 tasks.THREADS = threads
 
-local mu_min, mu_max = -4*(tx+ty+tz), U/2
+local mu_min, mu_max = -2*(tx+ty+tz), U/2
 local d_mu = (mu_max-mu_min)/30
 
-for x = 0.9, 1.1, 0.025 do
-	for y = mu_min, mu_max+d_mu/2, d_mu do
+for y = mu_max, mu_max, -d_mu do
+	for x = 1.4, 0.8, -0.05 do
 		for _ = 1, 50 do
+			seed = seed + 127
 			tasks:insert( flip_params{
-				Lx = 16,
-				Ly = 2,
+				Lx = 8,
+				Ly = 8,
 				Lz = 2,
 				T = x*t,
-				N = 100/x,
+				N = 10/x,
 				tx = tx,
 				ty = ty,
 				tz = tz,
 				U = U,
 				mu = y,
 				B = 0.0,
+				h = 1.0e-3,
 				THERMALIZATION = 10000,
-				SWEEPS = 10000,
+				SWEEPS = 100000,
 				SEED = seed,
-				OUTPUT = 'experiment6_',
-				REWEIGHT = 0,
+				OUTPUT = 's_p_',
+				--REWEIGHT = 0,
 				DECOMPOSITIONS = 100,
 			} )
 		end
