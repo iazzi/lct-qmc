@@ -580,13 +580,18 @@ int main (int argc, char **argv) {
 	}
 
 	int nthreads = 1;
-	lua_getfield(L, -1, "THREADS");
-	if (lua_tointeger(L, -1)) {
-		nthreads = lua_tointeger(L, -1);
-	}
-	lua_pop(L, 1);
-	std::vector<std::thread> threads(nthreads);
+	char *e = getenv("LSB_HOSTS");
+	while (e!=NULL && *e!='\0') if (*(e++)==' ') nthreads++;
+
+	//lua_getfield(L, -1, "THREADS");
+	//if (lua_tointeger(L, -1)) {
+		//nthreads = lua_tointeger(L, -1);
+	//}
+	//lua_pop(L, 1);
 	Logger log;
+	log << "using" << nthreads << "threads";
+
+	std::vector<std::thread> threads(nthreads);
 	std::mutex lock;
 	std::atomic<int> failed;
 	failed = 0;
