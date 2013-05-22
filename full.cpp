@@ -430,12 +430,11 @@ class Simulation {
 			U_s_inv = positionSpace;
 			trial = rank1prob(x, t);
 			c = cache.ev.array().log().sum();
-			std::cerr << " new =" << c << std::endl;
-			std::cerr << "CN = " << cache.ev[0]/cache.ev[V-1] << std::endl;
+			std::cerr << " new =" << c << " CN = " << cache.ev[0]/cache.ev[V-1] << std::endl;
 		}
 
 		if (std::cos(c.imag())<0.99) {
-			std::cerr << exact << std::endl;
+			//std::cerr << exact << std::endl;
 			diagonals[t][x] = -diagonals[t][x];
 			c = logProbability_complex();
 			diagonals[t][x] = -diagonals[t][x];
