@@ -14,17 +14,16 @@ local J = 4*t*t/U
 local L = 4;
 local seed = os.time()
 
-local _, threads = (os.getenv("LSB_HOSTS") or ''):gsub("(%S+)", "%1")
-if threads<1 then threads = 1 end
-print("using "..threads.." threads")
-
-tasks.THREADS = threads
+--local _, threads = (os.getenv("LSB_HOSTS") or ''):gsub("(%S+)", "%1")
+--if threads<1 then threads = 1 end
+--print("using "..threads.." threads")
+--tasks.THREADS = threads
 
 local mu_min, mu_max = -2*(tx+ty+tz), U/2
 local d_mu = (mu_max-mu_min)/30
 
 for y = mu_max, mu_max, -d_mu do
-	for x = 1.4, 0.8, -0.05 do
+	for x = 0.2, 0.8, 0.05 do
 		for _ = 1, 50 do
 			seed = seed + 127
 			tasks:insert( flip_params{
@@ -45,7 +44,7 @@ for y = mu_max, mu_max, -d_mu do
 				SEED = seed,
 				OUTPUT = 's_p_',
 				--REWEIGHT = 0,
-				DECOMPOSITIONS = 100,
+				SVDPERIOD = 10,
 			} )
 		end
 	end
