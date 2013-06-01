@@ -405,44 +405,6 @@ class Simulation {
 		return svd_up.S.array().log().sum() + svd_dn.S.array().log().sum();
 	}
 
-	double logProbability_complex () {
-		const int M = decompositions==0?N:decompositions;
-		std::vector<Matrix_d> fvec;
-		std::vector<Matrix_d> bvec;
-		for (int i=0;i<N;i+=M) {
-			accumulate_forward(i, i+M);
-			fvec.push_back(positionSpace);
-		}
-		for (int i=0;i<N;i+=M) {
-			accumulate_backward(i, i+M);
-			bvec.push_back(positionSpace);
-		}
-		//test_sequences(fvec, bvec);
-		collapseSVD(fvec, cache.svd.S, cache.svd.U, cache.svd.V);
-		Complex ret = 0.0;
-		double sign = 1.0;
-		Vector_d S;
-		Matrix_d U;
-		Matrix_d V;
-		U = cache.svd.U.transpose()*cache.svd.V;
-		U.diagonal() += std::exp(+beta*B*0.5+beta*mu)*cache.svd.S;
-		dgesvd(U, S, U, V); // 1+U*S*V^t -> (V + U*S) V^t -> U (U^t*V + S) V^t
-		sign *= (U*V).determinant();
-		U = cache.svd.U.transpose()*cache.svd.V;
-		ret += S.array().log().sum();
-		U.diagonal() += std::exp(-beta*B*0.5+beta*mu)*cache.svd.S;
-		dgesvd(U, S, U, V); // 1+U*S*V^t -> (V + U*S) V^t -> U (U^t*V + S) V^t
-		sign *= (U*V).determinant();
-		//collapseSVD(bvec, cache.svd.S, cache.svd.U, cache.svd.V);
-		ret += S.array().log().sum();
-
-		if ( (sign)<1e-5 || std::isnan(ret.real()) || std::isnan(ret.imag())) {
-			std::cerr << "prob_complex = " << ret << " det=" << cache.svd.S.array().log().sum() << " " << sign << std::endl;
-			throw "";
-		}
-		return ret.real();
-	}
-
 	void compute_uv_f (int x, int t) {
 		v_x = Vector_cd::Zero(V);
 		v_x[x] = 1.0;
@@ -470,108 +432,15 @@ class Simulation {
 		cache.v = v_x.real();
 	}
 
-	void compute_uv_b (int x, int t) {
-		Real X = 1-A*A;
-		v_x = Vector_cd::Zero(V);
-		v_x[x] = 1.0;
-		for (int i=t+1;i<N;i++) {
-			fftw_execute(x2p_vec);
-			v_p = v_p.array() * freePropagator_b.array();
-			fftw_execute(p2x_vec);
-			v_x = v_x.array() * (Vector_d::Constant(V, 1.0)-diagonals[i]).array() * freePropagator_x_b.array();
-			v_x /= V*X;
-		}
-		fftw_execute(x2p_vec);
-		v_p = v_p.array() * freePropagator_b.array();
-		fftw_execute(p2x_vec);
-		v_x /= V;
-		cache.v_inv = (v_x * freePropagator_x_b[x]).real();
-		v_x = Vector_cd::Zero(V);
-		v_x[x] = 1.0;
-		for (int i=t-1;i>=0;i--) {
-			fftw_execute(x2p_vec);
-			v_p = v_p.array() * freePropagator_b.array();
-			fftw_execute(p2x_vec);
-			v_x = v_x.array() * (Vector_d::Constant(V, 1.0)-diagonals[i]).array() * freePropagator_x_b.array();
-			v_x /= V*X;
-		}
-		cache.u_inv = (+2*diagonals[t][x]/X*v_x).real();
-	}
-
-	Vector_cd rank1EV_f (int x, int t, const Matrix_d &M) {
-		compute_uv_f(x, t);
-		return (M+cache.u*cache.v.transpose()).eigenvalues();
-	}
-
-	Vector_cd rank1EV_b (int x, int t, const Matrix_d &M) {
-		compute_uv_b(x, t);
-		return (M+cache.u_inv*cache.v_inv.transpose()).eigenvalues();
-	}
-
-	double rank1prob (int x, int t) {
-		Vector_cd eva = Vector_cd::Ones(V);
-		Vector_cd evc = rank1EV_b(x, t, U_s_inv);
-		Vector_cd evb = rank1EV_f(x, t, U_s);
-		sort_vector(evb);
-		sort_vector(evc);
-		reverse_vector(evc);
-		for (int i=0;i<V;i++) {
-			if (std::norm(evb[i]/evb[0])<std::norm(evc[i]/evc[V-1])) {
-				eva[i] = ((Real)1.0)/evc[i];
-			} else {
-				eva[i] = evb[i];
-			}
-		}
-		cache.ev = eva;
-		std::complex<double> ret = 0.0;
-		ret += (Vector_cd::Ones(V) + std::exp(+beta*B*0.5+beta*mu)*eva).array().log().sum();
-		ret += (Vector_cd::Ones(V) + std::exp(-beta*B*0.5+beta*mu)*eva).array().log().sum();
-		return ret.real();
-	}
-
 	bool metropolis (int M = 0) {
 		steps++;
 		bool ret = false;
 		//bool svd = false;
 		int x = randomPosition(generator);
 		int t = randomTime(generator);
-		double trial;
-		//double exact = logDetU_s(x, t);
-		//double trial = rank1prob(x, t);
-		//Complex c =  cache.ev.array().log().sum();
-
-		//if ( std::cos(c.imag())<0.99 || std::abs(1.0-c.real()/exact)>1.0e-5 ) {
-			//std::cerr << " recomputing exact = " << exact << " trial=" << c;
-			//accumulate_forward();
-			//U_s = positionSpace;
-			//accumulate_backward();
-			//U_s_inv = positionSpace;
-			//trial = rank1prob(x, t);
-			//c = cache.ev.array().log().sum();
-			//std::cerr << " new =" << c << " CN = " << cache.ev[0]/cache.ev[V-1] << std::endl;
-		//}
-
-		if (true) {
-			//std::cerr << exact << std::endl;
-			//diagonals[t][x] = -diagonals[t][x];
-			//c = logProbability_complex();
-			//diagonals[t][x] = -diagonals[t][x];
-			//fill_short_list();
-			//svd_from_short_list();
-			//double old = svd_probability();
-			//diagonals[t][x] = -diagonals[t][x];
-			//fill_short_list();
-			//update_short_list(x, t);
-			//svd_from_short_list();
-			//trial = svd_probability();
-			//std::cerr << trial-plog << " r1: " << r << std::endl;
-			//svd = true;
-			//trial = plog + r;
-		}
 		double r = rank1_probability(x, t);
 		ret = -trialDistribution(generator)<r;
 		//std::cerr << ret << " r = " << r << std::endl;
-
 		if (ret) {
 			plog += r;
 			update_short_list(x, t);
