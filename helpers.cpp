@@ -204,7 +204,7 @@ Matrix_d reduceSVD_f (std::vector<Matrix_d>& vec) {
 	Matrix_d Z = Matrix_d::Identity(V, V);
 	Vector_d D;
 	for (auto X : vec) {
-		dgesvd((X*Y).eval()*Z, D, Y, X);
+		// dgesvd((X*Y).eval()*Z, D, Y, X); //FIXME
 		//svd.compute((X*Y).eval()*Z, Eigen::ComputeFullU | Eigen::ComputeFullV);
 		ret.applyOnTheLeft(X.transpose());
 		//Y = svd.matrixU();
@@ -257,7 +257,8 @@ void collapseSVD (std::vector<Matrix_d>& vec, Vector_d &S, Matrix_d &U, Matrix_d
 	Matrix_d Z = Matrix_d::Identity(N, N);
 	Vector_d D = Vector_d::Ones(N);
 	for (auto X : vec) {
-		dgesvd((X*Y).eval()*D.asDiagonal(), D, Y, W);
+		Z = (X*Y).eval()*D.asDiagonal();
+		dgesvd(Z, D, Y, W);
 		ret.applyOnTheLeft(W.transpose());
 		//Z = D.asDiagonal();
 		//std::cerr << "add determinant: " << X.determinant() << " -> " << D.array().log().sum() << std::endl;
