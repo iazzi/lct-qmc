@@ -48,21 +48,25 @@ extern "C" void dgesvd_ (const char *jobu, const char *jobvt,
 		double *VT, const int &ldvt,
 		double *work, const int &lwork, int &info);
 
-void dgesvd (const Matrix_d &A, Vector_d &S, Matrix_d &U, Matrix_d &V) {
+void dgesvd (const Eigen::MatrixXd &A, Eigen::VectorXd &S, Eigen::MatrixXd &U, Eigen::MatrixXd &V) {
 	const int N = A.rows();
 	Eigen::MatrixXd a = A.cast<double>();
-	Eigen::VectorXd s = Eigen::VectorXd::Zero(N);
-	Eigen::MatrixXd u = Eigen::MatrixXd::Zero(N, N);
-	Eigen::MatrixXd vt = Eigen::MatrixXd::Zero(N, N);
+	//Eigen::VectorXd s = Eigen::VectorXd::Zero(N);
+	//Eigen::MatrixXd u = Eigen::MatrixXd::Zero(N, N);
+	//Eigen::MatrixXd vt = Eigen::MatrixXd::Zero(N, N);
 	Eigen::ArrayXd work = Eigen::ArrayXd::Zero(5*N);
+	//S = Eigen::VectorXd::Zero(N);
+	//U = Eigen::MatrixXd::Zero(N, N);
+	//V = Eigen::MatrixXd::Zero(N, N);
 	int info = 0;
 	dgesvd_("A", "A", N, N, a.data(), N,
-			s.data(), u.data(), N, vt.data(), N,
+			S.data(), U.data(), N, V.data(), N,
 			work.data(), 5*N, info);
 	if (info == 0) {
-		S = s.cast<Real>();
-		U = u.cast<Real>();
-		V = vt.transpose().cast<Real>();
+		//S = s.cast<Real>();
+		//U = u.cast<Real>();
+		//V = vt.cast<Real>();
+		V.transposeInPlace();
 		//std::cerr << "SVD of matrix\n" << A << "\nU*S*V^t\n" << u*s.asDiagonal()*vt << std::endl;
 	} else if (info<0) {
 		std::cerr << "dgesvd_: error at argument " << -info << std::endl;
@@ -248,20 +252,26 @@ void collapseSVD (std::vector<Matrix_d>& vec, Vector_d &S, Matrix_d &U, Matrix_d
 	assert(vec[0].rows()==vec[0].cols());
 	const int N = vec[0].rows();
 	Matrix_d ret = Matrix_d::Identity(N, N);
-	Matrix_d X = Matrix_d::Identity(N, N);
+	Matrix_d W = Matrix_d::Identity(N, N);
 	Matrix_d Y = Matrix_d::Identity(N, N);
 	Matrix_d Z = Matrix_d::Identity(N, N);
 	Vector_d D = Vector_d::Ones(N);
 	for (auto X : vec) {
-		dgesvd((X*Y).eval()*D.asDiagonal(), D, Y, X);
-		ret.applyOnTheLeft(X.transpose());
-		Z = D.asDiagonal();
+		dgesvd((X*Y).eval()*D.asDiagonal(), D, Y, W);
+		ret.applyOnTheLeft(W.transpose());
+		//Z = D.asDiagonal();
+		//std::cerr << "add determinant: " << X.determinant() << " -> " << D.array().log().sum() << std::endl;
 	}
 	//std::cerr << Z.diagonal().transpose() << std::endl;
-	std::cerr << "collapseSVD guess = " << D.array().log().sum() << std::endl;
+	//std::cerr << "collapseSVD guess = " << D.array().log().sum() << std::endl;
 	S = D.cast<Real>();
 	U = Y.cast<Real>();
 	V = ret.cast<Real>().transpose();
+	ret = Matrix_d::Identity(N, N);
+	//for (auto X : vec) {
+		//ret.applyOnTheLeft(X);
+		//std::cerr << "add determinant: " << X.determinant() << " -> " << ret.determinant() << std::endl;
+	//}
 }
 
 Matrix_d reduceSVD_b (std::vector<Matrix_d>& vec) {
