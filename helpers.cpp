@@ -48,9 +48,9 @@ extern "C" void dgesvd_ (const char *jobu, const char *jobvt,
 		double *VT, const int &ldvt,
 		double *work, const int &lwork, int &info);
 
-void dgesvd (const Eigen::MatrixXd &A, Eigen::VectorXd &S, Eigen::MatrixXd &U, Eigen::MatrixXd &V) {
+void dgesvd (Eigen::MatrixXd &A, Eigen::VectorXd &S, Eigen::MatrixXd &U, Eigen::MatrixXd &V) {
 	const int N = A.rows();
-	Eigen::MatrixXd a = A.cast<double>();
+	//Eigen::MatrixXd a = A.cast<double>();
 	//Eigen::VectorXd s = Eigen::VectorXd::Zero(N);
 	//Eigen::MatrixXd u = Eigen::MatrixXd::Zero(N, N);
 	//Eigen::MatrixXd vt = Eigen::MatrixXd::Zero(N, N);
@@ -59,7 +59,7 @@ void dgesvd (const Eigen::MatrixXd &A, Eigen::VectorXd &S, Eigen::MatrixXd &U, E
 	//U = Eigen::MatrixXd::Zero(N, N);
 	//V = Eigen::MatrixXd::Zero(N, N);
 	int info = 0;
-	dgesvd_("A", "A", N, N, a.data(), N,
+	dgesvd_("A", "A", N, N, A.data(), N,
 			S.data(), U.data(), N, V.data(), N,
 			work.data(), 5*N, info);
 	if (info == 0) {
