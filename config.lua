@@ -2,6 +2,7 @@
 
 local function range (a, b, N)
 	local i = 0
+	if a==b then i,N=1,1 end
 	return function ()
 		if i>N then return nil end
 		local ret = a+i*(b-a)/N
@@ -32,13 +33,13 @@ local seed = os.time()
 local mu_min, mu_max = -2*(tx+ty+tz), U/2
 
 for y in range(mu_max, mu_max, 30) do
-	for x in range(0.8, 1.1, 20) do
+	for x in range(0.8, 1.1, 30) do
 		for _ = 1, 100 do
 			seed = seed + 127
 			tasks:insert( flip_params{
-				Lx = 6,
-				Ly = 6,
-				Lz = 6,
+				Lx = 16,
+				Ly = 1,
+				Lz = 1,
 				T = x*t,
 				N = 10/x,
 				tx = 1.0*tx,
@@ -47,7 +48,7 @@ for y in range(mu_max, mu_max, 30) do
 				U = U,
 				mu = y,
 				B = 0.0,
-				h = 1.0e-3,
+				h = 2.0e-3,
 				THERMALIZATION = 10000,
 				SWEEPS = 100000,
 				SEED = seed,
