@@ -464,7 +464,7 @@ class Simulation {
 		//}
 	}
 
-	double extract_data (const Matrix_d &M) {
+	double get_kinetic_energy (const Matrix_d &M) {
 		positionSpace_c = M.cast<Complex>();
 		fftw_execute(x2p_col);
 		momentumSpace.applyOnTheLeft(energies.asDiagonal());
@@ -476,8 +476,8 @@ class Simulation {
 		//svd_from_short_list();
 		Matrix_d rho_up = (Matrix_d::Identity(V, V) + exp(-beta*B*0.5-beta*mu)*U_s_inv).inverse();
 		Matrix_d rho_dn = (Matrix_d::Identity(V, V) + exp(-beta*B*0.5+beta*mu)*U_s).inverse();
-		double K_up = extract_data(rho_up);
-		double K_dn = extract_data(rho_dn);
+		double K_up = get_kinetic_energy(rho_up);
+		double K_dn = get_kinetic_energy(rho_dn);
 		double n_up = rho_up.diagonal().array().sum();
 		double n_dn = rho_dn.diagonal().array().sum();
 		double n2 = (rho_up.diagonal().array()*rho_dn.diagonal().array()).sum();
