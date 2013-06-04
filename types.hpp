@@ -3,6 +3,9 @@
 
 //#define USE_LONG_DOUBLE
 
+
+#include <Eigen/Core>
+
 typedef double Real;
 
 typedef std::complex<Real> Complex;
