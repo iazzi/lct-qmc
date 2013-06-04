@@ -14,7 +14,7 @@ test: test.o
 
 full: full.o helpers.o
 
-unstable: unstable.o helpers.o
+unstable: unstable.o
 
 full1d: full1d.o
 

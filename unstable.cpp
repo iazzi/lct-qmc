@@ -9,7 +9,7 @@
 #include <atomic>
 #include <functional>
 
-#include "helpers.hpp"
+#include "types.hpp"
 #include "measurements.hpp"
 #include "weighted_measurements.hpp"
 #include "logger.hpp"
@@ -106,7 +106,6 @@ class Simulation {
 		} svd;
 	} cache;
 
-	std::vector<Matrix_d> short_list;
 	struct {
 		Vector_d S;
 		Matrix_d U;
@@ -231,14 +230,10 @@ class Simulation {
 
 		//std::cerr << "en_sum " << energies.array().sum() << std::endl;
 
-		//accumulate_forward();
-		//U_s = positionSpace;
-		//accumulate_backward();
-		//U_s_inv = positionSpace;
-
-		fill_short_list();
-		svd_from_short_list();
-		plog = svd_probability();
+		accumulate_forward();
+		U_s = positionSpace;
+		accumulate_backward();
+		U_s_inv = positionSpace;
 
 		for (int i=0;i<V;i++) {
 			d_up.push_back(mymeasurement<double>());
@@ -274,7 +269,6 @@ class Simulation {
 		//lua_getfield(L, index, "REWEIGHT");  reweight = lua_tointeger(L, -1);      lua_pop(L, 1);
 		lua_getfield(L, index, "OUTPUT");  outfn = lua_tostring(L, -1);            lua_pop(L, 1);
 		//lua_getfield(L, index, "LOGFILE");  logfile.open(lua_tostring(L, -1));     lua_pop(L, 1);
-		lua_getfield(L, index, "SVDPERIOD");  decompositions = lua_tointeger(L, -1);     lua_pop(L, 1);
 		init();
 	}
 
@@ -320,94 +314,21 @@ class Simulation {
 		}
 	}
 
-	void fill_short_list () {
-		const int M = decompositions==0?N:decompositions;
-		short_list.clear();
-		for (int i=0;i<N;i+=M) {
-			accumulate_forward(i, i+M);
-			short_list.push_back(positionSpace);
-		}
-	}
-
 	void update_short_list (int x, int t) { // FIXME submatrix updates
-		const int M = decompositions==0?N:decompositions;
-		const int s = t/M;
-		diagonals[t][x] = -diagonals[t][x];
-		//std::cerr << "update: " << t << std::endl;
 		compute_uv_f(x, t);
-		//accumulate_forward(s*M, s*M+M);
-		//std::cerr << (short_list[s]-cache.u*cache.v.transpose()-positionSpace).norm() << std::endl;
-		//short_list[s] = positionSpace;
-		short_list[s] -= cache.u*cache.v.transpose();
-	}
-
-	void svd_from_short_list () {
-		collapseSVD(short_list, cache.svd.S, cache.svd.U, cache.svd.V);
-		//std::cerr << cache.svd.S.array().log().sum() << " <> " << logDetU_s() << " // " << (cache.svd.S.array().log().sum()-logDetU_s())/beta/V*Lz << std::endl;
-		Complex ret = 0.0;
-		Matrix_d M;
-
-		M = cache.svd.U.transpose()*cache.svd.V;
-		M.diagonal() += std::exp(+beta*B*0.5+beta*mu)*cache.svd.S;
-		dgesvd(M, svd_up.S, svd_up.U, svd_up.V); // 1+U*S*V^t -> (V + U*S) V^t -> U (U^t*V + S) V^t -> U U' S' V'^t V^t -> (UU') S' (VV')^t
-		svd_up.U.applyOnTheLeft(cache.svd.U);
-		svd_up.V.applyOnTheLeft(cache.svd.V);
-
-		M = cache.svd.U.transpose()*cache.svd.V;
-		M.diagonal() += std::exp(-beta*B*0.5+beta*mu)*cache.svd.S;
-		dgesvd(M, svd_dn.S, svd_dn.U, svd_dn.V); // 1+U*S*V^t -> (V + U*S) V^t -> U (U^t*V + S) V^t
-		svd_dn.U.applyOnTheLeft(cache.svd.U);
-		svd_dn.V.applyOnTheLeft(cache.svd.V);
-
-		ret += svd_up.S.array().log().sum();
-		ret += svd_dn.S.array().log().sum();
-
-		double sign = (svd_up.U*svd_up.V*svd_dn.U*svd_dn.V).determinant();
-		if ( (sign)<1e-5 || std::isnan(ret.real()) || std::isnan(ret.imag())) {
-			//std::cerr << "prob_complex = " << ret << " det=" << cache.svd.S.array().log().sum() << " " << sign << std::endl;
-			//std::cerr << cache.svd.U.determinant() << std::endl;
-			//std::cerr << cache.svd.V.determinant() << std::endl;
-			//std::cerr << svd_up.U.determinant() << std::endl;
-			//std::cerr << svd_up.V.determinant() << std::endl;
-			//std::cerr << svd_dn.U.determinant() << std::endl;
-			//std::cerr << svd_dn.V.determinant() << std::endl;
-			//throw "";
-		}
+		diagonals[t][x] = -diagonals[t][x];
+		U_s -= cache.u*cache.v.transpose();
 	}
 
 	double rank1_probability (int x, int t) { // FIXME: use SVD / higher beta
 		compute_uv_f(x, t);
-		double a = cache.v.transpose()*(Matrix_d::Identity(V, V) + std::exp(+beta*B*0.5+beta*mu)*short_list[0]).inverse()*cache.u;
-		double b = cache.v.transpose()*(Matrix_d::Identity(V, V) + std::exp(-beta*B*0.5+beta*mu)*short_list[0]).inverse()*cache.u;
+		double a = cache.v.transpose()*(Matrix_d::Identity(V, V) + std::exp(+beta*B*0.5+beta*mu)*U_s).inverse()*cache.u;
+		double b = cache.v.transpose()*(Matrix_d::Identity(V, V) + std::exp(-beta*B*0.5+beta*mu)*U_s).inverse()*cache.u;
 		//std::cerr << "> " << a << ' ' << b << std::endl;
 		//a = (cache.v.transpose()*svd_up.V).eval()*svd_up.S.array().inverse().matrix().asDiagonal()*(svd_up.U.transpose()*cache.u).eval();
 		//b = (cache.v.transpose()*svd_dn.V).eval()*svd_dn.S.array().inverse().matrix().asDiagonal()*(svd_dn.U.transpose()*cache.u).eval();
 		//std::cerr << "< " << a << ' ' << b << std::endl;
-		if (false) {
-			compute_uv_f(0, 0);
-			std::cerr << cache.u.transpose() << std::endl;
-			std::cerr << cache.v.transpose() << std::endl;
-			accumulate_forward();
-			std::cerr << std::endl << positionSpace << std::endl;
-			fill_short_list();
-			svd_from_short_list();
-			//std::cerr << std::endl << cache.svd.U*cache.svd.S.asDiagonal()*cache.svd.V.transpose() << std::endl;
-			//diagonals[0][0] *= -1;
-			//accumulate_forward();
-			//std::cerr << std::endl << positionSpace << std::endl;
-			accumulate_backward();
-			std::cerr << cache.u.transpose()*positionSpace << std::endl;
-			std::cerr << (positionSpace*cache.u).transpose() << std::endl;
-			std::cerr << cache.v.transpose() << std::endl;
-			std::cerr << (cache.svd.V*cache.svd.S.array().inverse().matrix().asDiagonal()*cache.svd.U.transpose()*cache.u).transpose() << std::endl;
-			std::cerr << "dot prod = " << (cache.svd.S.array().inverse().matrix().asDiagonal()*cache.svd.U.transpose()*cache.u).transpose()*(cache.svd.V.transpose()*cache.v) << std::endl;
-		}
-		//std::cerr << a << ' ' << b << ' ' << cache.v.transpose()*cache.svd.V*cache.svd.S.array().inverse().matrix().asDiagonal()*cache.svd.U.transpose()*cache.u << std::endl;
 		return std::log((1+std::exp(+beta*B*0.5+beta*mu)*a)*(1+std::exp(-beta*B*0.5+beta*mu)*b));
-	}
-
-	double svd_probability () {
-		return svd_up.S.array().log().sum() + svd_dn.S.array().log().sum();
 	}
 
 	void compute_uv_f (int x, int t) {
@@ -479,7 +400,11 @@ class Simulation {
 
 	void measure () {
 		//svd_from_short_list();
-		collapseSVD(short_list, cache.svd.S, cache.svd.U, cache.svd.V);
+		//collapseSVD(short_list, cache.svd.S, cache.svd.U, cache.svd.V);
+		accumulate_forward();
+		U_s = positionSpace;
+		accumulate_backward();
+		U_s_inv = positionSpace;
 		U_s = cache.svd.U * cache.svd.S.asDiagonal() * cache.svd.V.transpose();
 		U_s_inv = cache.svd.V * cache.svd.S.array().inverse().matrix().asDiagonal() * cache.svd.U.transpose();
 		//U_s = short_list[0];
