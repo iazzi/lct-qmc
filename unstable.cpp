@@ -295,12 +295,28 @@ class Simulation {
 		cache.B = (Matrix_d::Identity(V, V) + std::exp(-beta*B*0.5+beta*mu)*U_s).inverse();
 	}
 
+	void test_U_s () {
+		accumulate_forward();
+		Matrix_d newA = (Matrix_d::Identity(V, V) + std::exp(+beta*B*0.5+beta*mu)*positionSpace).inverse();
+		Matrix_d newB = (Matrix_d::Identity(V, V) + std::exp(-beta*B*0.5+beta*mu)*positionSpace).inverse();
+		if ((cache.A-newA).norm()>1e-7 || (cache.B-newB).norm()>1e-7) {
+			std::cerr << (U_s-positionSpace).norm() << ' ' << (cache.A-newA).norm() << ' ' << (cache.B-newB).norm() << std::endl;
+			//std::cerr << ((cache.A*(Matrix_d::Identity(V, V) + std::exp(+beta*B*0.5+beta*mu)*positionSpace) - Matrix_d::Identity(V, V))).norm()
+				//<< ' ' << ((newA*(Matrix_d::Identity(V, V) + std::exp(+beta*B*0.5+beta*mu)*positionSpace) - Matrix_d::Identity(V, V))).norm() << std::endl;
+			//std::cerr << ((cache.B*(Matrix_d::Identity(V, V) + std::exp(-beta*B*0.5+beta*mu)*positionSpace) - Matrix_d::Identity(V, V))).norm()
+				//<< ' ' << ((newB*(Matrix_d::Identity(V, V) + std::exp(-beta*B*0.5+beta*mu)*positionSpace) - Matrix_d::Identity(V, V))).norm() << std::endl;
+		}
+		U_s = positionSpace;
+		cache.A = newA;
+		cache.B = newB;
+	}
+
 	void update_U_s (int x, int t) { // FIXME submatrix updates
 		compute_uv_f(x, t);
 		diagonals[t][x] = -diagonals[t][x];
 		U_s += cache.u*cache.v.transpose();
 		cache.A -= (cache.A*cache.u)*std::exp(+beta*B*0.5+beta*mu)*(cache.v.transpose()*cache.A)/(1.0+std::exp(+beta*B*0.5+beta*mu)*cache.a);
-		cache.B -= (cache.B*cache.u)*std::exp(+beta*B*0.5+beta*mu)*(cache.v.transpose()*cache.B)/(1.0+std::exp(+beta*B*0.5+beta*mu)*cache.b);
+		cache.B -= (cache.B*cache.u)*std::exp(-beta*B*0.5+beta*mu)*(cache.v.transpose()*cache.B)/(1.0+std::exp(-beta*B*0.5+beta*mu)*cache.b);
 		if (false) {
 			accumulate_forward();
 			std::cerr << (U_s-positionSpace).norm()
@@ -367,9 +383,11 @@ class Simulation {
 	}
 
 	void update () {
-		for (int i=0;i<100;i++) acceptance.add(metropolis()?1.0:0.0);
-		//if (steps%1000==0) { compute_U_s(); }
-		compute_U_s();
+		for (int i=0;i<100;i++) {
+			acceptance.add(metropolis()?1.0:0.0);
+			//if (steps%1000==0) { compute_U_s(); }
+		}
+		test_U_s();
 	}
 
 	double get_kinetic_energy (const Matrix_d &M) {
