@@ -9,7 +9,7 @@
 #include <atomic>
 #include <functional>
 
-#include "types.hpp"
+#include "helpers.hpp"
 #include "measurements.hpp"
 #include "weighted_measurements.hpp"
 #include "logger.hpp"
@@ -86,37 +86,23 @@ class Simulation {
 	int total_sweeps;
 	bool reset;
 	//int reweight;
-	int decompositions;
 	std::string outfn;
 	//std::ofstream logfile;
 
 	Matrix_d U_s;
 	Matrix_d U_s_inv;
 
+	Matrix_d rho_up;
+	Matrix_d rho_dn;
+
 	struct {
+		double a;
+		double b;
 		Vector_d u;
 		Vector_d v;
-		Vector_d u_inv;
-		Vector_d v_inv;
-		Vector_cd ev;
-		struct {
-			Vector_d S;
-			Matrix_d U;
-			Matrix_d V;
-		} svd;
+		Matrix_d A;
+		Matrix_d B;
 	} cache;
-
-	struct {
-		Vector_d S;
-		Matrix_d U;
-		Matrix_d V;
-	} svd_up;
-	struct {
-		Vector_d S;
-		Matrix_d U;
-		Matrix_d V;
-	} svd_dn;
-
 
 	mymeasurement<double> acceptance;
 	mymeasurement<double> density;
@@ -126,7 +112,6 @@ class Simulation {
 	std::vector<mymeasurement<double>> d_up;
 	std::vector<mymeasurement<double>> d_dn;
 	std::vector<mymeasurement<double>> spincorrelation;
-	mymeasurement<double> sws;
 	mymeasurement<double> staggered_magnetization;
 
 	int shift_x (int x, int k) {
@@ -164,18 +149,6 @@ class Simulation {
 		positionSpace.setIdentity(V, V);
 		positionSpace_c.setIdentity(V, V);
 		momentumSpace.setIdentity(V, V);
-
-		cache.svd.S = Vector_d::Zero(V);
-		cache.svd.U = Matrix_d::Zero(V, V);
-		cache.svd.V = Matrix_d::Zero(V, V);
-
-		svd_up.S = Vector_d::Zero(V);
-		svd_up.U = Matrix_d::Zero(V, V);
-		svd_up.V = Matrix_d::Zero(V, V);
-
-		svd_dn.S = Vector_d::Zero(V);
-		svd_dn.U = Matrix_d::Zero(V, V);
-		svd_dn.V = Matrix_d::Zero(V, V);
 
 		const int size[] = { Lx, Ly, Lz, };
 		x2p_vec = fftw_plan_dft(3, size, reinterpret_cast<fftw_complex*>(v_x.data()), reinterpret_cast<fftw_complex*>(v_p.data()), FFTW_FORWARD, FFTW_PATIENT);
@@ -235,6 +208,8 @@ class Simulation {
 		accumulate_backward();
 		U_s_inv = positionSpace;
 
+		compute_U_s();
+
 		for (int i=0;i<V;i++) {
 			d_up.push_back(mymeasurement<double>());
 			d_dn.push_back(mymeasurement<double>());
@@ -243,7 +218,6 @@ class Simulation {
 			spincorrelation.push_back(mymeasurement<double>());
 		}
 
-		if (decompositions<1) decompositions = N; 
 	}
 
 	Simulation (lua_State *L, int index) : distribution(0.5), trialDistribution(1.0), steps(0) {
@@ -314,20 +288,33 @@ class Simulation {
 		}
 	}
 
-	void update_short_list (int x, int t) { // FIXME submatrix updates
+	void compute_U_s () {
+		accumulate_forward();
+		U_s = positionSpace;
+		cache.A = (Matrix_d::Identity(V, V) + std::exp(+beta*B*0.5+beta*mu)*U_s).inverse();
+		cache.B = (Matrix_d::Identity(V, V) + std::exp(-beta*B*0.5+beta*mu)*U_s).inverse();
+	}
+
+	void update_U_s (int x, int t) { // FIXME submatrix updates
 		compute_uv_f(x, t);
 		diagonals[t][x] = -diagonals[t][x];
-		U_s -= cache.u*cache.v.transpose();
+		U_s += cache.u*cache.v.transpose();
+		cache.A -= (cache.A*cache.u)*std::exp(+beta*B*0.5+beta*mu)*(cache.v.transpose()*cache.A)/(1.0+std::exp(+beta*B*0.5+beta*mu)*cache.a);
+		cache.B -= (cache.B*cache.u)*std::exp(+beta*B*0.5+beta*mu)*(cache.v.transpose()*cache.B)/(1.0+std::exp(+beta*B*0.5+beta*mu)*cache.b);
+		if (false) {
+			accumulate_forward();
+			std::cerr << (U_s-positionSpace).norm()
+				<< ' ' << (cache.A-(Matrix_d::Identity(V, V) + std::exp(+beta*B*0.5+beta*mu)*U_s).inverse()).norm()
+				<< ' ' << (cache.B-(Matrix_d::Identity(V, V) + std::exp(-beta*B*0.5+beta*mu)*U_s).inverse()).norm() << std::endl;
+		}
 	}
 
 	double rank1_probability (int x, int t) { // FIXME: use SVD / higher beta
 		compute_uv_f(x, t);
-		double a = cache.v.transpose()*(Matrix_d::Identity(V, V) + std::exp(+beta*B*0.5+beta*mu)*U_s).inverse()*cache.u;
-		double b = cache.v.transpose()*(Matrix_d::Identity(V, V) + std::exp(-beta*B*0.5+beta*mu)*U_s).inverse()*cache.u;
-		//std::cerr << "> " << a << ' ' << b << std::endl;
-		//a = (cache.v.transpose()*svd_up.V).eval()*svd_up.S.array().inverse().matrix().asDiagonal()*(svd_up.U.transpose()*cache.u).eval();
-		//b = (cache.v.transpose()*svd_dn.V).eval()*svd_dn.S.array().inverse().matrix().asDiagonal()*(svd_dn.U.transpose()*cache.u).eval();
-		//std::cerr << "< " << a << ' ' << b << std::endl;
+		double a = cache.v.transpose()*cache.A*cache.u;
+		double b = cache.v.transpose()*cache.B*cache.u;
+		cache.a = a;
+		cache.b = b;
 		return std::log((1+std::exp(+beta*B*0.5+beta*mu)*a)*(1+std::exp(-beta*B*0.5+beta*mu)*b));
 	}
 
@@ -369,8 +356,7 @@ class Simulation {
 		//std::cerr << ret << " r = " << r << std::endl;
 		if (ret) {
 			plog += r;
-			update_short_list(x, t);
-			//svd_from_short_list();
+			update_U_s(x, t);
 		} else {
 		}
 		return ret;
@@ -382,12 +368,8 @@ class Simulation {
 
 	void update () {
 		for (int i=0;i<100;i++) acceptance.add(metropolis()?1.0:0.0);
-		//if (steps%1000==0) {
-			//accumulate_forward();
-			//U_s = positionSpace;
-			//accumulate_backward();
-			//U_s_inv = positionSpace;
-		//}
+		//if (steps%1000==0) { compute_U_s(); }
+		compute_U_s();
 	}
 
 	double get_kinetic_energy (const Matrix_d &M) {
@@ -399,18 +381,12 @@ class Simulation {
 	}
 
 	void measure () {
-		//svd_from_short_list();
-		//collapseSVD(short_list, cache.svd.S, cache.svd.U, cache.svd.V);
-		accumulate_forward();
-		U_s = positionSpace;
-		accumulate_backward();
-		U_s_inv = positionSpace;
-		U_s = cache.svd.U * cache.svd.S.asDiagonal() * cache.svd.V.transpose();
-		U_s_inv = cache.svd.V * cache.svd.S.array().inverse().matrix().asDiagonal() * cache.svd.U.transpose();
-		//U_s = short_list[0];
-		//U_s_inv = U_s.inverse();
-		Matrix_d rho_up = (Matrix_d::Identity(V, V) + exp(-beta*B*0.5-beta*mu)*U_s_inv).inverse();
-		Matrix_d rho_dn = (Matrix_d::Identity(V, V) + exp(-beta*B*0.5+beta*mu)*U_s).inverse();
+		//accumulate_forward();
+		//U_s = positionSpace;
+		//accumulate_backward();
+		U_s_inv = U_s.inverse();
+		rho_up = (Matrix_d::Identity(V, V) + exp(-beta*B*0.5-beta*mu)*U_s_inv).inverse();
+		rho_dn = (Matrix_d::Identity(V, V) + exp(-beta*B*0.5+beta*mu)*U_s).inverse();
 		double K_up = get_kinetic_energy(rho_up);
 		double K_dn = get_kinetic_energy(rho_dn);
 		double n_up = rho_up.diagonal().array().sum();
@@ -435,7 +411,7 @@ class Simulation {
 				ssz -= rho_up(x, y)*rho_up(y, x) + rho_dn(x, y)*rho_dn(y, x);
 			}
 			spincorrelation[k].add(0.25*ssz);
-			staggered_magnetization.add((rho_up.diagonal().array()*staggering - rho_dn.diagonal().array()*staggering).sum()/V);
+			if (staggered_field!=0.0) staggered_magnetization.add((rho_up.diagonal().array()*staggering - rho_dn.diagonal().array()*staggering).sum()/V);
 			if (isnan(ssz)) {
 				//std::cerr << "explain:" << std::endl;
 				//std::cerr << "k=" << k << " ssz=" << ssz << std::endl;
@@ -465,8 +441,8 @@ class Simulation {
 			<< ' ' << magnetization.mean() << ' ' << magnetization.variance()
 			//<< ' ' << acceptance.mean() << ' ' << acceptance.variance()
 			<< ' ' << kinetic.mean()/tx/V << ' ' << kinetic.variance()/tx/tx/V/V
-			<< ' ' << interaction.mean()/tx/V << ' ' << interaction.variance()/tx/tx/V/V
-			<< ' ' << -staggered_magnetization.mean()/staggered_field << ' ' << staggered_magnetization.variance();
+			<< ' ' << interaction.mean()/tx/V << ' ' << interaction.variance()/tx/tx/V/V;
+		if (staggered_field!=0.0) out << ' ' << -staggered_magnetization.mean()/staggered_field << ' ' << staggered_magnetization.variance();
 		for (int i=0;i<V;i++) {
 			//out << ' ' << d_up[i].mean();
 		}
@@ -474,7 +450,7 @@ class Simulation {
 			//out << ' ' << d_dn[i].mean();
 		}
 		for (int i=1;i<=Lx/2;i++) {
-			//out << ' ' << spincorrelation[i].mean()/V << ' ' << spincorrelation[i].variance();
+			out << ' ' << spincorrelation[i].mean()/V << ' ' << spincorrelation[i].variance();
 		}
 		out << std::endl;
 	}
