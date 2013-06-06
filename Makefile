@@ -29,10 +29,10 @@ ctsingle: ctsingle.o
 continuoustime.o: continuoustime.cpp ct_aux.hpp
 
 parallel:
-	$(MAKE) all MYCXXFLAGS="-O3 -march=native -DEIGEN_NO_DEBUG -fopenmp" MYLDFLAGS="-fopenmp -lfftw3_threads"
+	$(MAKE) all MYCXXFLAGS="-O3 -march=native -DNDEBUG -DEIGEN_NO_DEBUG -fopenmp" MYLDFLAGS="-fopenmp -lfftw3_threads"
 
 optimized:
-	$(MAKE) all MYCXXFLAGS="-O3 -march=native -DEIGEN_NO_DEBUG" MYLDFLAGS=""
+	$(MAKE) all MYCXXFLAGS="-O3 -march=native -DNDEBUG -DEIGEN_NO_DEBUG" MYLDFLAGS=""
 
 debug:
 	$(MAKE) all MYCXXFLAGS="-g" MYLDFLAGS=""
