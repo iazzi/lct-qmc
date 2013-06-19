@@ -98,10 +98,12 @@ class Simulation {
 	struct {
 		double a;
 		double b;
+		//double c;
 		Vector_d u;
 		Vector_d v;
 		Matrix_d A;
 		Matrix_d B;
+		//Matrix_d C;
 	} cache;
 
 	mymeasurement<double> acceptance;
@@ -157,10 +159,10 @@ class Simulation {
 				NULL, 1, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()), NULL, 1, V, FFTW_FORWARD, FFTW_PATIENT);
 		p2x_col = fftw_plan_many_dft(3, size, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()),
 				NULL, 1, V, reinterpret_cast<fftw_complex*>(positionSpace_c.data()), NULL, 1, V, FFTW_BACKWARD, FFTW_PATIENT);
-		x2p_row = fftw_plan_many_dft_r2c(3, size, V, positionSpace.data(),
-				NULL, V, 1, reinterpret_cast<fftw_complex*>(momentumSpace.data()), NULL, V, 1, FFTW_PATIENT);
-		p2x_row = fftw_plan_many_dft_c2r(3, size, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()),
-				NULL, V, 1, positionSpace.data(), NULL, V, 1, FFTW_PATIENT);
+		x2p_row = fftw_plan_many_dft(3, size, V, reinterpret_cast<fftw_complex*>(positionSpace_c.data()),
+				NULL, V, 1, reinterpret_cast<fftw_complex*>(momentumSpace.data()), NULL, V, 1, FFTW_FORWARD, FFTW_PATIENT);
+		p2x_row = fftw_plan_many_dft(3, size, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()),
+				NULL, V, 1, reinterpret_cast<fftw_complex*>(positionSpace_c.data()), NULL, V, 1, FFTW_BACKWARD, FFTW_PATIENT);
 
 		for (int l=0;l<0;l++) {
 			Matrix_cd R = Matrix_cd::Random(V, V);
@@ -276,62 +278,33 @@ class Simulation {
 
 	void accumulate_backward (int start = 0, int end = -1) {
 		Real X = 1.0 - A*A;
-		positionSpace.setIdentity(V, V);
+		positionSpace_c.setIdentity(V, V);
 		end = end<0?N:end;
 		end = end>N?N:end;
 		for (int i=start;i<end;i++) {
-			positionSpace.applyOnTheRight(((Vector_d::Constant(V, 1.0)-diagonals[i]).array()*freePropagator_x_b.array()).matrix().asDiagonal());
+			positionSpace_c.applyOnTheRight(((Vector_d::Constant(V, 1.0)-diagonals[i]).array()*freePropagator_x_b.array()).matrix().asDiagonal());
 			fftw_execute(x2p_row);
 			momentumSpace.applyOnTheRight(freePropagator_b.asDiagonal());
 			fftw_execute(p2x_row);
-			positionSpace /= V*X;
+			positionSpace_c /= V*X;
 		}
+		positionSpace = positionSpace_c.real();
 	}
 
-	void compute_U_s () {
-		accumulate_forward();
-		U_s = positionSpace;
-		cache.A = (Matrix_d::Identity(V, V) + std::exp(+beta*B*0.5+beta*mu)*U_s).inverse();
-		cache.B = (Matrix_d::Identity(V, V) + std::exp(-beta*B*0.5+beta*mu)*U_s).inverse();
-	}
-
-	void test_U_s () {
-		accumulate_forward();
-		Matrix_d newA = (Matrix_d::Identity(V, V) + std::exp(+beta*B*0.5+beta*mu)*positionSpace).inverse();
-		Matrix_d newB = (Matrix_d::Identity(V, V) + std::exp(-beta*B*0.5+beta*mu)*positionSpace).inverse();
-		if ((cache.A-newA).norm()>1e-7 || (cache.B-newB).norm()>1e-7) {
-			std::cerr << (U_s-positionSpace).norm() << ' ' << (cache.A-newA).norm() << ' ' << (cache.B-newB).norm() << std::endl;
-			//std::cerr << ((cache.A*(Matrix_d::Identity(V, V) + std::exp(+beta*B*0.5+beta*mu)*positionSpace) - Matrix_d::Identity(V, V))).norm()
-				//<< ' ' << ((newA*(Matrix_d::Identity(V, V) + std::exp(+beta*B*0.5+beta*mu)*positionSpace) - Matrix_d::Identity(V, V))).norm() << std::endl;
-			//std::cerr << ((cache.B*(Matrix_d::Identity(V, V) + std::exp(-beta*B*0.5+beta*mu)*positionSpace) - Matrix_d::Identity(V, V))).norm()
-				//<< ' ' << ((newB*(Matrix_d::Identity(V, V) + std::exp(-beta*B*0.5+beta*mu)*positionSpace) - Matrix_d::Identity(V, V))).norm() << std::endl;
+	Vector_d compute_weird_vec (int x, int t) {
+		Real X = 1-A*A;
+		v_x = Vector_cd::Zero(V);
+		v_x[x] = 1.0;
+		for (int i=t;i>0;i--) {
+			v_x = v_x.array() * (Vector_d::Constant(V, 1.0)-diagonals[i]).array() * freePropagator_x_b.array();
+			fftw_execute(x2p_vec);
+			v_p = v_p.array() * freePropagator_b.array();
+			fftw_execute(p2x_vec);
+			v_x /= V*X;
 		}
-		U_s = positionSpace;
-		cache.A = newA;
-		cache.B = newB;
-	}
-
-	void update_U_s (int x, int t) { // FIXME submatrix updates
-		compute_uv_f(x, t);
-		diagonals[t][x] = -diagonals[t][x];
-		U_s += cache.u*cache.v.transpose();
-		cache.A -= (cache.A*cache.u)*std::exp(+beta*B*0.5+beta*mu)*(cache.v.transpose()*cache.A)/(1.0+std::exp(+beta*B*0.5+beta*mu)*cache.a);
-		cache.B -= (cache.B*cache.u)*std::exp(-beta*B*0.5+beta*mu)*(cache.v.transpose()*cache.B)/(1.0+std::exp(-beta*B*0.5+beta*mu)*cache.b);
-		if (false) {
-			accumulate_forward();
-			std::cerr << (U_s-positionSpace).norm()
-				<< ' ' << (cache.A-(Matrix_d::Identity(V, V) + std::exp(+beta*B*0.5+beta*mu)*U_s).inverse()).norm()
-				<< ' ' << (cache.B-(Matrix_d::Identity(V, V) + std::exp(-beta*B*0.5+beta*mu)*U_s).inverse()).norm() << std::endl;
-		}
-	}
-
-	double rank1_probability (int x, int t) { // FIXME: use SVD / higher beta
-		compute_uv_f(x, t);
-		double a = cache.v.transpose()*cache.A*cache.u;
-		double b = cache.v.transpose()*cache.B*cache.u;
-		cache.a = a;
-		cache.b = b;
-		return std::log((1+std::exp(+beta*B*0.5+beta*mu)*a)*(1+std::exp(-beta*B*0.5+beta*mu)*b));
+		v_x = v_x.array() * (Vector_d::Constant(V, 1.0)-diagonals[0]).array() * freePropagator_x_b.array();
+		v_x /= X;
+		return (-2*diagonals[t][x]*v_x*freePropagator_x[x]).real();
 	}
 
 	void compute_uv_f (int x, int t) {
@@ -361,6 +334,110 @@ class Simulation {
 		cache.v = v_x.real();
 	}
 
+	void compute_uv_b (int x, int t) {
+		Real X = 1-A*A;
+		v_x.setZero(V);
+		v_x[x] = (2.0*diagonals[t][x])/(1.0-diagonals[t][x]);
+		for (int i=t;i<N;i++) {
+			v_x = v_x.array() * (Vector_d::Constant(V, 1.0)-diagonals[i]).array() * freePropagator_x_b.array();
+			fftw_execute(x2p_vec);
+			v_p = v_p.array() * freePropagator_b.array();
+			fftw_execute(p2x_vec);
+			v_x /= V*X;
+		}
+		cache.v = v_x.real();
+		v_x.setZero(V);
+		v_x[x] = 1.0;
+		for (int i=t-1;i>=0;i--) {
+			fftw_execute(x2p_vec);
+			v_p = v_p.array() * freePropagator_b.array();
+			fftw_execute(p2x_vec);
+			v_x = v_x.array() * (Vector_d::Constant(V, 1.0)-diagonals[i]).array() * freePropagator_x_b.array();
+			v_x /= V*X;
+		}
+		cache.u = v_x.real();
+	}
+
+	void compute_U_s () {
+		accumulate_forward();
+		U_s = positionSpace;
+		cache.A = (Matrix_d::Identity(V, V) + std::exp(+beta*B*0.5+beta*mu)*U_s).inverse();
+		cache.B = (Matrix_d::Identity(V, V) + std::exp(-beta*B*0.5+beta*mu)*U_s).inverse();
+		//cache.C = (U_s.inverse()+std::exp(-beta*B*0.5+beta*mu)*Matrix_d::Identity(V, V)).inverse();
+	}
+
+	void test_U_s (bool update) {
+		//accumulate_backward();
+		//Matrix_d newC = (positionSpace+std::exp(-beta*B*0.5+beta*mu)*Matrix_d::Identity(V, V)).inverse();
+		accumulate_forward();
+		Matrix_d newA = (Matrix_d::Identity(V, V) + std::exp(+beta*B*0.5+beta*mu)*positionSpace).inverse();
+		Matrix_d newB = (Matrix_d::Identity(V, V) + std::exp(-beta*B*0.5+beta*mu)*positionSpace).inverse();
+		if ((cache.A-newA).norm()>1e-7*newA.norm() || (cache.B-newB).norm()>1e-7*newB.norm()) {
+			std::cerr << log((cache.A-newA).norm())-log(newA.norm())
+				<< ' ' << log((cache.B-newB).norm())-log(newB.norm())
+				//<< ' ' << log((cache.C-newC).norm())-log(newC.norm())
+				<< std::endl;
+			//std::cerr << ((cache.A*(Matrix_d::Identity(V, V) + std::exp(+beta*B*0.5+beta*mu)*positionSpace) - Matrix_d::Identity(V, V))).norm()
+				//<< ' ' << ((newA*(Matrix_d::Identity(V, V) + std::exp(+beta*B*0.5+beta*mu)*positionSpace) - Matrix_d::Identity(V, V))).norm() << std::endl;
+			//std::cerr << ((cache.B*(Matrix_d::Identity(V, V) + std::exp(-beta*B*0.5+beta*mu)*positionSpace) - Matrix_d::Identity(V, V))).norm()
+				//<< ' ' << ((newB*(Matrix_d::Identity(V, V) + std::exp(-beta*B*0.5+beta*mu)*positionSpace) - Matrix_d::Identity(V, V))).norm() << std::endl;
+		}
+		if (update) {
+			U_s = positionSpace;
+			cache.A = newA;
+			cache.B = newB;
+			//cache.C = newC;
+		}
+	}
+
+	void update_U_s (int x, int t) { // FIXME submatrix updates
+		compute_uv_f(x, t);
+		U_s += cache.u*cache.v.transpose();
+		cache.A -= (cache.A*cache.u)*std::exp(+beta*B*0.5+beta*mu)*(cache.v.transpose()*cache.A)/(1.0+std::exp(+beta*B*0.5+beta*mu)*cache.a);
+		cache.B -= (cache.B*cache.u)*std::exp(-beta*B*0.5+beta*mu)*(cache.v.transpose()*cache.B)/(1.0+std::exp(-beta*B*0.5+beta*mu)*cache.b);
+		compute_uv_b(x, t);
+		diagonals[t][x] = -diagonals[t][x];
+		//Matrix_d newC = (positionSpace+std::exp(-beta*B*0.5+beta*mu)*Matrix_d::Identity(V, V)).inverse();
+		//cache.C -= (cache.C*cache.u)*(cache.v.transpose()*cache.C)/(1.0+cache.v.transpose()*cache.C*cache.u);
+		if (false) {
+			accumulate_forward();
+			std::cerr << (U_s-positionSpace).norm()
+				<< ' ' << (cache.A-(Matrix_d::Identity(V, V) + std::exp(+beta*B*0.5+beta*mu)*U_s).inverse()).norm()
+				<< ' ' << (cache.B-(Matrix_d::Identity(V, V) + std::exp(-beta*B*0.5+beta*mu)*U_s).inverse()).norm() << std::endl;
+		}
+	}
+
+	double rank1_probability (int x, int t) { // FIXME: use SVD / higher beta
+		compute_uv_f(x, t);
+		Vector_d w = compute_weird_vec(x, t);
+		double a = cache.v.transpose()*cache.A*cache.u;
+		double b = cache.v.transpose()*cache.B*cache.u;
+		//double c = cache.v.transpose()*cache.C*w;
+		cache.a = a;
+		cache.b = b;
+		//cache.c = c;
+		//std::cerr << b << ' ' << std::exp(+beta*B*0.5-beta*mu)*cache.v.transpose()*(std::exp(+beta*B*0.5-beta*mu)*U_s.inverse()+Matrix_d::Identity(V, V)).inverse()*w << std::endl;
+		//std::cerr << (U_s.inverse()*cache.u).transpose() << std::endl;
+		//std::cerr << w.transpose() << std::endl;
+		//std::cerr << "b, c = " << b << ", " << c << std::endl;
+		return std::log((1+std::exp(+beta*B*0.5+beta*mu)*a)*(1+std::exp(-beta*B*0.5+beta*mu)*b));
+	}
+
+	void make_tests () {
+		for (int i=0;i<1;i++) {
+			int x = randomPosition(generator);
+			int t = randomTime(generator);
+			accumulate_backward();
+			U_s_inv = positionSpace;
+			compute_uv_b(x, t);
+			diagonals[t][x] = -diagonals[t][x];
+			accumulate_backward();
+			std::cerr << "U_s^-1 + uv^t - U'_s^-1 = " << (U_s_inv+cache.u*cache.v.transpose()-positionSpace).norm() << std::endl << std::endl;
+			std::cerr << "U_s^-1 - U'_s^-1 = " << std::endl << ((U_s_inv-positionSpace).array()/(cache.u*cache.v.transpose()).array()) << std::endl << std::endl;
+			std::cerr << "uv^t = " << std::endl << (cache.u*cache.v.transpose()) << std::endl << std::endl;
+		}
+	}
+
 	bool metropolis (int M = 0) {
 		steps++;
 		bool ret = false;
@@ -385,9 +462,10 @@ class Simulation {
 	void update () {
 		for (int i=0;i<100;i++) {
 			acceptance.add(metropolis()?1.0:0.0);
-			//if (steps%1000==0) { compute_U_s(); }
+			//test_U_s(false);
+			//make_tests();
 		}
-		test_U_s();
+		if (steps%1500==0) test_U_s(true);
 	}
 
 	double get_kinetic_energy (const Matrix_d &M) {
