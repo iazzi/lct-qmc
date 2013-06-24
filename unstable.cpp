@@ -395,7 +395,7 @@ class Simulation {
 		U_s += cache.u*cache.v.transpose();
 		cache.A -= (cache.A*cache.u)*std::exp(+beta*B*0.5+beta*mu)*(cache.v.transpose()*cache.A)/(1.0+std::exp(+beta*B*0.5+beta*mu)*cache.a);
 		cache.B -= (cache.B*cache.u)*std::exp(-beta*B*0.5+beta*mu)*(cache.v.transpose()*cache.B)/(1.0+std::exp(-beta*B*0.5+beta*mu)*cache.b);
-		compute_uv_b(x, t);
+		//compute_uv_b(x, t);
 		diagonals[t][x] = -diagonals[t][x];
 		//Matrix_d newC = (positionSpace+std::exp(-beta*B*0.5+beta*mu)*Matrix_d::Identity(V, V)).inverse();
 		//cache.C -= (cache.C*cache.u)*(cache.v.transpose()*cache.C)/(1.0+cache.v.transpose()*cache.C*cache.u);
@@ -409,7 +409,7 @@ class Simulation {
 
 	double rank1_probability (int x, int t) { // FIXME: use SVD / higher beta
 		compute_uv_f(x, t);
-		Vector_d w = compute_weird_vec(x, t);
+		//Vector_d w = compute_weird_vec(x, t);
 		double a = cache.v.transpose()*cache.A*cache.u;
 		double b = cache.v.transpose()*cache.B*cache.u;
 		//double c = cache.v.transpose()*cache.C*w;
