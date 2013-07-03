@@ -68,6 +68,9 @@ class Simulation {
 	Matrix_cd positionSpace_c; // current matrix in position space
 	Matrix_cd momentumSpace;
 
+	int mslices;
+	std::vector<Matrix_d> slices;
+
 	Vector_cd v_x;
 	Vector_cd v_p;
 
@@ -101,6 +104,8 @@ class Simulation {
 		//double c;
 		Vector_d u;
 		Vector_d v;
+		Vector_d u_smart;
+		Vector_d v_smart;
 		Matrix_d A;
 		Matrix_d B;
 		//Matrix_d C;
@@ -244,6 +249,7 @@ class Simulation {
 		lua_getfield(L, index, "RESET");  reset = lua_toboolean(L, -1);            lua_pop(L, 1);
 		//lua_getfield(L, index, "REWEIGHT");  reweight = lua_tointeger(L, -1);      lua_pop(L, 1);
 		lua_getfield(L, index, "OUTPUT");  outfn = lua_tostring(L, -1);            lua_pop(L, 1);
+		lua_getfield(L, index, "SLICES");  mslices = lua_tointeger(L, -1);         lua_pop(L, 1);
 		//lua_getfield(L, index, "LOGFILE");  logfile.open(lua_tostring(L, -1));     lua_pop(L, 1);
 		init();
 	}
@@ -334,6 +340,43 @@ class Simulation {
 		cache.v = v_x.real();
 	}
 
+	void compute_uv_f_smart (int x, int t) {
+		int start = mslices*(t/mslices);
+		int end = mslices*(1+t/mslices);
+		if (end>N) end = N;
+		v_x = Vector_cd::Zero(V);
+		v_x[x] = 1.0;
+		for (int i=t+1;i<end;i++) {
+			fftw_execute(x2p_vec);
+			v_p = v_p.array() * freePropagator.array();
+			fftw_execute(p2x_vec);
+			v_x = v_x.array() * (Vector_d::Constant(V, 1.0)+diagonals[i]).array() * freePropagator_x.array();
+			v_x /= V;
+		}
+		fftw_execute(x2p_vec);
+		v_p = v_p.array() * freePropagator.array();
+		fftw_execute(p2x_vec);
+		v_x /= V;
+		cache.u_smart = cache.u = (-2*diagonals[t][x]*v_x*freePropagator_x[x]).real();
+		for (size_t i=t/mslices+1;i<slices.size();i++) {
+			//std::cerr << i << ' ' << t/mslices << ' ' << slices.size() << std::endl;
+			cache.u.applyOnTheLeft(slices[i]);
+		}
+		v_x = Vector_cd::Zero(V);
+		v_x[x] = 1.0;
+		for (int i=t-1;i>=start;i--) {
+			fftw_execute(x2p_vec);
+			v_p = v_p.array() * freePropagator.array();
+			fftw_execute(p2x_vec);
+			v_x = v_x.array() * (Vector_d::Constant(V, 1.0)+diagonals[i]).array() * freePropagator_x.array();
+			v_x /= V;
+		}
+		cache.v_smart = cache.v = v_x.real();
+		for (int i=t/mslices-1;i>=0;i--) {
+			cache.v.applyOnTheLeft(slices[i].transpose());
+		}
+	}
+
 	void compute_uv_b (int x, int t) {
 		Real X = 1-A*A;
 		v_x.setZero(V);
@@ -363,6 +406,12 @@ class Simulation {
 		U_s = positionSpace;
 		cache.A = (Matrix_d::Identity(V, V) + std::exp(+beta*B*0.5+beta*mu)*U_s).inverse();
 		cache.B = (Matrix_d::Identity(V, V) + std::exp(-beta*B*0.5+beta*mu)*U_s).inverse();
+		mslices = mslices>0?mslices:N;
+		slices.clear();
+		for (int i=0;i<N;i+=mslices) {
+			accumulate_forward(i, i+mslices);
+			slices.push_back(positionSpace);
+		}
 		//cache.C = (U_s.inverse()+std::exp(-beta*B*0.5+beta*mu)*Matrix_d::Identity(V, V)).inverse();
 	}
 
@@ -387,28 +436,27 @@ class Simulation {
 			cache.A = newA;
 			cache.B = newB;
 			//cache.C = newC;
+			for (int i=0;i<N;i+=mslices) {
+				accumulate_forward(i, i+mslices);
+				slices[i/mslices] = positionSpace;
+			}
 		}
 	}
 
 	void update_U_s (int x, int t) { // FIXME submatrix updates
-		compute_uv_f(x, t);
+		//compute_uv_f(x, t);
 		U_s += cache.u*cache.v.transpose();
 		cache.A -= (cache.A*cache.u)*std::exp(+beta*B*0.5+beta*mu)*(cache.v.transpose()*cache.A)/(1.0+std::exp(+beta*B*0.5+beta*mu)*cache.a);
 		cache.B -= (cache.B*cache.u)*std::exp(-beta*B*0.5+beta*mu)*(cache.v.transpose()*cache.B)/(1.0+std::exp(-beta*B*0.5+beta*mu)*cache.b);
 		//compute_uv_b(x, t);
+		slices[t/mslices] += cache.u_smart*cache.v_smart.transpose();
 		diagonals[t][x] = -diagonals[t][x];
 		//Matrix_d newC = (positionSpace+std::exp(-beta*B*0.5+beta*mu)*Matrix_d::Identity(V, V)).inverse();
 		//cache.C -= (cache.C*cache.u)*(cache.v.transpose()*cache.C)/(1.0+cache.v.transpose()*cache.C*cache.u);
-		if (false) {
-			accumulate_forward();
-			std::cerr << (U_s-positionSpace).norm()
-				<< ' ' << (cache.A-(Matrix_d::Identity(V, V) + std::exp(+beta*B*0.5+beta*mu)*U_s).inverse()).norm()
-				<< ' ' << (cache.B-(Matrix_d::Identity(V, V) + std::exp(-beta*B*0.5+beta*mu)*U_s).inverse()).norm() << std::endl;
-		}
 	}
 
 	double rank1_probability (int x, int t) { // FIXME: use SVD / higher beta
-		compute_uv_f(x, t);
+		compute_uv_f_smart(x, t);
 		//Vector_d w = compute_weird_vec(x, t);
 		double a = cache.v.transpose()*cache.A*cache.u;
 		double b = cache.v.transpose()*cache.B*cache.u;
@@ -464,8 +512,8 @@ class Simulation {
 			acceptance.add(metropolis()?1.0:0.0);
 			//test_U_s(false);
 			//make_tests();
+			if (steps%1000==0) test_U_s(true);
 		}
-		if (steps%1500==0) test_U_s(true);
 	}
 
 	double get_kinetic_energy (const Matrix_d &M) {
@@ -628,7 +676,7 @@ int main (int argc, char **argv) {
 					try {
 						t0 = steady_clock::now();
 						for (int i=0;i<thermalization_sweeps;i++) {
-							if (duration_cast<seconds_type>(steady_clock::now()-t1).count()>2) {
+							if (duration_cast<seconds_type>(steady_clock::now()-t1).count()>5) {
 								t1 = steady_clock::now();
 								log << "thread" << j << "thermalizing: " << i << '/' << thermalization_sweeps << '.' << (double(i)/duration_cast<seconds_type>(t1-t0).count()) << "updates per second";
 							}
@@ -637,7 +685,7 @@ int main (int argc, char **argv) {
 						log << "thread" << j << "thermalized";
 						t0 = steady_clock::now();
 						for (int i=0;i<total_sweeps;i++) {
-							if (duration_cast<seconds_type>(steady_clock::now()-t1).count()>2) {
+							if (duration_cast<seconds_type>(steady_clock::now()-t1).count()>5) {
 								t1 = steady_clock::now();
 								log << "thread" << j << "running: " << i << '/' << total_sweeps << '.' << (double(i)/duration_cast<seconds_type>(t1-t0).count()) << "updates per second";
 							}
