@@ -421,6 +421,8 @@ class Simulation {
 		accumulate_forward();
 		Matrix_d newA = (Matrix_d::Identity(V, V) + std::exp(+beta*B*0.5+beta*mu)*positionSpace).inverse();
 		Matrix_d newB = (Matrix_d::Identity(V, V) + std::exp(-beta*B*0.5+beta*mu)*positionSpace).inverse();
+		//accumulate_backward();
+		//Matrix_d newB = Matrix_d::Identity(V, V) - (Matrix_d::Identity(V, V) + std::exp(+beta*B*0.5-beta*mu)*positionSpace).inverse();
 		if ((cache.A-newA).norm()>1e-7*newA.norm() || (cache.B-newB).norm()>1e-7*newB.norm()) {
 			std::cerr << log((cache.A-newA).norm())-log(newA.norm())
 				<< ' ' << log((cache.B-newB).norm())-log(newB.norm())
@@ -469,18 +471,18 @@ class Simulation {
 		//std::cerr << w.transpose() << std::endl;
 		//std::cerr << "b, c = " << b << ", " << c << std::endl;
 		double ret = std::log((1+std::exp(+beta*B*0.5+beta*mu)*a)*(1+std::exp(-beta*B*0.5+beta*mu)*b));
-		if (isnan(ret) || isinf(ret) || true) {
-			accumulate_backward();
+		if (isnan(ret) || isinf(ret)){
+			//accumulate_backward();
 			Matrix_d M1 = (Matrix_d::Identity(V, V) + std::exp(-beta*B*0.5-beta*mu)*positionSpace).inverse();
 			Matrix_d M2 = (Matrix_d::Identity(V, V) + std::exp(+beta*B*0.5-beta*mu)*positionSpace).inverse();
 			//double c = cache.v.transpose()*cache.u - cache.v.transpose()*M*cache.u;
 			double c = double(cache.v.transpose()*cache.u) - double(cache.v.transpose()*M1*cache.u);
 			double d = double(cache.v.transpose()*cache.u) - double(cache.v.transpose()*M2*cache.u);
-			std::cerr << "update probs" << std::exp(+beta*B*0.5+beta*mu)*a << " " << std::exp(-beta*B*0.5+beta*mu)*b << ' ' << std::exp(+beta*B*0.5+beta*mu)*c << ' ' << std::exp(-beta*B*0.5+beta*mu)*d << std::endl;
+			std::cerr << "update probs " << std::exp(+beta*B*0.5+beta*mu)*a << " " << std::exp(-beta*B*0.5+beta*mu)*b << ' ' << std::exp(+beta*B*0.5+beta*mu)*c << ' ' << std::exp(-beta*B*0.5+beta*mu)*d << std::endl;
 			std::cerr << c << ' ' << double(cache.v.transpose()*M1*cache.u) << ' ' << double(cache.v.transpose()*cache.u) << std::endl;
 			std::cerr << d << ' ' << double(cache.v.transpose()*M2*cache.u) << ' ' << double(cache.v.transpose()*cache.u) << std::endl;
 			std::cerr << std::exp(+beta*B*0.5+beta*mu) << " " << std::exp(-beta*B*0.5+beta*mu) << std::endl;
-			//throw "";
+			throw "";
 		}
 		return ret;
 	}
