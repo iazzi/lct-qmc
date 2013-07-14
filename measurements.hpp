@@ -63,16 +63,20 @@ class mymeasurement {
 
 		T variance (int i = 0) const {
 			T m = mean(i);
-			T m2 = squared_sums_[i] / n_[i];
+			T m2 = squared_sums_[i] / double(n_[i]);
 			return m2 - m*m;
 		}
 
 		T error (int i = 0) const {
-			return sqrt( variance(i) / n_[i] );
+			return sqrt( variance(i) / double(n_[i]) );
 		}
 
 		int bins() const { return n_.size(); }
 		int samples (int i = 0) const { return n_[i]; }
+
+		double time (int i = 0) const {
+			return (variance(i)*n_[0]/n_[i]/variance[0]-1.0)*0.5;
+		}
 
 	protected:
 };
@@ -83,7 +87,7 @@ template <typename T> std::ostream& operator<< (std::ostream& out, const mymeasu
 	out << "Result: " << m.mean() << " +- " << m.error() << std::endl;
 	out << "Bins: " << N << std::endl;
 	for (int i=0;i<N;i++) {
-		out << "#" << i+1 << ": number = " << m.samples(i) << " mean = " << m.mean(i) << ", error = " << m.error(i) << std::endl;
+		out << "#" << i+1 << ": number = " << m.samples(i) << " mean = " << m.mean(i) << ", error = " << m.error(i) << "autocorrelation time = " << m.time(i) << std::endl;
 	}
 	return out;
 }
