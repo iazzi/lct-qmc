@@ -468,7 +468,21 @@ class Simulation {
 		//std::cerr << (U_s.inverse()*cache.u).transpose() << std::endl;
 		//std::cerr << w.transpose() << std::endl;
 		//std::cerr << "b, c = " << b << ", " << c << std::endl;
-		return std::log((1+std::exp(+beta*B*0.5+beta*mu)*a)*(1+std::exp(-beta*B*0.5+beta*mu)*b));
+		double ret = std::log((1+std::exp(+beta*B*0.5+beta*mu)*a)*(1+std::exp(-beta*B*0.5+beta*mu)*b));
+		if (isnan(ret) || isinf(ret) || true) {
+			accumulate_backward();
+			Matrix_d M1 = (Matrix_d::Identity(V, V) + std::exp(-beta*B*0.5-beta*mu)*positionSpace).inverse();
+			Matrix_d M2 = (Matrix_d::Identity(V, V) + std::exp(+beta*B*0.5-beta*mu)*positionSpace).inverse();
+			//double c = cache.v.transpose()*cache.u - cache.v.transpose()*M*cache.u;
+			double c = double(cache.v.transpose()*cache.u) - double(cache.v.transpose()*M1*cache.u);
+			double d = double(cache.v.transpose()*cache.u) - double(cache.v.transpose()*M2*cache.u);
+			std::cerr << "update probs" << std::exp(+beta*B*0.5+beta*mu)*a << " " << std::exp(-beta*B*0.5+beta*mu)*b << ' ' << std::exp(+beta*B*0.5+beta*mu)*c << ' ' << std::exp(-beta*B*0.5+beta*mu)*d << std::endl;
+			std::cerr << c << ' ' << double(cache.v.transpose()*M1*cache.u) << ' ' << double(cache.v.transpose()*cache.u) << std::endl;
+			std::cerr << d << ' ' << double(cache.v.transpose()*M2*cache.u) << ' ' << double(cache.v.transpose()*cache.u) << std::endl;
+			std::cerr << std::exp(+beta*B*0.5+beta*mu) << " " << std::exp(-beta*B*0.5+beta*mu) << std::endl;
+			//throw "";
+		}
+		return ret;
 	}
 
 	void make_tests () {
