@@ -14,7 +14,7 @@ class mymeasurement {
 		std::vector<T> x_;
 		std::vector<int> n_;
 	public:
-		void add (const T &x, size_t i = 0) {
+		void add_rec (const T &x, size_t i = 0) {
 			if (i==n_.size()) {
 				sums_.push_back(x);
 				squared_sums_.push_back(x*x);
@@ -29,12 +29,12 @@ class mymeasurement {
 				x_[i] = x;
 			} else {
 				T nx = (x + x_[i]) / 2.0;
-				x_[i] = T();
+				x_[i] = x;
 				add(nx, i+1);
 			}
 		}
 
-		void add_plain (const T &x) {
+		void add (const T &x) {
 			T nx = x;
 			for (size_t i=0;;i++) {
 				if (i==n_.size()) {
@@ -52,10 +52,12 @@ class mymeasurement {
 					break;
 				} else {
 					nx = (nx + x_[i]) / 2.0;
-					x_[i] = T();
+					x_[i] = nx;
 				}
 			}
 		}
+
+		void repeat () { add(x_[0]); }
 
 		T mean (int i = 0) const {
 			return sums_[i] / double(n_[i]);
