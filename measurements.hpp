@@ -13,7 +13,11 @@ class mymeasurement {
 		std::vector<T> squared_sums_;
 		std::vector<T> x_;
 		std::vector<int> n_;
+		std::string name_;
 	public:
+		const std::string &name () const { return name_; }
+		void set_name (const std::string &name) { name_ = name; }
+
 		void add_rec (const T &x, size_t i = 0) {
 			if (i==n_.size()) {
 				sums_.push_back(x);
@@ -77,8 +81,10 @@ class mymeasurement {
 		int samples (int i = 0) const { return n_[i]; }
 
 		double time (int i = 0) const {
-			return (variance(i)*n_[0]/n_[i]/variance[0]-1.0)*0.5;
+			return (variance(i)*n_[0]/n_[i]/variance(0)-1.0)*0.5;
 		}
+
+		mymeasurement () : name_("Result") {}
 
 	protected:
 };
@@ -86,10 +92,13 @@ class mymeasurement {
 template <typename T> std::ostream& operator<< (std::ostream& out, const mymeasurement<T>& m) {
 	int N = m.bins()-7;
 	N = N>0?N:0;
-	out << "Result: " << m.mean() << " +- " << m.error() << std::endl;
+	out << m.name() << ": " << m.mean() << " +- " << m.error(N) << std::endl;
+	if (N<2 || 2*m.error(N-1)<(m.error(N)+m.error(N-2))) {
+		out << "NOT CONVERGING" << std::endl;
+	}
 	out << "Bins: " << N << std::endl;
 	for (int i=0;i<N;i++) {
-		out << "#" << i+1 << ": number = " << m.samples(i) << " mean = " << m.mean(i) << ", error = " << m.error(i) << "autocorrelation time = " << m.time(i) << std::endl;
+		out << "#" << i+1 << ": number = " << m.samples(i) << ", error = " << m.error(i) << ", autocorrelation time = " << m.time(i) << std::endl;
 	}
 	return out;
 }
