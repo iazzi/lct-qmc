@@ -108,7 +108,7 @@ struct SVDHelper {
 		check_info(info);
 	}
 
-	// this must only work if M>=N
+	// this will only work if M>=N
 	void absorbU () {
 		const int M = U.rows();
 		const int N = U.cols();
@@ -123,7 +123,7 @@ struct SVDHelper {
 		Vt.applyOnTheLeft(other);
 	}
 
-	// this must only work if M<=N
+	// this will only work if M<=N
 	void absorbVt () {
 		const int M = Vt.rows();
 		const int N = Vt.cols();
@@ -131,11 +131,19 @@ struct SVDHelper {
 		Vt.applyOnTheLeft(S.asDiagonal());
 		const int inner = M<N?M:N;
 		const int outer = M<N?N:M;
+		S.resize(inner);
 		other.resize(inner, inner);
 		reserve(5*inner+outer);
-		dgesvd_("S", "O", M, N, Vt.data(), M, S.data(), other.data(), M, Vt.data(), inner, work.data(), work.size(), info);
-		check_info(info);
-		U.applyOnTheRight(other);
+		if (M<=N) {
+			dgesvd_("S", "O", M, N, Vt.data(), M, S.data(), other.data(), M, Vt.data(), inner, work.data(), work.size(), info);
+			check_info(info);
+			U.applyOnTheRight(other);
+		} else {
+			dgesvd_("O", "S", M, N, Vt.data(), M, S.data(), Vt.data(), M, other.data(), inner, work.data(), work.size(), info);
+			check_info(info);
+			U.applyOnTheRight(Vt);
+			Vt = other;
+		}
 	}
 
 	// TODO size constraints!
@@ -161,6 +169,7 @@ struct SVDHelper {
 		Matrix B = Vt;
 		other = U.transpose() * Vt.transpose();
 		other.diagonal() += S * lambda;
+		reserve(6*N);
 		dgesvd_("A", "A", N, N, other.data(), N, S.data(), U.data(), N, Vt.data(), N, work.data(), work.size(), info);
 		check_info(info);
 		U.applyOnTheLeft(A);
@@ -187,6 +196,20 @@ struct SVDHelper {
 
 	Matrix inverse () {
 		return Vt.transpose() * S.array().inverse().matrix().asDiagonal() * U.transpose();
+	}
+
+	void invertInPlace () {
+		S = S.array().inverse().matrix();
+		S.reverseInPlace();
+		other = U.transpose();
+		U = Vt.transpose();
+		Vt = other;
+		other.setZero(S.size(), S.size());
+		for (int i=0;i<S.size();i++) {
+			other(i, S.size()-i-1) = 1.0;
+		}
+		U.applyOnTheRight(other);
+		Vt.applyOnTheLeft(other);
 	}
 
 	void printout () {
