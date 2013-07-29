@@ -26,28 +26,29 @@ end
 local tasks = setmetatable({}, { __index=table })
 
 local t = 0.1
-local U = 4*t
+local U = 7*t
 local tx, ty, tz = t, t, t
 local J = 4*t*t/U
 local L = 4;
-local seed = 22222 -- os.time()
+local seed = 33333 -- os.time()
 
 --local _, threads = (os.getenv("LSB_HOSTS") or ''):gsub("(%S+)", "%1")
 --if threads<1 then threads = 1 end
 --print("using "..threads.." threads")
 --tasks.THREADS = 48
 
-local mu_min, mu_max = -0.5*(tx+ty+tz), U/2
+local mu_min, mu_max = -2.0*(tx+ty+tz), U/2
+mu_min = mu_max - 0.00*t
 
 for y in range(mu_max, mu_min, -30) do
-	for x in range(0.1, 1.2, 30) do
+	for x in range(0.05, 0.25, 30) do
 			seed = seed + 127
 			tasks:insert( flip_params{
-				Lx = 8,
-				Ly = 8,
+				Lx = 4,
+				Ly = 4,
 				Lz = 1,
 				T = x*t,
-				N = 10/x,
+				N = 50/x,
 				tx = 1.0*tx,
 				ty = 1.0*ty,
 				tz = 1.0*tz,
@@ -60,9 +61,11 @@ for y in range(mu_max, mu_min, -30) do
 				SEED = seed,
 				OUTPUT = 'unstable_',
 				--REWEIGHT = 0,
-				SLICES = 5,
-				SVD = 1,
+				SLICES = 20,
+				SVD = 3,
 				TIMES = 1,
+				--update_start = 300,
+				--update_end = 700-1,
 			} )
 	end
 end
