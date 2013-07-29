@@ -188,8 +188,8 @@ class Simulation {
 		update_prob = 0.0;
 		update_sign = 1.0;
 		update_size = 0.0;
-		update_U.setZero(V, V);
-		update_Vt.setZero(V, V);
+		update_U.setZero(V, max_update_size);
+		update_Vt.setZero(max_update_size, V);
 	}
 
 	void init () {
@@ -201,7 +201,7 @@ class Simulation {
 		mslices = mslices<N?mslices:N;
 		time_shift = 0;
 		last_t = 0;
-		max_update_size = 1
+		if (max_update_size<1 || max_update_size>V) max_update_size = 1;
 		randomPosition = std::uniform_int_distribution<int>(0, V-1);
 		randomTime = std::uniform_int_distribution<int>(0, N-1);
 		randomStep = std::uniform_int_distribution<int>(0, mslices-1);
@@ -308,6 +308,7 @@ class Simulation {
 		lua_getfield(L, index, "OUTPUT");  outfn = lua_tostring(L, -1);            lua_pop(L, 1);
 		lua_getfield(L, index, "SLICES");  mslices = lua_tointeger(L, -1);         lua_pop(L, 1);
 		lua_getfield(L, index, "SVD");     msvd = lua_tointeger(L, -1);            lua_pop(L, 1);
+		lua_getfield(L, index, "max_update_size");     max_update_size = lua_tointeger(L, -1);            lua_pop(L, 1);
 		//lua_getfield(L, index, "update_start");     update_start = lua_tointeger(L, -1);         lua_pop(L, 1);
 		//lua_getfield(L, index, "update_end");       update_end = lua_tointeger(L, -1);           lua_pop(L, 1);
 		//lua_getfield(L, index, "LOGFILE");  logfile.open(lua_tostring(L, -1));     lua_pop(L, 1);
@@ -998,7 +999,7 @@ class Simulation {
 		for (int i=0;i<100;i++) {
 			acceptance.add(metropolis()?1.0:0.0);
 			sign.add(svd_sign());
-			if (update_size>V-1) redo_all();
+			if (update_size>=max_update_size) redo_all();
 			make_tests();
 		}
 		compute_U_s();

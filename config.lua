@@ -66,6 +66,7 @@ for y in range(mu_max, mu_min, -30) do
 				TIMES = 1,
 				--update_start = 300,
 				--update_end = 700-1,
+				max_update_size = 7,
 			} )
 	end
 end
