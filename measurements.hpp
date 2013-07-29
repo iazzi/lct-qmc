@@ -78,7 +78,7 @@ class mymeasurement {
 		}
 
 		int bins() const { return n_.size(); }
-		int samples (int i = 0) const { return n_[i]; }
+		int samples (int i = 0) const { if (n_.size()==0) return 0; else return n_[i]; }
 
 		double time (int i = 0) const {
 			return (variance(i)*n_[0]/n_[i]/variance(0)-1.0)*0.5;
@@ -90,15 +90,19 @@ class mymeasurement {
 };
 
 template <typename T> std::ostream& operator<< (std::ostream& out, const mymeasurement<T>& m) {
-	int N = m.bins()-7;
-	N = N>0?N:0;
-	out << m.name() << ": " << m.mean() << " +- " << m.error(N) << std::endl;
-	if (N<2 || 2*m.error(N-1)<(m.error(N)+m.error(N-2))) {
-		out << "NOT CONVERGING" << std::endl;
-	}
-	out << "Bins: " << N << std::endl;
-	for (int i=0;i<N;i++) {
-		out << "#" << i+1 << ": number = " << m.samples(i) << ", error = " << m.error(i) << ", autocorrelation time = " << m.time(i) << std::endl;
+	if (m.samples()==0) {
+		out << m.name() << ": Empty." << std::endl;
+	} else {
+		int N = m.bins()-7;
+		N = N>0?N:0;
+		out << m.name() << ": " << m.mean() << " +- " << m.error(N) << std::endl;
+		if (N<2 || 2*m.error(N-1)<(m.error(N)+m.error(N-2))) {
+			out << "NOT CONVERGING" << std::endl;
+		}
+		out << "Bins: " << N << std::endl;
+		for (int i=0;i<N;i++) {
+			out << "#" << i+1 << ": number = " << m.samples(i) << ", error = " << m.error(i) << ", autocorrelation time = " << m.time(i) << std::endl;
+		}
 	}
 	return out;
 }
