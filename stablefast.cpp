@@ -164,6 +164,10 @@ class Simulation {
 		return diagonals[(t+time_shift)%N];
 	}
 
+	const Vector_d& diagonal (int t) const {
+		return diagonals[(t+time_shift)%N];
+	}
+
 	public:
 
 	void init_measurements () {
@@ -200,7 +204,7 @@ class Simulation {
 		mslices = mslices<N?mslices:N;
 		time_shift = 0;
 		last_t = 0;
-		if (max_update_size<1 || max_update_size>V) max_update_size = 1;
+		if (max_update_size<1) max_update_size = 1;
 		randomPosition = std::uniform_int_distribution<int>(0, V-1);
 		randomTime = std::uniform_int_distribution<int>(0, N-1);
 		randomStep = std::uniform_int_distribution<int>(0, mslices-1);
@@ -267,7 +271,10 @@ class Simulation {
 			staggering[i] = (x+y+z)%2?-1.0:1.0;
 		}
 
-		compute_U_s();
+		make_slices();
+		make_svd();
+		make_density_matrices();
+		plog = svd_probability();
 
 		init_measurements();
 		reset_updates();
@@ -308,11 +315,11 @@ class Simulation {
 		int nspinup = 0;
 		for (int i=0;i<N;i++) {
 			for (int j=0;j<V;j++) {
-				if (diagonal(i)[j]>0.0) nspinup++;
+				if (diagonals[i][j]>0.0) nspinup++;
 			}
 		}
 		if (x>=0 && t>=0) {
-			nspinup += diagonal(t)[x]>0.0?-1:+1;
+			nspinup += diagonals[t][x]>0.0?-1:+1;
 		}
 		return nspinup*std::log(1.0+A) + (N*V-nspinup)*std::log(1.0-A);
 	}
@@ -338,6 +345,18 @@ class Simulation {
 		svdA.add_identity(std::exp(+beta*B*0.5+beta*mu));
 		svdB = svd;
 		svdB.add_identity(std::exp(-beta*B*0.5+beta*mu));
+	}
+
+	void make_svd_inverse () {
+		svd_inverse = svd;
+		svd_inverse.invertInPlace();
+		svd_inverse_up = svd_inverse;
+		svd_inverse_up.add_identity(std::exp(-beta*B*0.5-beta*mu));
+		svd_inverse_up.invertInPlace();
+		svd_inverse_dn = svd_inverse;
+		svd_inverse_dn.add_identity(std::exp(+beta*B*0.5-beta*mu));
+		svd_inverse_dn.invertInPlace();
+		first_slice_inverse = slices[0].inverse();
 	}
 
 	double svd_probability () {
@@ -474,37 +493,6 @@ class Simulation {
 		}
 	}
 
-	void compute_uv_b (int x, int t) {
-		Real X = 1-A*A;
-		v_x.setZero(V);
-		v_x[x] = (2.0*diagonal(t)[x])/(1.0-diagonal(t)[x]);
-		for (int i=t;i<N;i++) {
-			v_x = v_x.array() * (Vector_d::Constant(V, 1.0)-diagonal(i)).array() * freePropagator_x_b.array();
-			fftw_execute(x2p_vec);
-			v_p = v_p.array() * freePropagator_b.array();
-			fftw_execute(p2x_vec);
-			v_x /= V*X;
-		}
-		cache.v = v_x.real();
-		v_x.setZero(V);
-		v_x[x] = 1.0;
-		for (int i=t-1;i>=0;i--) {
-			fftw_execute(x2p_vec);
-			v_p = v_p.array() * freePropagator_b.array();
-			fftw_execute(p2x_vec);
-			v_x = v_x.array() * (Vector_d::Constant(V, 1.0)-diagonal(i)).array() * freePropagator_x_b.array();
-			v_x /= V*X;
-		}
-		cache.u = v_x.real();
-	}
-
-	void compute_U_s () {
-		make_slices();
-		make_svd();
-		make_density_matrices();
-		plog = svd_probability();
-	}
-
 	void flip (int t, int x) {
 		diagonal(t)[x] = -diagonal(t)[x];
 	}
@@ -516,17 +504,9 @@ class Simulation {
 	}
 
 	void redo_all () {
-		make_slices();
+		//make_slices();
 		make_svd();
-		svd_inverse = svd;
-		svd_inverse.invertInPlace();
-		svd_inverse_up = svd_inverse;
-		svd_inverse_up.add_identity(std::exp(-beta*B*0.5-beta*mu));
-		svd_inverse_up.invertInPlace();
-		svd_inverse_dn = svd_inverse;
-		svd_inverse_dn.add_identity(std::exp(+beta*B*0.5-beta*mu));
-		svd_inverse_dn.invertInPlace();
-		first_slice_inverse = slices[0].inverse();
+		make_svd_inverse();
 		make_density_matrices();
 		double np = svd_probability();
 		std::cerr << plog+update_prob << " <> " << np << " ~~ " << np-plog-update_prob << std::endl;
@@ -536,7 +516,7 @@ class Simulation {
 	}
 
 	std::pair<double, double> rank1_probability (int x, int t) { // FIXME: use SVD / higher beta
-		compute_uv_f_smart(x, t);
+		compute_uv_f_short(x, t);
 		const int L = update_size;
 		update_U.col(L) = first_slice_inverse * cache.u_smart;
 		update_Vt.row(L) = cache.v_smart.transpose();
@@ -544,7 +524,7 @@ class Simulation {
 		double d2 = ((update_Vt*svd_inverse_dn.U) * svd_inverse_dn.S.asDiagonal() * (svd_inverse_dn.Vt*update_U) + Matrix_d::Identity(L+1, L+1)).determinant();
 		//double d1 = ( (update_Vt.topRows(L+1)*svdA.Vt.transpose())*svdA.S.array().inverse().matrix().asDiagonal()*(svdA.U.transpose()*update_U.leftCols(L+1))*std::exp(+beta*B*0.5+beta*mu) + Eigen::MatrixXd::Identity(L+1, L+1) ).determinant();
 		//double d2 = ( (update_Vt.topRows(L+1)*svdB.Vt.transpose())*svdB.S.array().inverse().matrix().asDiagonal()*(svdB.U.transpose()*update_U.leftCols(L+1))*std::exp(-beta*B*0.5+beta*mu) + Eigen::MatrixXd::Identity(L+1, L+1) ).determinant();
-		std::cerr << L <<  " (" << x << ", " << t << ')' << std::endl;
+		//std::cerr << L <<  " (" << x << ", " << t << ')' << std::endl;
 		return std::pair<double, double>(std::log(d1)+std::log(d2), 1.0);
 	}
 
@@ -594,7 +574,10 @@ class Simulation {
 			if (update_size>=max_update_size) redo_all();
 			make_tests();
 		}
-		compute_U_s();
+		make_slices();
+		make_svd();
+		make_density_matrices();
+		plog = svd_probability();
 		reset_updates();
 		std::cerr << "update finished" << std::endl;
 		std::ofstream out("error.dat");
@@ -612,8 +595,6 @@ class Simulation {
 	}
 
 	void measure () {
-		//accumulate_forward();
-		//accumulate_backward();
 		double s = svd_sign();
 		rho_up = Matrix_d::Identity(V, V) - svdA.inverse();
 		rho_dn = svdB.inverse();
