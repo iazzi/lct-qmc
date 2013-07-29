@@ -113,7 +113,6 @@ class Simulation {
 	std::string outfn;
 	//std::ofstream logfile;
 
-	Matrix_d U_s;
 	Matrix_d U_s_inv;
 
 	Matrix_d rho_up;
@@ -244,9 +243,6 @@ class Simulation {
 		positionSpace.setIdentity(V, V);
 		momentumSpace.setIdentity(V, V);
 
-		U_s = Matrix_d::Identity(V, V);
-		U_s_inv = Matrix_d::Identity(V, V);
-
 		energies = Vector_d::Zero(V);
 		freePropagator = Vector_d::Zero(V);
 		freePropagator_b = Vector_d::Zero(V);
@@ -270,13 +266,6 @@ class Simulation {
 			freePropagator_x_b[i] = exp(dt*potential[i]);
 			staggering[i] = (x+y+z)%2?-1.0:1.0;
 		}
-
-		//std::cerr << "en_sum " << energies.array().sum() << std::endl;
-
-		//accumulate_forward();
-		//U_s = positionSpace;
-		//accumulate_backward();
-		//U_s_inv = positionSpace;
 
 		compute_U_s();
 
@@ -516,83 +505,6 @@ class Simulation {
 		plog = svd_probability();
 	}
 
-	void test_U_s (bool update) {
-		//accumulate_backward();
-		//Matrix_d newC = (positionSpace+std::exp(-beta*B*0.5+beta*mu)*Matrix_d::Identity(V, V)).inverse();
-		cache.A = svdA.inverse();
-		cache.B = svdB.inverse();
-		make_svd();
-		svdA.setIdentity(V);
-		svdA.U = svd.U.transpose() * svd.Vt.transpose();
-		svdA.U.diagonal() += std::exp(+beta*B*0.5+beta*mu)*svd.S;
-		svdA.absorbU();
-		svdA.U.applyOnTheLeft(svd.U);
-		svdA.Vt.applyOnTheRight(svd.Vt);
-		svdB.setIdentity(V);
-		svdB.U = svd.U.transpose() * svd.Vt.transpose();
-		svdB.U.diagonal() += std::exp(-beta*B*0.5+beta*mu)*svd.S;
-		svdB.absorbU();
-		svdB.U.applyOnTheLeft(svd.U);
-		svdB.Vt.applyOnTheRight(svd.Vt);
-		accumulate_forward();
-		Matrix_d newA = svdA.inverse();
-		Matrix_d newB = svdB.inverse();
-		if ((cache.A-newA).norm()>1e-7*newA.norm() || (cache.B-newB).norm()>1e-7*newB.norm() || (svd.matrix()-positionSpace).norm()>1e-7*positionSpace.norm()) {
-			std::cerr << log((cache.A-newA).norm())-log(newA.norm())
-				<< ' ' << log((cache.B-newB).norm())-log(newB.norm())
-				<< ' ' << log((svd.matrix()-positionSpace).norm())-log(positionSpace.norm())
-				<< ' ' << svd.S.array().log().sum() << " " << logDetU_s()
-				//<< ' ' << log((cache.C-newC).norm())-log(newC.norm())
-				<< std::endl;
-			//std::cerr << ((cache.A*(Matrix_d::Identity(V, V) + std::exp(+beta*B*0.5+beta*mu)*positionSpace) - Matrix_d::Identity(V, V))).norm()
-				//<< ' ' << ((newA*(Matrix_d::Identity(V, V) + std::exp(+beta*B*0.5+beta*mu)*positionSpace) - Matrix_d::Identity(V, V))).norm() << std::endl;
-			//std::cerr << ((cache.B*(Matrix_d::Identity(V, V) + std::exp(-beta*B*0.5+beta*mu)*positionSpace) - Matrix_d::Identity(V, V))).norm()
-				//<< ' ' << ((newB*(Matrix_d::Identity(V, V) + std::exp(-beta*B*0.5+beta*mu)*positionSpace) - Matrix_d::Identity(V, V))).norm() << std::endl;
-		}
-		if (update) {
-			U_s = positionSpace;
-			cache.A = newA;
-			cache.B = newB;
-			//cache.C = newC;
-			for (int i=0;i<N;i+=mslices) {
-				accumulate_forward(i, i+mslices);
-				slices[i/mslices] = positionSpace;
-			}
-		}
-	}
-
-	SVDHelper make_rankN_update (int t, const std::vector<int> &vec) {
-		const int L = vec.size();
-		SVDHelper sm;
-		sm.U.setZero(V, L);
-		sm.S.setOnes(L);
-		sm.Vt.setZero(L, V);
-		for (size_t i=0;i<vec.size();i++) {
-			if (t>=0 && t<N) {
-				compute_uv_f_smart(vec[i], t);
-				sm.U.col(i) = cache.u_smart;
-				sm.Vt.row(i) = cache.v_smart.transpose();
-			} else {
-				sm.U.col(i)[vec[i]] = 1.0;
-				sm.Vt.row(i)[vec[i]] = 1.0;
-			}
-		}
-		sm.absorbU();
-		sm.absorbVt();
-		for (size_t i=t/mslices+1;i<slices.size();i++) {
-			sm.U.applyOnTheLeft(slices[i]);
-			sm.absorbU();
-		}
-
-		//std::cerr << cache.u.transpose() << std::endl;
-		//std::cerr << sm.U.transpose() << std::endl;
-		for (int i=t/mslices-1;i>=0;i--) {
-			sm.Vt.applyOnTheRight(slices[i]);
-			sm.absorbVt();
-		}
-		return sm;
-	}
-
 	void flip (int t, int x) {
 		diagonal(t)[x] = -diagonal(t)[x];
 	}
@@ -601,48 +513,6 @@ class Simulation {
 		for (int x : vec) {
 			diagonal(t)[x] = -diagonal(t)[x];
 		}
-	}
-
-	void update_U_s (int x, int t) { // FIXME submatrix updates
-		//Matrix_d M = svdA.matrix() + std::exp(+beta*B*0.5+beta*mu)*cache.u*cache.v.transpose();
-		//SVDHelper svdC = svdA;
-		//SVDHelper svdD = svdB;
-		//SVDHelper svdE = svd;
-		//svdC.setIdentity(V);
-		//svdC.U = std::exp(+beta*B*0.5+beta*mu)*(svdA.U.transpose()*cache.u) * (cache.v.transpose()*svdA.Vt.transpose());
-		//svdC.U.diagonal() += svdA.S;
-		//svdC.absorbU();
-		//svdC.U.applyOnTheLeft(svdA.U);
-		//svdC.Vt.applyOnTheRight(svdA.Vt);
-		//svdC.rank1_update(cache.u, cache.v, std::exp(+beta*B*0.5+beta*mu));
-		//svdD.rank1_update(cache.u, cache.v, std::exp(-beta*B*0.5+beta*mu));
-		//svdE.rank1_update(cache.u, cache.v);
-		
-		//compute_uv_f(x, t);
-		//U_s += cache.u*cache.v.transpose();
-		//cache.A -= (cache.A*cache.u)*std::exp(+beta*B*0.5+beta*mu)*(cache.v.transpose()*cache.A)/(1.0+std::exp(+beta*B*0.5+beta*mu)*cache.a);
-		//cache.B -= (cache.B*cache.u)*std::exp(-beta*B*0.5+beta*mu)*(cache.v.transpose()*cache.B)/(1.0+std::exp(-beta*B*0.5+beta*mu)*cache.b);
-		//compute_uv_b(x, t);
-		slices[t/mslices] += cache.u_smart*cache.v_smart.transpose();
-		diagonal(t)[x] = -diagonal(t)[x];
-		//Matrix_d newC = (positionSpace+std::exp(-beta*B*0.5+beta*mu)*Matrix_d::Identity(V, V)).inverse();
-		//cache.C -= (cache.C*cache.u)*(cache.v.transpose()*cache.C)/(1.0+cache.v.transpose()*cache.C*cache.u);
-		
-		//test_U_s(true);
-		make_svd();
-		make_density_matrices();
-
-		//std::cerr << "svd diffs "
-			//<< (svdA.U-svdC.U).norm() << ' '
-			//<< (svdA.S-svdC.S).norm() << ' '
-			//<< (svdA.Vt-svdC.Vt).norm() << ' '
-			//<< (svdA.matrix()-svdC.matrix()).norm()
-			//<< std::endl;
-
-		//std::cerr << svdE.S.transpose() << std::endl;
-		//std::cerr << svd.S.transpose() << std::endl;
-		//std::cerr << (svdE.S-svd.S).transpose() << std::endl;
-		//svdA = svdC;
 	}
 
 	void redo_all () {
@@ -679,284 +549,6 @@ class Simulation {
 	}
 
 	void make_tests () {
-		for (int i=0;i<0;i++) {
-			int x = randomPosition(generator);
-			int t = randomTime(generator);
-			accumulate_backward();
-			U_s_inv = positionSpace;
-			compute_uv_b(x, t);
-			diagonal(t)[x] = -diagonal(t)[x];
-			accumulate_backward();
-			std::cerr << "U_s^-1 + uv^t - U'_s^-1 = " << (U_s_inv+cache.u*cache.v.transpose()-positionSpace).norm() << std::endl << std::endl;
-			std::cerr << "U_s^-1 - U'_s^-1 = " << std::endl << ((U_s_inv-positionSpace).array()/(cache.u*cache.v.transpose()).array()) << std::endl << std::endl;
-			std::cerr << "uv^t = " << std::endl << (cache.u*cache.v.transpose()) << std::endl << std::endl;
-		}
-		if (false) {
-			int t = randomTime(generator);
-			const int n = 2;
-			std::vector<int> vec;
-			for (int i=0;i<n;i++) {
-				vec.push_back(randomPosition(generator));
-			}
-			SVDHelper s = make_rankN_update(t, vec);
-			double d1 = ( (s.Vt*svdA.Vt.transpose())*svdA.S.array().inverse().matrix().asDiagonal()*(svdA.U.transpose()*s.U)*s.S.asDiagonal()*std::exp(+beta*B*0.5+beta*mu) + Eigen::MatrixXd::Identity(n, n) ).determinant();
-			double d2 = ( (s.Vt*svdB.Vt.transpose())*svdB.S.array().inverse().matrix().asDiagonal()*(svdB.U.transpose()*s.U)*s.S.asDiagonal()*std::exp(-beta*B*0.5+beta*mu) + Eigen::MatrixXd::Identity(n, n) ).determinant();
-			flip(t, vec);
-			make_slices();
-			make_svd();
-			make_density_matrices();
-			double np = svd_probability();
-			std::cerr << plog +std::log(d1) +std::log(d2) << ' ' << np << std::endl;
-			for (int x : vec) std::cerr << x << ' ';
-			std::cerr << std::endl;
-			flip(t, vec);
-			make_slices();
-			make_svd();
-			make_density_matrices();
-		}
-		if (false) {
-			const int L = 1;
-			std::vector<int> vt;
-			std::vector<int> vx;
-			SVDHelper s;
-			s.U.setZero(V, L);
-			s.S.setOnes(L);
-			s.Vt.setZero(L, V);
-			double r1 = 0.0;
-			for (int i=0;i<L;i++) {
-				int t = 0;
-				int x = i;
-				//r1 += rank1_probability(x, t);
-				vt.push_back(t);
-				vx.push_back(x);
-				compute_uv_f_smart(x, t);
-				s.U.col(i) = cache.u;
-				s.Vt.row(i) = cache.v.transpose();
-			}
-			SVDHelper h = make_rankN_update(0, vx);
-			for (int i=0;i<L;i++) {
-				flip(vt[i], vx[i]);
-				//slices[vt[i]/mslices] += cache.u_smart*cache.v_smart.transpose();
-			}
-			double p1 = svdA.S.array().log().sum();
-			double p2 = svdB.S.array().log().sum();
-			double d1 = ( (s.Vt*svdA.Vt.transpose())*svdA.S.array().inverse().matrix().asDiagonal()*(svdA.U.transpose()*s.U)*s.S.asDiagonal()*std::exp(+beta*B*0.5+beta*mu) + Eigen::MatrixXd::Identity(L, L) ).determinant();
-			double d2 = ( (s.Vt*svdB.Vt.transpose())*svdB.S.array().inverse().matrix().asDiagonal()*(svdB.U.transpose()*s.U)*s.S.asDiagonal()*std::exp(-beta*B*0.5+beta*mu) + Eigen::MatrixXd::Identity(L, L) ).determinant();
-			double e1 = ( (h.Vt*svdA.Vt.transpose())*svdA.S.array().inverse().matrix().asDiagonal()*(svdA.U.transpose()*h.U)*h.S.asDiagonal()*std::exp(+beta*B*0.5+beta*mu) + Eigen::MatrixXd::Identity(L, L) ).determinant();
-			double e2 = ( (h.Vt*svdB.Vt.transpose())*svdB.S.array().inverse().matrix().asDiagonal()*(svdB.U.transpose()*h.U)*h.S.asDiagonal()*std::exp(-beta*B*0.5+beta*mu) + Eigen::MatrixXd::Identity(L, L) ).determinant();
-			h.Vt.applyOnTheRight(svdB.Vt.transpose());
-			h.Vt.applyOnTheRight(svdB.S.array().inverse().matrix().asDiagonal());
-			h.absorbVt();
-			h.Vt.applyOnTheRight(svdB.U.transpose());
-			h.Vt.applyOnTheRight(h.U);
-			make_slices();
-			make_svd();
-			make_density_matrices();
-			double np = svd_probability();
-			std::cerr << p1 + std::log(d1) << ' ' << p1 + std::log(e1) << ' ' << svdA.S.array().log().sum() << std::endl;
-			std::cerr << p2 + std::log(d2) << ' ' << p2 + std::log(e2) << ' ' << svdB.S.array().log().sum() << std::endl;
-			std::cerr << "breakout: " << d1 << ' ' << std::log(d1) << ' ' << d2 << ' ' << std::log(d2) << std::endl;
-			for (int t : vt) std::cerr << t << '\t';
-			std::cerr << std::endl;
-			for (int x : vx) std::cerr << x << '\t';
-			std::cerr << std::endl;
-			for (int i=0;i<L;i++) {
-				flip(vt[i], vx[i]);
-			}
-			make_slices();
-			make_svd();
-			make_density_matrices();
-		}
-		if (false) {
-			const int L = 1;
-			std::vector<int> vt;
-			std::vector<int> vx;
-			SVDHelper s, sb;
-			SVDHelper svdC;
-			svdC.S = svd.S.array().inverse().matrix();
-			svdC.U = svd.Vt.transpose();
-			svdC.Vt = svd.U.transpose();
-			svdC.add_identity(std::exp(+beta*B*0.5-beta*mu));
-			s.U.setZero(V, L);
-			s.S.setOnes(L);
-			s.Vt.setZero(L, V);
-			sb.U.setZero(V, L);
-			sb.S.setOnes(L);
-			sb.Vt.setZero(L, V);
-			double r1 = 0.0;
-			for (int i=0;i<L;i++) {
-				int t = 0;
-				int x = i;
-				//r1 += rank1_probability(x, t);
-				vt.push_back(t);
-				vx.push_back(x);
-				compute_uv_f_smart(x, t);
-				s.U.col(i) = cache.u;
-				s.Vt.row(i) = cache.v.transpose();
-				compute_uv_b(x, t);
-				sb.U.col(i) = cache.u;
-				sb.Vt.row(i) = cache.v.transpose();
-			}
-			SVDHelper h = make_rankN_update(0, vx);
-			for (int i=0;i<L;i++) {
-				flip(vt[i], vx[i]);
-				//slices[vt[i]/mslices] += cache.u_smart*cache.v_smart.transpose();
-			}
-			double e3;
-			double X, Y;
-			double p3 = svdC.S.array().log().sum();
-			double p4 = svd.S.array().log().sum();
-			{
-				X = ((sb.Vt*svd.U)*svd.S.asDiagonal()*(svd.Vt*sb.U) + Matrix_d::Identity(L, L)).determinant();
-				Y = ((sb.Vt*svdC.Vt.transpose())*svdC.S.array().inverse().matrix().asDiagonal()*(svdC.U.transpose()*sb.U)*std::exp(+beta*B*0.5-beta*mu) + Matrix_d::Identity(L, L)).determinant();
-				std::cerr << "e3 " << X << ' ' << Y << std::endl;
-				e3 = std::log(Y) - std::log(X);
-			}
-			double p1 = svdA.S.array().log().sum();
-			double p2 = svdB.S.array().log().sum();
-			double d1 = ( (s.Vt*svdA.Vt.transpose())*svdA.S.array().inverse().matrix().asDiagonal()*(svdA.U.transpose()*s.U)*s.S.asDiagonal()*std::exp(+beta*B*0.5+beta*mu) + Matrix_d::Identity(L, L) ).determinant();
-			double d2 = ( (s.Vt*svdB.Vt.transpose())*svdB.S.array().inverse().matrix().asDiagonal()*(svdB.U.transpose()*s.U)*s.S.asDiagonal()*std::exp(-beta*B*0.5+beta*mu) + Matrix_d::Identity(L, L) ).determinant();
-			double e1 = ( (h.Vt*svdA.Vt.transpose())*svdA.S.array().inverse().matrix().asDiagonal()*(svdA.U.transpose()*h.U)*h.S.asDiagonal()*std::exp(+beta*B*0.5+beta*mu) + Matrix_d::Identity(L, L) ).determinant();
-			double e2 = ( (h.Vt*svdB.Vt.transpose())*svdB.S.array().inverse().matrix().asDiagonal()*(svdB.U.transpose()*h.U)*h.S.asDiagonal()*std::exp(-beta*B*0.5+beta*mu) + Matrix_d::Identity(L, L) ).determinant();
-			h.Vt.applyOnTheRight(svdB.Vt.transpose());
-			h.Vt.applyOnTheRight(svdB.S.array().inverse().matrix().asDiagonal());
-			h.absorbVt();
-			h.Vt.applyOnTheRight(svdB.U.transpose());
-			h.Vt.applyOnTheRight(h.U);
-			make_slices();
-			make_svd();
-			make_density_matrices();
-			svdC.S = svd.S.array().inverse().matrix();
-			svdC.U = svd.Vt.transpose();
-			svdC.Vt = svd.U.transpose();
-			svdC.add_identity(std::exp(+beta*B*0.5-beta*mu));
-			double np = svd_probability();
-			std::cerr << p1 + std::log(d1) << ' ' << p1 + std::log(e1) << ' ' << svdA.S.array().log().sum() << std::endl;
-			std::cerr << p2 + std::log(d2) << ' ' << p2 + std::log(e2) << ' ' << svdB.S.array().log().sum() << std::endl;
-			std::cerr << std::log(X) << ' ' << X << ' ' << svd.S.array().log().sum()-p4 << std::endl;
-			std::cerr << std::log(Y) << ' ' << Y << ' ' << svdC.S.array().log().sum()-p3 << std::endl;
-			std::cerr << "breakout: " << d1 << ' ' << std::log(d1) << ' ' << d2 << ' ' << std::log(d2) << std::endl;
-			for (int t : vt) std::cerr << t << '\t';
-			std::cerr << std::endl;
-			for (int x : vx) std::cerr << x << '\t';
-			std::cerr << std::endl;
-			for (int i=0;i<L;i++) {
-				flip(vt[i], vx[i]);
-			}
-			make_slices();
-			make_svd();
-			make_density_matrices();
-		}
-		if (false) {
-			// TODO use circular multiplication of slices
-			int t = randomTime(generator);
-			int x = randomPosition(generator);
-			int slice = t/mslices;
-			SVDHelper svdC;
-			svdC.setIdentity(V);
-			for (size_t i=0;i<slices.size();i++) {
-				svdC.U.applyOnTheLeft(slices[(slice+i)%slices.size()]);
-				svdC.absorbU();
-			}
-			svdC.invertInPlace();
-			std::cerr << "det check " << logDetU_s() << ' ' << svdC.S.array().log().sum() << std::endl;
-			SVDHelper svdD = svdC, svdE = svdC;
-			std::cerr << svdC.S.transpose() << std::endl << svdD.S.transpose() << std::endl;
-			svdD.add_identity(std::exp(-beta*B*0.5-beta*mu));
-			svdD.invertInPlace();
-			std::cerr << svdD.S.transpose() << std::endl;
-			svdE.add_identity(std::exp(+beta*B*0.5-beta*mu));
-			svdE.invertInPlace();
-			compute_uv_f_smart(x, t);
-			cache.u_smart.applyOnTheLeft(slices[slice].inverse());
-			double p1 = svdA.S.array().log().sum();
-			double p2 = svdB.S.array().log().sum();
-			double d1 = (cache.v_smart.transpose()*svdD.U) * svdD.S.asDiagonal() * (svdD.Vt*cache.u_smart) + 1.0;
-			double d2 = (cache.v_smart.transpose()*svdE.U) * svdE.S.asDiagonal() * (svdE.Vt*cache.u_smart) + 1.0;
-			flip(t, x);
-			make_slices();
-			make_svd();
-			make_density_matrices();
-			double np = svd_probability();
-			double np1 = svdA.S.array().log().sum();
-			double np2 = svdB.S.array().log().sum();
-			std::cerr << "update -> " << d1 << ' ' << std::log(d1) << ' ' << np1-p1 << std::endl;
-			std::cerr << "update -> " << d2 << ' ' << std::log(d2) << ' ' << np2-p2 << std::endl;
-			make_slices();
-			make_svd();
-			make_density_matrices();
-		}
-		if (false) {
-			const int L = V;
-			std::vector<int> vt;
-			std::vector<int> vx;
-			SVDHelper s;
-			SVDHelper simple;
-			simple.U.setZero(V, L);
-			simple.S.setOnes(L);
-			simple.Vt.setZero(L, V);
-			int t = 0;
-			for (int i=0;i<L;i++) {
-				int x = randomPosition(generator);
-				//r1 += rank1_probability(x, t);
-				vt.push_back(t);
-				vx.push_back(i);
-				compute_uv_f_smart(x, t);
-				simple.U.col(i) = cache.u;
-				simple.Vt.row(i) = cache.v.transpose();
-				//flip(t, x);
-				//slices[t/mslices] += cache.u_smart*cache.v_smart.transpose();
-			}
-			s = make_rankN_update(t, vx);
-			for (int i=0;i<L;i++) {
-				flip(vt[i], vx[i]);
-			}
-			double p1 = svdA.S.array().log().sum();
-			double p2 = svdB.S.array().log().sum();
-			SVDHelper S1 = s;
-			S1.Vt.applyOnTheRight(svdA.Vt.transpose());
-			S1.Vt.applyOnTheRight(svdA.S.array().inverse().matrix().asDiagonal());
-			S1.absorbVt();
-			S1.U.applyOnTheRight(svdA.U.transpose());
-			S1.absorbU();
-			S1.add_identity(std::exp(+beta*B*0.5+beta*mu));
-			SVDHelper S2 = s;
-			S2.Vt.applyOnTheRight(svdB.Vt.transpose());
-			S2.Vt.applyOnTheRight(svdB.S.array().inverse().matrix().asDiagonal());
-			S2.absorbVt();
-			S2.U.applyOnTheRight(svdB.U.transpose());
-			S2.absorbU();
-			S2.add_identity(std::exp(+beta*B*0.5-beta*mu));
-			std::cerr << "svd r1 update: " << S1.S.array().log().sum() << ' ' << svdA.S.array().log().sum() << ' ' << s.S.array().log().sum() << std::endl;
-			std::cerr << " " << svd.S.transpose() << std::endl;
-			std::cerr << " " << svdA.S.transpose() << std::endl;
-			std::cerr << " " << svdB.S.transpose() << std::endl;
-			std::cerr << " " << S1.S.transpose() << std::endl;
-			std::cerr << " " << s.S.transpose() << std::endl;
-			//double d1 = ( (s.Vt*svdA.Vt.transpose())*svdA.S.array().inverse().matrix().asDiagonal()*(svdA.U.transpose()*s.U)*s.S.asDiagonal()*std::exp(+beta*B*0.5+beta*mu) + Eigen::MatrixXd::Identity(L, L) ).determinant();
-			//double d2 = ( (s.Vt*svdB.Vt.transpose())*svdB.S.array().inverse().matrix().asDiagonal()*(svdB.U.transpose()*s.U)*s.S.asDiagonal()*std::exp(-beta*B*0.5+beta*mu) + Eigen::MatrixXd::Identity(L, L) ).determinant();
-			double d1 = S1.S.array().log().sum();
-			double d2 = S2.S.array().log().sum();
-			double e1 = ( (simple.Vt*svdA.Vt.transpose())*svdA.S.array().inverse().matrix().asDiagonal()*(svdA.U.transpose()*simple.U)*simple.S.asDiagonal()*std::exp(+beta*B*0.5+beta*mu) + Eigen::MatrixXd::Identity(L, L) ).determinant();
-			double e2 = ( (simple.Vt*svdB.Vt.transpose())*svdB.S.array().inverse().matrix().asDiagonal()*(svdB.U.transpose()*simple.U)*simple.S.asDiagonal()*std::exp(-beta*B*0.5+beta*mu) + Eigen::MatrixXd::Identity(L, L) ).determinant();
-			make_slices();
-			make_svd();
-			make_density_matrices();
-			double np = svd_probability();
-			std::cerr << "probs: " << p1  << ' ' << d1 << ' ' << std::log(e1) << ' ' << svdA.S.array().log().sum() << std::endl;
-			std::cerr << "z = " << std::exp(+beta*B*0.5+beta*mu) << std::endl;
-			for (int t : vt) std::cerr << t << '\t';
-			std::cerr << std::endl;
-			for (int x : vx) std::cerr << x << '\t';
-			std::cerr << std::endl;
-			for (int i=0;i<L;i++) {
-				flip(vt[i], vx[i]);
-			}
-			make_slices();
-			make_svd();
-			make_density_matrices();
-			throw "";
-		}
 	}
 
 	bool metropolis (int M = 0) {
@@ -1021,7 +613,6 @@ class Simulation {
 
 	void measure () {
 		//accumulate_forward();
-		//U_s = positionSpace;
 		//accumulate_backward();
 		double s = svd_sign();
 		rho_up = Matrix_d::Identity(V, V) - svdA.inverse();
