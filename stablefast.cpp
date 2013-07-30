@@ -559,15 +559,7 @@ class Simulation {
 		time_shift = randomTime(generator);
 		make_slices();
 		make_svd();
-		svd_inverse = svd;
-		svd_inverse.invertInPlace();
-		svd_inverse_up = svd_inverse;
-		svd_inverse_up.add_identity(std::exp(-beta*B*0.5-beta*mu));
-		svd_inverse_up.invertInPlace();
-		svd_inverse_dn = svd_inverse;
-		svd_inverse_dn.add_identity(std::exp(+beta*B*0.5-beta*mu));
-		svd_inverse_dn.invertInPlace();
-		first_slice_inverse = slices[0].inverse();
+		make_svd_inverse();
 		for (int i=0;i<100;i++) {
 			acceptance.add(metropolis()?1.0:0.0);
 			sign.add(svd_sign());
@@ -596,6 +588,8 @@ class Simulation {
 
 	void measure () {
 		double s = svd_sign();
+		std::ofstream out("list_svd.dat", std::ios::app);
+		out << svd.S.array().log().transpose() << ' ' << beta*(-mu-B*0.5) << ' ' << beta*(-mu+B*0.5) << std::endl;
 		rho_up = Matrix_d::Identity(V, V) - svdA.inverse();
 		rho_dn = svdB.inverse();
 		double K_up = get_kinetic_energy(rho_up);
