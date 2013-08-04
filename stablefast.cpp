@@ -31,6 +31,8 @@ extern "C" {
 
 static const double pi = 3.141592653589793238462643383279502884197;
 
+template <typename T> using mymeasurement = measurement<T, true>;
+
 class Simulation {
 	private:
 	int Lx, Ly, Lz; // size of the system
@@ -44,9 +46,7 @@ class Simulation {
 	double B; // magnetic field
 	double tx, ty, tz; // nearest neighbour hopping
 	double Vx, Vy, Vz; // trap strength
-
 	double staggered_field;
-
 	std::vector<Vector_d> diagonals;
 
 	//int update_start;
@@ -105,6 +105,7 @@ class Simulation {
 	fftw_plan p2x_row;
 
 	double plog;
+	double psign;
 
 	int thermalization_sweeps;
 	int total_sweeps;
@@ -136,6 +137,7 @@ class Simulation {
 	mymeasurement<double> acceptance;
 	mymeasurement<double> density;
 	mymeasurement<double> magnetization;
+	//measurement<double, false> magnetization_slow;
 	mymeasurement<double> kinetic;
 	mymeasurement<double> interaction;
 	mymeasurement<double> sign;
@@ -175,6 +177,7 @@ class Simulation {
 		acceptance.set_name("Acceptance");
 		density.set_name("Density");
 		magnetization.set_name("Magnetization");
+		//magnetization_slow.set_name("Magnetization (slow)");
 		for (int i=0;i<V;i++) {
 			d_up.push_back(mymeasurement<double>());
 			d_dn.push_back(mymeasurement<double>());
@@ -214,7 +217,7 @@ class Simulation {
 		for (size_t i=0;i<diagonals.size();i++) {
 			for (int j=0;j<V;j++) {
 				diagonals[i][j] = distribution(generator)?A:-A;
-				//diagonals[i][j] = A;
+				//diagonals[i][j] = i<N/4.9?-A:A;
 			}
 		}
 		v_x = Vector_cd::Zero(V);
@@ -275,12 +278,13 @@ class Simulation {
 		make_svd();
 		make_density_matrices();
 		plog = svd_probability();
+		psign = svd_sign();
 
 		init_measurements();
 		reset_updates();
 	}
 
-	Simulation (lua_State *L, int index) : distribution(0.5), trialDistribution(1.0), steps(0) {
+	Simulation (lua_State *L, int index) : distribution(0.8), trialDistribution(1.0), steps(0) {
 		lua_getfield(L, index, "THERMALIZATION"); thermalization_sweeps = lua_tointeger(L, -1); lua_pop(L, 1);
 		lua_getfield(L, index, "SWEEPS"); total_sweeps = lua_tointeger(L, -1); lua_pop(L, 1);
 		lua_getfield(L, index, "SEED"); generator.seed(lua_tointeger(L, -1)); lua_pop(L, 1);
@@ -509,9 +513,10 @@ class Simulation {
 		make_svd_inverse();
 		make_density_matrices();
 		double np = svd_probability();
-		std::cerr << plog+update_prob << " <> " << np << " ~~ " << np-plog-update_prob << std::endl;
-		error[last_t].add(np-plog-update_prob);
+		if (fabs(np-plog-update_prob)>1.0e-6) std::cerr << plog+update_prob << " <> " << np << " ~~ " << np-plog-update_prob << std::endl;
+		//error[last_t].add(np-plog-update_prob);
 		plog = np;
+		psign = svd_sign();
 		reset_updates();
 	}
 
@@ -520,12 +525,21 @@ class Simulation {
 		const int L = update_size;
 		update_U.col(L) = first_slice_inverse * cache.u_smart;
 		update_Vt.row(L) = cache.v_smart.transpose();
-		double d1 = ((update_Vt*svd_inverse_up.U) * svd_inverse_up.S.asDiagonal() * (svd_inverse_up.Vt*update_U) + Matrix_d::Identity(L+1, L+1)).determinant();
-		double d2 = ((update_Vt*svd_inverse_dn.U) * svd_inverse_dn.S.asDiagonal() * (svd_inverse_dn.Vt*update_U) + Matrix_d::Identity(L+1, L+1)).determinant();
+		double d1 = ((update_Vt.topRows(L+1)*svd_inverse_up.U) * svd_inverse_up.S.asDiagonal() * (svd_inverse_up.Vt*update_U.leftCols(L+1)) + Matrix_d::Identity(L+1, L+1)).determinant();
+		double d2 = ((update_Vt.topRows(L+1)*svd_inverse_dn.U) * svd_inverse_dn.S.asDiagonal() * (svd_inverse_dn.Vt*update_U.leftCols(L+1)) + Matrix_d::Identity(L+1, L+1)).determinant();
+		double s = 1.0;
+		if (d1 < 0) {
+			s *= -1.0;
+			d1 *= -1.0;
+		}
+		if (d2 < 0) {
+			s *= -1.0;
+			d2 *= -1.0;
+		}
 		//double d1 = ( (update_Vt.topRows(L+1)*svdA.Vt.transpose())*svdA.S.array().inverse().matrix().asDiagonal()*(svdA.U.transpose()*update_U.leftCols(L+1))*std::exp(+beta*B*0.5+beta*mu) + Eigen::MatrixXd::Identity(L+1, L+1) ).determinant();
 		//double d2 = ( (update_Vt.topRows(L+1)*svdB.Vt.transpose())*svdB.S.array().inverse().matrix().asDiagonal()*(svdB.U.transpose()*update_U.leftCols(L+1))*std::exp(-beta*B*0.5+beta*mu) + Eigen::MatrixXd::Identity(L+1, L+1) ).determinant();
 		//std::cerr << L <<  " (" << x << ", " << t << ')' << std::endl;
-		return std::pair<double, double>(std::log(d1)+std::log(d2), 1.0);
+		return std::pair<double, double>(std::log(d1)+std::log(d2), s);
 	}
 
 	void make_tests () {
@@ -556,26 +570,28 @@ class Simulation {
 	}
 
 	void update () {
-		time_shift = randomTime(generator);
-		make_slices();
-		make_svd();
-		make_svd_inverse();
+		//std::ofstream out("list_svd.dat", std::ios::app);
+		//out << svd.S.array().log().transpose() << ' ' << beta*(-mu-B*0.5) << ' ' << beta*(-mu+B*0.5) << std::endl;
 		for (int i=0;i<100;i++) {
 			acceptance.add(metropolis()?1.0:0.0);
-			sign.add(svd_sign());
-			if (update_size>=max_update_size) redo_all();
-			make_tests();
+			sign.add(psign*update_sign);
+			if (update_size>=max_update_size) {
+				plog += update_prob;
+				psign *= update_sign;
+				make_svd();
+				make_svd_inverse();
+				reset_updates();
+			}
+			//make_tests();
 		}
+		time_shift = randomTime(generator);
 		make_slices();
-		make_svd();
-		make_density_matrices();
-		plog = svd_probability();
-		reset_updates();
-		std::cerr << "update finished" << std::endl;
-		std::ofstream out("error.dat");
-		for (int i=0;i<N;i++) {
-			if (error[i].samples()>0) out << i << ' ' << error[i].mean() << std::endl;
-		}
+		redo_all();
+		//std::cerr << "update finished" << std::endl;
+		//std::ofstream out("error.dat");
+		//for (int i=0;i<N;i++) {
+			//if (error[i].samples()>0) out << i << ' ' << error[i].mean() << std::endl;
+		//}
 	}
 
 	double get_kinetic_energy (const Matrix_d &M) {
@@ -588,17 +604,17 @@ class Simulation {
 
 	void measure () {
 		double s = svd_sign();
-		std::ofstream out("list_svd.dat", std::ios::app);
-		out << svd.S.array().log().transpose() << ' ' << beta*(-mu-B*0.5) << ' ' << beta*(-mu+B*0.5) << std::endl;
 		rho_up = Matrix_d::Identity(V, V) - svdA.inverse();
 		rho_dn = svdB.inverse();
 		double K_up = get_kinetic_energy(rho_up);
 		double K_dn = get_kinetic_energy(rho_dn);
 		double n_up = rho_up.diagonal().array().sum();
 		double n_dn = rho_dn.diagonal().array().sum();
+		double op = (rho_up.diagonal().array()-rho_dn.diagonal().array()).square().sum();
 		double n2 = (rho_up.diagonal().array()*rho_dn.diagonal().array()).sum();
-		density.add(s*n_up/V);
-		magnetization.add(s*n_dn/V);
+		density.add(s*(n_up+n_dn)/V);
+		magnetization.add(s*(n_up-n_dn)/2.0/V);
+		//magnetization_slow.add(s*(n_up-n_dn)/2.0/V);
 		kinetic.add(s*K_up-s*K_dn);
 		interaction.add(s*g*n2);
 		//sign.add(svd_sign());
@@ -617,7 +633,6 @@ class Simulation {
 				ssz -= rho_up(x, y)*rho_up(y, x) + rho_dn(x, y)*rho_dn(y, x);
 			}
 			spincorrelation[k].add(s*0.25*ssz);
-			if (staggered_field!=0.0) staggered_magnetization.add(s*(rho_up.diagonal().array()*staggering - rho_dn.diagonal().array()*staggering).sum()/V);
 			if (isnan(ssz)) {
 				//std::cerr << "explain:" << std::endl;
 				//std::cerr << "k=" << k << " ssz=" << ssz << std::endl;
@@ -632,6 +647,7 @@ class Simulation {
 				//throw "";
 			}
 		}
+		if (staggered_field!=0.0) staggered_magnetization.add(s*(rho_up.diagonal().array()*staggering - rho_dn.diagonal().array()*staggering).sum()/V);
 	}
 
 	int volume () { return V; }
@@ -753,8 +769,15 @@ int main (int argc, char **argv) {
 								t1 = steady_clock::now();
 								log << "thread" << j << "running: " << i << '/' << total_sweeps << '.' << (double(i)/duration_cast<seconds_type>(t1-t0).count()) << "updates per second";
 								log << simulation.sign;
+								log << simulation.acceptance;
 								log << simulation.density;
 								log << simulation.magnetization;
+								//log << simulation.magnetization_slow;
+								//lock.lock();
+								//lua_getglobal(L, "print_r");
+								//L << simulation.magnetization;
+								//lua_pcall(L, 1, 0, 0);
+								//lock.unlock();
 							}
 							simulation.update();
 							simulation.measure();
