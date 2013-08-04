@@ -201,15 +201,16 @@ struct SVDHelper {
 	void invertInPlace () {
 		S = S.array().inverse().matrix();
 		S.reverseInPlace();
-		other = U.transpose();
-		U = Vt.transpose();
+		other = U.transpose().colwise().reverse();
+		U = Vt.transpose().rowwise().reverse();
 		Vt = other;
-		other.setZero(S.size(), S.size());
-		for (int i=0;i<S.size();i++) {
-			other(i, S.size()-i-1) = 1.0;
-		}
-		U.applyOnTheRight(other);
-		Vt.applyOnTheLeft(other);
+		//other.setZero(S.size(), S.size());
+		//for (int i=0;i<S.size();i++) {
+			//other(i, S.size()-i-1) = 1.0;
+		//}
+		//U.applyOnTheRight(other);
+		//Vt.applyOnTheLeft(other);
+		//std::cerr << "Vt " << Vt << std::endl << std::endl;
 	}
 
 	void printout () {
