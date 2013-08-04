@@ -6,8 +6,14 @@
 
 #include <cmath>
 
-template <typename T>
-class mymeasurement {
+extern "C" {
+#include <lua.h>
+#include <lualib.h>
+#include <lauxlib.h>
+}
+
+template <typename T, bool Log = false>
+class measurement {
 	private:
 		std::vector<T> sums_;
 		std::vector<T> squared_sums_;
@@ -18,34 +24,19 @@ class mymeasurement {
 		const std::string &name () const { return name_; }
 		void set_name (const std::string &name) { name_ = name; }
 
-		void add_rec (const T &x, size_t i = 0) {
-			if (i==n_.size()) {
-				sums_.push_back(x);
-				squared_sums_.push_back(x*x);
-				x_.push_back(T());
-				n_.push_back(0);
-			} else {
-				sums_[i] += x;
-				squared_sums_[i] += x * x;
-			}
-			n_[i] += 1;
-			if (n_[i]%2==1) {
-				x_[i] = x;
-			} else {
-				T nx = (x + x_[i]) / 2.0;
-				x_[i] = x;
-				add(nx, i+1);
-			}
-		}
-
 		void add (const T &x) {
 			T nx = x;
 			for (size_t i=0;;i++) {
 				if (i==n_.size()) {
-					sums_.push_back(nx);
-					squared_sums_.push_back(nx*nx);
+					sums_.push_back(T());
+					squared_sums_.push_back(T());
 					x_.push_back(T());
 					n_.push_back(0);
+					if (Log) break;
+				}
+				if (n_[i]==0) {
+					sums_[i] = nx;
+					squared_sums_[i] = nx * nx;
 				} else {
 					sums_[i] += nx;
 					squared_sums_[i] += nx * nx;
@@ -77,23 +68,23 @@ class mymeasurement {
 			return sqrt( variance(i) / double(n_[i]) );
 		}
 
-		int bins() const { return n_.size(); }
+		size_t bins() const { return n_.size(); }
 		int samples (int i = 0) const { if (n_.size()==0) return 0; else return n_[i]; }
 
 		double time (int i = 0) const {
 			return (variance(i)*n_[0]/n_[i]/variance(0)-1.0)*0.5;
 		}
 
-		mymeasurement () : name_("Result") {}
+		measurement () : name_("Result") {}
 
 	protected:
 };
 
-template <typename T> std::ostream& operator<< (std::ostream& out, const mymeasurement<T>& m) {
+template <typename T, bool Log> std::ostream& operator<< (std::ostream& out, const measurement<T, Log>& m) {
 	if (m.samples()==0) {
 		out << m.name() << ": Empty." << std::endl;
 	} else {
-		int N = m.bins()-7;
+		int N = m.bins()-6;
 		N = N>0?N:0;
 		out << m.name() << ": " << m.mean() << " +- " << m.error(N) << std::endl;
 		if (N<2 || 2*m.error(N-1)<(m.error(N)+m.error(N-2))) {
@@ -101,11 +92,52 @@ template <typename T> std::ostream& operator<< (std::ostream& out, const mymeasu
 		}
 		out << "Bins: " << N << std::endl;
 		for (int i=0;i<N;i++) {
-			out << "#" << i+1 << ": number = " << m.samples(i) << ", error = " << m.error(i) << ", autocorrelation time = " << m.time(i) << std::endl;
+			out << "#" << i+1 << ": samples = " << m.samples(i) << ", value = " << m.mean(i) << " +- " << m.error(i) << ", autocorrelation time = " << m.time(i) << std::endl;
 		}
 	}
 	return out;
 }
 
+template <typename T, bool Log> lua_State* operator<< (lua_State *L, const measurement<T, Log>& m) {
+	int t = lua_gettop(L) + 1;
+	lua_newtable(L);
+	lua_pushlstring(L, m.name().c_str(), m.name().length());
+	lua_setfield(L, t, "name");
+	lua_pushinteger(L, m.bins());
+	lua_setfield(L, t, "bins");
+	lua_newtable(L);
+	for (size_t i=0;i<m.bins();i++) {
+		lua_pushinteger(L, m.samples(i));
+		lua_rawseti(L, -2, i+1);
+	}
+	lua_setfield(L, t, "samples");
+	lua_newtable(L);
+	for (size_t i=0;i<m.bins();i++) {
+		lua_pushnumber(L, m.mean(i));
+		lua_rawseti(L, -2, i+1);
+	}
+	lua_setfield(L, t, "averages");
+	lua_newtable(L);
+	for (size_t i=0;i<m.bins();i++) {
+		lua_pushnumber(L, m.error(i));
+		lua_rawseti(L, -2, i+1);
+	}
+	lua_setfield(L, t, "errors");
+	lua_newtable(L);
+	for (size_t i=0;i<m.bins();i++) {
+		lua_pushnumber(L, m.time(i));
+		lua_rawseti(L, -2, i+1);
+	}
+	lua_setfield(L, t, "time");
+	return L;
+}
+
+template <typename T, bool Log> lua_State* operator>> (lua_State *L, measurement<T, Log>& m) {
+	int t = lua_gettop(L);
+	lua_getfield(L, t, "name");
+	m.set_name(lua_tostring(L, -1));
+	lua_pop(L, 1);
+	return L;
+}
 #endif // __MEASUREMENTS_HPP
 
