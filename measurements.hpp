@@ -23,6 +23,17 @@ class measurement {
 	public:
 		const std::string &name () const { return name_; }
 		void set_name (const std::string &name) { name_ = name; }
+		void set_bins (int b) {
+			b = b>=0?b:0;
+			sums_.resize(b);
+			squared_sums_.resize(b);
+			x_.resize(b);
+			n_.resize(b);
+		}
+		void set_last_value (int i, const T &x) { x_[i] = x; }
+		void set_sum (int i, const T &x) { sums_[i] = x; }
+		void set_squared_sum (int i, const T &x) { squared_sums_[i] = x; }
+		void set_samples (int i, int n) { n_[i] = n; }
 
 		void add (const T &x) {
 			T nx = x;
@@ -54,9 +65,10 @@ class measurement {
 
 		void repeat () { add(x_[0]); }
 
-		T mean (int i = 0) const {
-			return sums_[i] / double(n_[i]);
-		}
+		T last_value (int i = 0) { return x_[i]; }
+		T sum (int i = 0) const { return sums_[i]; }
+		T mean (int i = 0) const { return sums_[i] / double(n_[i]); }
+		T square (int i = 0) const { return squared_sums_[i]; }
 
 		T variance (int i = 0) const {
 			T m = mean(i);
@@ -113,22 +125,22 @@ template <typename T, bool Log> lua_State* operator<< (lua_State *L, const measu
 	lua_setfield(L, t, "samples");
 	lua_newtable(L);
 	for (size_t i=0;i<m.bins();i++) {
-		lua_pushnumber(L, m.mean(i));
+		lua_pushnumber(L, m.sum(i));
 		lua_rawseti(L, -2, i+1);
 	}
-	lua_setfield(L, t, "averages");
+	lua_setfield(L, t, "sums");
 	lua_newtable(L);
 	for (size_t i=0;i<m.bins();i++) {
-		lua_pushnumber(L, m.error(i));
+		lua_pushnumber(L, m.square(i));
 		lua_rawseti(L, -2, i+1);
 	}
-	lua_setfield(L, t, "errors");
+	lua_setfield(L, t, "squares");
 	lua_newtable(L);
 	for (size_t i=0;i<m.bins();i++) {
-		lua_pushnumber(L, m.time(i));
+		lua_pushnumber(L, m.last_value(i));
 		lua_rawseti(L, -2, i+1);
 	}
-	lua_setfield(L, t, "time");
+	lua_setfield(L, t, "values");
 	return L;
 }
 
@@ -136,6 +148,38 @@ template <typename T, bool Log> lua_State* operator>> (lua_State *L, measurement
 	int t = lua_gettop(L);
 	lua_getfield(L, t, "name");
 	m.set_name(lua_tostring(L, -1));
+	lua_pop(L, 1);
+	lua_getfield(L, t, "bins");
+	int b = lua_tointeger(L, -1);
+	m.set_bins(b);
+	lua_pop(L, 1);
+	lua_getfield(L, t, "samples");
+	for (int i=0;i<b;i++) {
+		lua_rawgeti(L, -1, i+1);
+		m.set_samples(i, lua_tointeger(L, -1));
+		lua_pop(L, 1);
+	}
+	lua_pop(L, 1);
+	lua_getfield(L, t, "sums");
+	for (int i=0;i<b;i++) {
+		lua_rawgeti(L, -1, i+1);
+		m.set_sum(i, lua_tonumber(L, -1));
+		lua_pop(L, 1);
+	}
+	lua_pop(L, 1);
+	lua_getfield(L, t, "squares");
+	for (int i=0;i<b;i++) {
+		lua_rawgeti(L, -1, i+1);
+		m.set_squared_sum(i, lua_tonumber(L, -1));
+		lua_pop(L, 1);
+	}
+	lua_pop(L, 1);
+	lua_getfield(L, t, "values");
+	for (int i=0;i<b;i++) {
+		lua_rawgeti(L, -1, i+1);
+		m.set_last_value(i, lua_tonumber(L, -1));
+		lua_pop(L, 1);
+	}
 	lua_pop(L, 1);
 	return L;
 }
