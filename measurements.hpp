@@ -65,7 +65,7 @@ class measurement {
 
 		void repeat () { add(x_[0]); }
 
-		T last_value (int i = 0) { return x_[i]; }
+		T last_value (int i = 0) const { return x_[i]; }
 		T sum (int i = 0) const { return sums_[i]; }
 		T mean (int i = 0) const { return sums_[i] / double(n_[i]); }
 		T square (int i = 0) const { return squared_sums_[i]; }
@@ -110,9 +110,8 @@ template <typename T, bool Log> std::ostream& operator<< (std::ostream& out, con
 	return out;
 }
 
-template <typename T, bool Log> lua_State* operator<< (lua_State *L, const measurement<T, Log>& m) {
-	int t = lua_gettop(L) + 1;
-	lua_newtable(L);
+template <typename T, bool Log> lua_State* operator<<= (lua_State *L, const measurement<T, Log>& m) {
+	int t = lua_gettop(L);
 	lua_pushlstring(L, m.name().c_str(), m.name().length());
 	lua_setfield(L, t, "name");
 	lua_pushinteger(L, m.bins());
@@ -144,7 +143,12 @@ template <typename T, bool Log> lua_State* operator<< (lua_State *L, const measu
 	return L;
 }
 
-template <typename T, bool Log> lua_State* operator>> (lua_State *L, measurement<T, Log>& m) {
+template <typename T, bool Log> lua_State* operator<< (lua_State *L, const measurement<T, Log>& m) {
+	lua_newtable(L);
+	return L <<= m;
+}
+
+template <typename T, bool Log> lua_State* operator>>= (lua_State *L, measurement<T, Log>& m) {
 	int t = lua_gettop(L);
 	lua_getfield(L, t, "name");
 	m.set_name(lua_tostring(L, -1));
@@ -183,5 +187,13 @@ template <typename T, bool Log> lua_State* operator>> (lua_State *L, measurement
 	lua_pop(L, 1);
 	return L;
 }
+
+template <typename T, bool Log> lua_State* operator>> (lua_State *L, measurement<T, Log>& m) {
+	L >>= m;
+	lua_pop(L, 1);
+	return L;
+}
+
+
 #endif // __MEASUREMENTS_HPP
 
