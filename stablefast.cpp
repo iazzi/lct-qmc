@@ -107,8 +107,6 @@ class Simulation {
 	double plog;
 	double psign;
 
-	int thermalization_sweeps;
-	int total_sweeps;
 	bool reset;
 	//int reweight;
 	std::string outfn;
@@ -276,6 +274,7 @@ class Simulation {
 
 		make_slices();
 		make_svd();
+		make_svd_inverse();
 		make_density_matrices();
 		plog = svd_probability();
 		psign = svd_sign();
@@ -284,10 +283,15 @@ class Simulation {
 		reset_updates();
 	}
 
-	Simulation (lua_State *L, int index) : distribution(0.8), trialDistribution(1.0), steps(0) {
-		lua_getfield(L, index, "THERMALIZATION"); thermalization_sweeps = lua_tointeger(L, -1); lua_pop(L, 1);
-		lua_getfield(L, index, "SWEEPS"); total_sweeps = lua_tointeger(L, -1); lua_pop(L, 1);
-		lua_getfield(L, index, "SEED"); generator.seed(lua_tointeger(L, -1)); lua_pop(L, 1);
+	void load (lua_State *L, int index) {
+		lua_getfield(L, index, "SEED");
+		if (lua_isnumber(L, -1)) {
+			generator.seed(lua_tointeger(L, -1));
+		} else if (lua_isstring(L, -1)) {
+			std::stringstream in(std::string(lua_tostring(L, -1)));
+			in >> generator;
+		}
+		lua_pop(L, 1);
 		lua_getfield(L, index, "Lx");   this->Lx = lua_tointeger(L, -1);           lua_pop(L, 1);
 		lua_getfield(L, index, "Ly");   this->Ly = lua_tointeger(L, -1);           lua_pop(L, 1);
 		lua_getfield(L, index, "Lz");   this->Lz = lua_tointeger(L, -1);           lua_pop(L, 1);
@@ -313,6 +317,35 @@ class Simulation {
 		//lua_getfield(L, index, "update_end");       update_end = lua_tointeger(L, -1);           lua_pop(L, 1);
 		//lua_getfield(L, index, "LOGFILE");  logfile.open(lua_tostring(L, -1));     lua_pop(L, 1);
 		init();
+	}
+
+	void save (lua_State *L, int index) {
+		std::stringstream out;
+		out << generator;
+		lua_pushstring(L, out.str().c_str());
+		lua_setfield(L, index, "SEED");
+		lua_pushinteger(L, this->Lx); lua_setfield(L, index, "Lx");
+		lua_pushinteger(L, this->Ly); lua_setfield(L, index, "Ly");
+		lua_pushinteger(L, this->Lz); lua_setfield(L, index, "Lz");
+		lua_pushinteger(L, N); lua_setfield(L, index, "N");
+		lua_pushnumber(L, 1.0/beta); lua_setfield(L, index, "T");
+		lua_pushnumber(L, tx); lua_setfield(L, index, "tx");
+		lua_pushnumber(L, ty); lua_setfield(L, index, "ty");
+		lua_pushnumber(L, tz); lua_setfield(L, index, "tz");
+		lua_pushnumber(L, Vx); lua_setfield(L, index, "Vx");
+		lua_pushnumber(L, Vy); lua_setfield(L, index, "Vy");
+		lua_pushnumber(L, Vz); lua_setfield(L, index, "Vz");
+		lua_pushnumber(L, -g); lua_setfield(L, index, "U");
+		lua_pushnumber(L, mu); lua_setfield(L, index, "mu");
+		lua_pushnumber(L, B); lua_setfield(L, index, "B");
+		lua_pushnumber(L, staggered_field); lua_setfield(L, index, "h");
+		lua_pushinteger(L, mslices); lua_setfield(L, index, "SLICES");
+		lua_pushinteger(L, msvd); lua_setfield(L, index, "SVD");
+		lua_pushinteger(L, max_update_size); lua_setfield(L, index, "max_update_size");
+	}
+
+	Simulation (lua_State *L, int index) : distribution(0.8), trialDistribution(1.0), steps(0) {
+		load(L, index);
 	}
 
 	double logDetU_s (int x = -1, int t = -1) {
