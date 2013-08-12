@@ -30,6 +30,8 @@ extern "C" {
 
 static const double pi = 3.141592653589793238462643383279502884197;
 
+template <typename T> using mymeasurement = measurement<T, false>;
+
 class Simulation {
 	private:
 	int Lx, Ly, Lz; // size of the system
@@ -110,6 +112,8 @@ class Simulation {
 		Matrix_d B;
 		//Matrix_d C;
 	} cache;
+
+	public:
 
 	mymeasurement<double> acceptance;
 	mymeasurement<double> density;
@@ -472,7 +476,7 @@ class Simulation {
 		//std::cerr << "b, c = " << b << ", " << c << std::endl;
 		double ret = std::log((1+std::exp(+beta*B*0.5+beta*mu)*a)*(1+std::exp(-beta*B*0.5+beta*mu)*b));
 		if (isnan(ret) || isinf(ret)){
-			//accumulate_backward();
+			accumulate_backward();
 			Matrix_d M1 = (Matrix_d::Identity(V, V) + std::exp(-beta*B*0.5-beta*mu)*positionSpace).inverse();
 			Matrix_d M2 = (Matrix_d::Identity(V, V) + std::exp(+beta*B*0.5-beta*mu)*positionSpace).inverse();
 			//double c = cache.v.transpose()*cache.u - cache.v.transpose()*M*cache.u;
@@ -482,7 +486,7 @@ class Simulation {
 			std::cerr << c << ' ' << double(cache.v.transpose()*M1*cache.u) << ' ' << double(cache.v.transpose()*cache.u) << std::endl;
 			std::cerr << d << ' ' << double(cache.v.transpose()*M2*cache.u) << ' ' << double(cache.v.transpose()*cache.u) << std::endl;
 			std::cerr << std::exp(+beta*B*0.5+beta*mu) << " " << std::exp(-beta*B*0.5+beta*mu) << std::endl;
-			throw "";
+			//throw "";
 		}
 		return ret;
 	}
@@ -552,8 +556,8 @@ class Simulation {
 		double n_up = rho_up.diagonal().array().sum();
 		double n_dn = rho_dn.diagonal().array().sum();
 		double n2 = (rho_up.diagonal().array()*rho_dn.diagonal().array()).sum();
-		density.add((n_up+n_dn)/V);
-		magnetization.add((n_up-n_dn)/2.0/V);
+		density.add(n_up/V);
+		magnetization.add(n_dn/V);
 		kinetic.add(K_up-K_dn);
 		interaction.add(g*n2);
 		//- (d1_up*d2_up).sum() - (d1_dn*d2_dn).sum();
@@ -593,7 +597,7 @@ class Simulation {
 
 	void output_results () {
 		std::ostringstream buf;
-		buf << outfn << "U" << (g/tx) << "_T" << 1.0/(beta*tx) << '_' << Lx << 'x' << Ly << 'x' << Lz << ".dat";
+		buf << outfn << "unstable_U" << (g/tx) << "_T" << 1.0/(beta*tx) << '_' << Lx << 'x' << Ly << 'x' << Lz << ".dat";
 		outfn = buf.str();
 		std::ofstream out(outfn, reset?std::ios::trunc:std::ios::app);
 		out << 1.0/(beta*tx) << ' ' << 0.5*(B+g)/tx
@@ -704,6 +708,8 @@ int main (int argc, char **argv) {
 							if (duration_cast<seconds_type>(steady_clock::now()-t1).count()>5) {
 								t1 = steady_clock::now();
 								log << "thread" << j << "running: " << i << '/' << total_sweeps << '.' << (double(i)/duration_cast<seconds_type>(t1-t0).count()) << "updates per second";
+								log << simulation.density;
+								log << simulation.magnetization;
 							}
 							simulation.update();
 							simulation.measure();
