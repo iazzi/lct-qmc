@@ -1,7 +1,7 @@
 #ifndef LOGGER_H
 #define LOGGER_H
 
-#include <pthread.h>
+#include <mutex>
 #include <iostream>
 
 class Logger {
