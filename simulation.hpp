@@ -129,10 +129,13 @@ class Simulation {
 	mymeasurement<double> density;
 	mymeasurement<double> magnetization;
 	mymeasurement<double> order_parameter;
+	mymeasurement<double> chi_d;
+	mymeasurement<double> chi_af;
 	//measurement<double, false> magnetization_slow;
 	mymeasurement<double> kinetic;
 	mymeasurement<double> interaction;
 	mymeasurement<double> sign;
+	mymeasurement<double> measured_sign;
 	std::vector<mymeasurement<double>> d_up;
 	std::vector<mymeasurement<double>> d_dn;
 	std::vector<mymeasurement<double>> spincorrelation;
@@ -170,6 +173,9 @@ class Simulation {
 		density.set_name("Density");
 		magnetization.set_name("Magnetization");
 		order_parameter.set_name("Order Parameter");
+		chi_d.set_name("Chi (D-wave)");
+		chi_af.set_name("Chi (AF)");
+		measured_sign.set_name("Sign (Measurements)");
 		//magnetization_slow.set_name("Magnetization (slow)");
 		for (int i=0;i<V;i++) {
 			d_up.push_back(mymeasurement<double>());
@@ -352,6 +358,12 @@ class Simulation {
 		lua_setfield(L, -2, "magnetization");
 		L << order_parameter;
 		lua_setfield(L, -2, "order_parameter");
+		L << chi_af;
+		lua_setfield(L, -2, "chi_af");
+		L << measured_sign;
+		lua_setfield(L, -2, "measured_sign");
+		L << chi_d;
+		lua_setfield(L, -2, "chi_d");
 		lua_setfield(L, index, "results");
 	}
 
@@ -386,6 +398,7 @@ class Simulation {
 			svd.U.applyOnTheLeft(slices[i]);
 			if (i%msvd==0 || i==slices.size()-1) svd.absorbU();
 		}
+		//std::cerr << svd.S.array().log().sum() << ' ' << logDetU_s() << std::endl;
 	}
 
 	void make_density_matrices () {
@@ -553,7 +566,10 @@ class Simulation {
 
 	void redo_all () {
 		//make_slices();
+		//int old_msvd = msvd;
+		//msvd = 1;
 		make_svd();
+		//msvd = old_msvd;
 		make_svd_inverse();
 		make_density_matrices();
 		double np = svd_probability();
@@ -646,6 +662,34 @@ class Simulation {
 		return positionSpace_c.real().trace() / V;
 	}
 
+	double pair_correlation (const Matrix_d& rho_up, const Matrix_d& rho_dn) {
+		double ret = 0.0;
+		for (int x=0;x<V;x++) {
+			for (int y=0;y<V;y++) {
+				double u = rho_up(x, y);
+				double d = 0.0;
+				d += rho_dn(shift_x(x, +1), shift_x(y, +1));
+				d += rho_dn(shift_x(x, -1), shift_x(y, +1));
+				d -= rho_dn(shift_y(x, +1), shift_x(y, +1));
+				d -= rho_dn(shift_y(x, -1), shift_x(y, +1));
+				d += rho_dn(shift_x(x, +1), shift_x(y, -1));
+				d += rho_dn(shift_x(x, -1), shift_x(y, -1));
+				d -= rho_dn(shift_y(x, +1), shift_x(y, -1));
+				d -= rho_dn(shift_y(x, -1), shift_x(y, -1));
+				d -= rho_dn(shift_x(x, +1), shift_y(y, +1));
+				d -= rho_dn(shift_x(x, -1), shift_y(y, +1));
+				d += rho_dn(shift_y(x, +1), shift_y(y, +1));
+				d += rho_dn(shift_y(x, -1), shift_y(y, +1));
+				d -= rho_dn(shift_x(x, +1), shift_y(y, -1));
+				d -= rho_dn(shift_x(x, -1), shift_y(y, -1));
+				d += rho_dn(shift_y(x, +1), shift_y(y, -1));
+				d += rho_dn(shift_y(x, -1), shift_y(y, -1));
+				ret += u*d;
+			}
+		}
+		return ret / V / V;
+	}
+
 	void measure () {
 		double s = svd_sign();
 		rho_up = Matrix_d::Identity(V, V) - svdA.inverse();
@@ -656,6 +700,7 @@ class Simulation {
 		double n_dn = rho_dn.diagonal().array().sum();
 		double op = (rho_up.diagonal().array()-rho_dn.diagonal().array()).square().sum();
 		double n2 = (rho_up.diagonal().array()*rho_dn.diagonal().array()).sum();
+		measured_sign.add(s);
 		density.add(s*(n_up+n_dn)/V);
 		magnetization.add(s*(n_up-n_dn)/2.0/V);
 		//magnetization_slow.add(s*(n_up-n_dn)/2.0/V);
@@ -668,6 +713,18 @@ class Simulation {
 			d_up[i].add(s*rho_up(i, i));
 			d_dn[i].add(s*rho_dn(i, i));
 		}
+		double d_wave_chi = 0.0;
+		Matrix_d F_up = svdA.inverse();
+		Matrix_d F_dn = Matrix_d::Identity(V, V) - svdB.inverse();
+		const double dtau = beta/slices.size();
+		for (const Matrix_d& U : slices) {
+			F_up.applyOnTheLeft(U*std::exp(+dtau*B*0.5+dtau*mu));
+			F_dn.applyOnTheLeft(U*std::exp(-dtau*B*0.5+dtau*mu));
+			d_wave_chi += pair_correlation(F_up, F_dn);
+		}
+		chi_d.add(s*d_wave_chi*beta/slices.size());
+		double af_ =((rho_up.diagonal().array()-rho_dn.diagonal().array())*staggering).sum()/double(V);
+		chi_af.add(s*beta*af_*af_);
 		for (int k=1;k<=Lx/2;k++) {
 			double ssz = 0.0;
 			for (int j=0;j<V;j++) {
@@ -709,7 +766,11 @@ class Simulation {
 			//<< ' ' << acceptance.mean() << ' ' << acceptance.variance()
 			<< ' ' << kinetic.mean()/tx/V << ' ' << kinetic.variance()/tx/tx/V/V
 			<< ' ' << interaction.mean()/tx/V << ' ' << interaction.variance()/tx/tx/V/V;
-		if (staggered_field!=0.0) out << ' ' << -staggered_magnetization.mean()/staggered_field << ' ' << staggered_magnetization.variance();
+		out << ' ' << order_parameter.mean() << ' ' << order_parameter.variance();
+		out << ' ' << chi_af.mean() << ' ' << chi_af.variance();
+		out << ' ' << chi_d.mean() << ' ' << chi_d.variance();
+		out << ' ' << measured_sign.mean() << ' ' << measured_sign.variance();
+		//if (staggered_field!=0.0) out << ' ' << -staggered_magnetization.mean()/staggered_field << ' ' << staggered_magnetization.variance();
 		for (int i=0;i<V;i++) {
 			//out << ' ' << d_up[i].mean();
 		}
@@ -717,7 +778,7 @@ class Simulation {
 			//out << ' ' << d_dn[i].mean();
 		}
 		for (int i=1;i<=Lx/2;i++) {
-			out << ' ' << spincorrelation[i].mean()/V << ' ' << spincorrelation[i].variance();
+			//out << ' ' << spincorrelation[i].mean()/V << ' ' << spincorrelation[i].variance();
 		}
 		out << std::endl;
 	}
