@@ -35,6 +35,8 @@ class measurement {
 		void set_squared_sum (int i, const T &x) { squared_sums_[i] = x; }
 		void set_samples (int i, int n) { n_[i] = n; }
 
+		void clear () { set_bins(0); }
+
 		void add (const T &x) {
 			T nx = x;
 			for (size_t i=0;;i++) {
