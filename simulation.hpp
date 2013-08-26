@@ -148,13 +148,13 @@ class Simulation {
 	int shift_x (int x, int k) {
 		int a = (x/Ly/Lz)%Lx;
 		int b = x%(Ly*Lz);
-		return ((a+k)%Lx)*Ly*Lz + b;
+		return ((a+k+Lx)%Lx)*Ly*Lz + b;
 	}
 
 	int shift_y (int y, int k) {
 		int a = (y/Lz)%Ly;
 		int b = y-a*Lz;
-		return ((a+k)%Ly)*Lz + b;
+		return ((a+k+Ly)%Ly)*Lz + b;
 	}
 
 	Vector_d& diagonal (int t) {
@@ -635,6 +635,7 @@ class Simulation {
 		for (int i=0;i<flips_per_update;i++) {
 			acceptance.add(metropolis()?1.0:0.0);
 			sign.add(psign*update_sign);
+			measured_sign.add(psign*update_sign);
 			if (update_size>=max_update_size) {
 				plog += update_prob;
 				psign *= update_sign;
@@ -700,7 +701,6 @@ class Simulation {
 		double n_dn = rho_dn.diagonal().array().sum();
 		double op = (rho_up.diagonal().array()-rho_dn.diagonal().array()).square().sum();
 		double n2 = (rho_up.diagonal().array()*rho_dn.diagonal().array()).sum();
-		measured_sign.add(s);
 		density.add(s*(n_up+n_dn)/V);
 		magnetization.add(s*(n_up-n_dn)/2.0/V);
 		//magnetization_slow.add(s*(n_up-n_dn)/2.0/V);
