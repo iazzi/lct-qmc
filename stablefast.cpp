@@ -94,21 +94,22 @@ int main (int argc, char **argv) {
 							if (duration_cast<seconds_type>(steady_clock::now()-t1).count()>5) {
 								t1 = steady_clock::now();
 								log << "thread" << j << "thermalizing: " << i << '/' << thermalization_sweeps << '.' << (double(simulation.steps)/duration_cast<seconds_type>(t1-t0).count()) << "steps per second";
-								log << simulation.sign;
-								log << simulation.acceptance;
+								//log << simulation.sign;
+								//log << simulation.acceptance;
 							}
 							simulation.update();
 						}
 						log << "thread" << j << "thermalized";
+						simulation.measured_sign.clear();
 						t0 = steady_clock::now();
 						for (int i=0;i<total_sweeps;i++) {
 							if (duration_cast<seconds_type>(steady_clock::now()-t1).count()>5) {
 								t1 = steady_clock::now();
 								log << "thread" << j << "running: " << i << '/' << total_sweeps << '.' << (double(simulation.steps)/duration_cast<seconds_type>(t1-t0).count()) << "steps per second";
-								log << simulation.sign;
-								log << simulation.acceptance;
-								log << simulation.density;
-								log << simulation.magnetization;
+								//log << simulation.sign;
+								//log << simulation.acceptance;
+								//log << simulation.density;
+								//log << simulation.magnetization;
 								//log << simulation.magnetization_slow;
 								//lock.lock();
 								//lua_getglobal(L, "print_r");
@@ -124,7 +125,12 @@ int main (int argc, char **argv) {
 						simulation.output_results();
 						lua_rawgeti(L, -1, job);
 						simulation.save(L, lua_gettop(L));
-						lua_pop(L, 1);
+						lua_getglobal(L, "serialize");
+						lua_insert(L, -2);
+						lua_getfield(L, -1, "outfile");
+						lua_insert(L, -2);
+						lua_pcall(L, 2, 0, 0);
+						cout << lua_tostring(L, -1) << endl;
 						lock.unlock();
 					} catch (...) {
 						failed++;
@@ -136,7 +142,7 @@ int main (int argc, char **argv) {
 	for (std::thread& t : threads) t.join();
 	lua_getglobal(L, "serialize");
 	lua_insert(L, -2);
-	lua_pushstring(L, "test_out.lua");
+	lua_pushstring(L, "stablefast_out.lua");
 	lua_insert(L, -2);
 	lua_pcall(L, 2, 0, 0);
 
