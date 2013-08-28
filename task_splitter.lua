@@ -5,6 +5,7 @@ local t = dofile(conf)
 dir = '/cluster/scratch_xl/public/miazzi/'..dir..'/'
 
 assert(os.execute('mkdir '..dir))
+os.execute('cp '..conf..' '..dir..'config.lua')
 os.execute('cp serialize.lua '..dir)
 for i, c in ipairs(t) do
 	local f = assert(io.open(dir..tostring(i)..'.in', 'w'))
