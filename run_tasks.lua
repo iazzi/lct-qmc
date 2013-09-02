@@ -19,5 +19,6 @@ for i in io.popen('ls '..dir..''):lines() do
 	else
 	end
 end
+os.execute('bsub -w "ended('..name..')" -o '..dir..name..'.plot lua jk.lua '..dir..'*.dat')
 --os.execute('cd '..dir..'; for i in *in;do bsub '..prog..' $i;done')
 
