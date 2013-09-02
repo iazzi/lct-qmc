@@ -1,5 +1,7 @@
 #!/usr/bin/lua
 
+serialize = require 'serialize'
+
 local function range (a, b, N)
 	local i = 0
 	if N<0 then a, b, N = b, a, -N end
@@ -25,7 +27,7 @@ end
 
 local tasks = setmetatable({}, { __index=table })
 
-local t = 0.1
+local t = 0.3
 local U = 4*t
 local tx, ty, tz = t, t, t
 local J = 4*t*t/U
@@ -38,17 +40,17 @@ local seed = 33333 -- os.time()
 --tasks.THREADS = 48
 
 local mu_min, mu_max = -2.0*(tx+ty+tz), U/2
-mu_min = mu_max - 1.20*t
+--mu_max, mu_min = mu_max - 0.5*t, mu_max - 1.20*t
 
 for y in range(mu_max, mu_min, 30) do
-	for x in range(0.05, 1.0, 30) do
+	for x in range(0.05, 0.5, 20) do
 			seed = seed + 127
 			tasks:insert( flip_params{
 				Lx = 4,
 				Ly = 4,
 				Lz = 1,
 				T = x*t,
-				N = 50/x,
+				N = 20/x,
 				tx = 1.0*tx,
 				ty = 1.0*ty,
 				tz = 1.0*tz,
@@ -59,47 +61,15 @@ for y in range(mu_max, mu_min, 30) do
 				THERMALIZATION = 30000,
 				SWEEPS = 300000,
 				SEED = seed,
-				OUTPUT = 'pair_',
-				--REWEIGHT = 0,
-				SLICES = 10,
+				OUTPUT = 'sign_',
+				SLICES = 1,
 				SVD = 1,
-				TIMES = 1,
-				--update_start = 300,
-				--update_end = 700-1,
-				max_update_size = 64,
+				max_update_size = 1,
+				flips_per_update = 1;
+				open_boundary = false,
 			} )
 	end
 end
-
-tasks.dir = "unstable_dir"
-
-function serialize (f, o)
-	if type(f)=='string' then f = assert(io.open(f, 'w')) end
-	local t = type(o)
-	if t=='number' then
-		f:write(string.format('%a', o))
-	elseif t=='string' then
-		f:write(string.format('%q', o))
-	elseif t=='boolean' then
-		f:write(o and 'true' or 'false')
-	elseif t=='table' then
-		f:write('{\n')
-		for k, v in pairs(o) do
-			if type(k)=='string' and k:match('[_%a][_%w]*') then
-				f:write(' ', k, ' = ')
-			else
-				f:write(' [') serialize(f, k) f:write('] = ')
-			end
-			serialize(f, v)
-			f:write(',\n')
-		end
-		f:write('}\n')
-
-	else
-		io.stderr:write("Unknown type `"..t.."`")
-	end
-end
-
 
 return tasks
 
