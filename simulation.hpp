@@ -39,6 +39,7 @@ class Simulation {
 	double tx, ty, tz; // nearest neighbour hopping
 	double Vx, Vy, Vz; // trap strength
 	double staggered_field;
+	bool open_boundary;
 	std::vector<Vector_d> diagonals;
 
 	//int update_start;
@@ -54,6 +55,7 @@ class Simulation {
 	Vector_d energies;
 	Vector_d freePropagator;
 	Vector_d freePropagator_b;
+	Matrix_d freePropagator_open;
 	Vector_d potential;
 	Vector_d freePropagator_x;
 	Vector_d freePropagator_x_b;
@@ -103,8 +105,6 @@ class Simulation {
 	std::string outfn;
 	//std::ofstream logfile;
 
-	Matrix_d U_s_inv;
-
 	Matrix_d rho_up;
 	Matrix_d rho_dn;
 
@@ -142,7 +142,6 @@ class Simulation {
 	std::vector<mymeasurement<double>> error;
 	mymeasurement<double> staggered_magnetization;
 
-	int last_t;
 	int time_shift;
 
 	int shift_x (int x, int k) {
@@ -166,6 +165,9 @@ class Simulation {
 	}
 
 	public:
+
+	void prepare_propagators ();
+	void prepare_open_boundaries ();
 
 	void init_measurements () {
 		sign.set_name("Sign");
@@ -205,7 +207,6 @@ class Simulation {
 		mslices = mslices>0?mslices:N;
 		mslices = mslices<N?mslices:N;
 		time_shift = 0;
-		last_t = 0;
 		if (max_update_size<1) max_update_size = 1;
 		if (flips_per_update<1) flips_per_update = max_update_size;
 		randomPosition = std::uniform_int_distribution<int>(0, V-1);
@@ -238,41 +239,11 @@ class Simulation {
 		p2x_row = fftw_plan_many_dft(3, size, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()),
 				NULL, V, 1, reinterpret_cast<fftw_complex*>(positionSpace_c.data()), NULL, V, 1, FFTW_BACKWARD, FFTW_PATIENT);
 
-		for (int l=0;l<0;l++) {
-			Matrix_cd R = Matrix_cd::Random(V, V);
-			positionSpace_c = R;
-			fftw_execute(x2p_col);
-			fftw_execute(p2x_col);
-			positionSpace_c /= V;
-			std::cerr << l << ' ' << (positionSpace_c-R).norm() << std::endl;
-		}
-
 		positionSpace.setIdentity(V, V);
 		momentumSpace.setIdentity(V, V);
 
-		energies = Vector_d::Zero(V);
-		freePropagator = Vector_d::Zero(V);
-		freePropagator_b = Vector_d::Zero(V);
-		potential = Vector_d::Zero(V);
-		freePropagator_x = Vector_d::Zero(V);
-		freePropagator_x_b = Vector_d::Zero(V);
-		staggering = Array_d::Zero(V);
-		for (int i=0;i<V;i++) {
-			int x = (i/Lz/Ly)%Lx;
-			int y = (i/Lz)%Ly;
-			int z = i%Lz;
-			int Kx = Lx, Ky = Ly, Kz = Lz;
-			int kx = (i/Kz/Ky)%Kx;
-			int ky = (i/Kz)%Ky;
-			int kz = i%Kz;
-			energies[i] += -2.0 * ( tx * cos(2.0*kx*pi/Kx) + ty * cos(2.0*ky*pi/Ky) + tz * cos(2.0*kz*pi/Kz) );
-			freePropagator[i] = exp(-dt*energies[i]);
-			freePropagator_b[i] = exp(dt*energies[i]);
-			potential[i] = (x+y+z)%2?-staggered_field:staggered_field;
-			freePropagator_x[i] = exp(-dt*potential[i]);
-			freePropagator_x_b[i] = exp(dt*potential[i]);
-			staggering[i] = (x+y+z)%2?-1.0:1.0;
-		}
+		prepare_propagators();
+		prepare_open_boundaries();
 
 		make_slices();
 		make_svd();
@@ -285,87 +256,9 @@ class Simulation {
 		reset_updates();
 	}
 
-	void load (lua_State *L, int index) {
-		lua_getfield(L, index, "SEED");
-		if (lua_isnumber(L, -1)) {
-			generator.seed(lua_tointeger(L, -1));
-		} else if (lua_isstring(L, -1)) {
-			std::stringstream in(std::string(lua_tostring(L, -1)));
-			in >> generator;
-		}
-		lua_pop(L, 1);
-		lua_getfield(L, index, "Lx");   this->Lx = lua_tointeger(L, -1);           lua_pop(L, 1);
-		lua_getfield(L, index, "Ly");   this->Ly = lua_tointeger(L, -1);           lua_pop(L, 1);
-		lua_getfield(L, index, "Lz");   this->Lz = lua_tointeger(L, -1);           lua_pop(L, 1);
-		lua_getfield(L, index, "N");    N = lua_tointeger(L, -1);                  lua_pop(L, 1);
-		lua_getfield(L, index, "T");    beta = 1.0/lua_tonumber(L, -1);            lua_pop(L, 1);
-		lua_getfield(L, index, "tx");   tx = lua_tonumber(L, -1);                  lua_pop(L, 1);
-		lua_getfield(L, index, "ty");   ty = lua_tonumber(L, -1);                  lua_pop(L, 1);
-		lua_getfield(L, index, "tz");   tz = lua_tonumber(L, -1);                  lua_pop(L, 1);
-		lua_getfield(L, index, "Vx");   Vx = lua_tonumber(L, -1);                  lua_pop(L, 1);
-		lua_getfield(L, index, "Vy");   Vy = lua_tonumber(L, -1);                  lua_pop(L, 1);
-		lua_getfield(L, index, "Vz");   Vz = lua_tonumber(L, -1);                  lua_pop(L, 1);
-		lua_getfield(L, index, "U");    g = -lua_tonumber(L, -1);                  lua_pop(L, 1); // FIXME: check this // should be right as seen in A above
-		lua_getfield(L, index, "mu");   mu = lua_tonumber(L, -1);                  lua_pop(L, 1);
-		lua_getfield(L, index, "B");    B = lua_tonumber(L, -1);                   lua_pop(L, 1);
-		lua_getfield(L, index, "h");    staggered_field = lua_tonumber(L, -1);     lua_pop(L, 1);
-		lua_getfield(L, index, "RESET");  reset = lua_toboolean(L, -1);            lua_pop(L, 1);
-		//lua_getfield(L, index, "REWEIGHT");  reweight = lua_tointeger(L, -1);      lua_pop(L, 1);
-		lua_getfield(L, index, "OUTPUT");  outfn = lua_tostring(L, -1);            lua_pop(L, 1);
-		lua_getfield(L, index, "SLICES");  mslices = lua_tointeger(L, -1);         lua_pop(L, 1);
-		lua_getfield(L, index, "SVD");     msvd = lua_tointeger(L, -1);            lua_pop(L, 1);
-		lua_getfield(L, index, "max_update_size");     max_update_size = lua_tointeger(L, -1);            lua_pop(L, 1);
-		lua_getfield(L, index, "flips_per_update");     flips_per_update = lua_tointeger(L, -1);            lua_pop(L, 1);
-		//lua_getfield(L, index, "update_start");     update_start = lua_tointeger(L, -1);         lua_pop(L, 1);
-		//lua_getfield(L, index, "update_end");       update_end = lua_tointeger(L, -1);           lua_pop(L, 1);
-		//lua_getfield(L, index, "LOGFILE");  logfile.open(lua_tostring(L, -1));     lua_pop(L, 1);
-		init();
-	}
+	void load (lua_State *L, int index);
 
-	void save (lua_State *L, int index) {
-		if (index<1) index = lua_gettop(L)+index;
-		std::stringstream out;
-		out << generator;
-		lua_pushstring(L, out.str().c_str());
-		lua_setfield(L, index, "SEED");
-		lua_pushinteger(L, this->Lx); lua_setfield(L, index, "Lx");
-		lua_pushinteger(L, this->Ly); lua_setfield(L, index, "Ly");
-		lua_pushinteger(L, this->Lz); lua_setfield(L, index, "Lz");
-		lua_pushinteger(L, N); lua_setfield(L, index, "N");
-		lua_pushnumber(L, 1.0/beta); lua_setfield(L, index, "T");
-		lua_pushnumber(L, tx); lua_setfield(L, index, "tx");
-		lua_pushnumber(L, ty); lua_setfield(L, index, "ty");
-		lua_pushnumber(L, tz); lua_setfield(L, index, "tz");
-		lua_pushnumber(L, Vx); lua_setfield(L, index, "Vx");
-		lua_pushnumber(L, Vy); lua_setfield(L, index, "Vy");
-		lua_pushnumber(L, Vz); lua_setfield(L, index, "Vz");
-		lua_pushnumber(L, -g); lua_setfield(L, index, "U");
-		lua_pushnumber(L, mu); lua_setfield(L, index, "mu");
-		lua_pushnumber(L, B); lua_setfield(L, index, "B");
-		lua_pushnumber(L, staggered_field); lua_setfield(L, index, "h");
-		lua_pushinteger(L, mslices); lua_setfield(L, index, "SLICES");
-		lua_pushinteger(L, msvd); lua_setfield(L, index, "SVD");
-		lua_pushinteger(L, max_update_size); lua_setfield(L, index, "max_update_size");
-		lua_pushinteger(L, flips_per_update); lua_setfield(L, index, "flips_per_update");
-		lua_newtable(L);
-		L << sign;
-		lua_setfield(L, -2, "sign");
-		L << acceptance;
-		lua_setfield(L, -2, "acceptance");
-		L << density;
-		lua_setfield(L, -2, "density");
-		L << magnetization;
-		lua_setfield(L, -2, "magnetization");
-		L << order_parameter;
-		lua_setfield(L, -2, "order_parameter");
-		L << chi_af;
-		lua_setfield(L, -2, "chi_af");
-		L << measured_sign;
-		lua_setfield(L, -2, "measured_sign");
-		L << chi_d;
-		lua_setfield(L, -2, "chi_d");
-		lua_setfield(L, index, "results");
-	}
+	void save (lua_State *L, int index);
 
 	Simulation (lua_State *L, int index) : distribution(0.8), trialDistribution(1.0), steps(0) {
 		load(L, index);
@@ -399,6 +292,9 @@ class Simulation {
 			if (i%msvd==0 || i==slices.size()-1) svd.absorbU();
 		}
 		//std::cerr << svd.S.array().log().sum() << ' ' << logDetU_s() << std::endl;
+		//std::cerr << svd.S.transpose() << std::endl;
+		//std::cerr << svd.U << std::endl << std::endl;
+		//std::cerr << svd.Vt << std::endl << std::endl;
 	}
 
 	void make_density_matrices () {
@@ -430,6 +326,28 @@ class Simulation {
 		return (svdA.U*svdA.Vt*svdB.U*svdB.Vt).determinant()>0.0?1.0:-1.0;
 	}
 
+	void apply_propagator_matrix () {
+		if (open_boundary) {
+			positionSpace_c.applyOnTheLeft(freePropagator_open);
+		} else {
+			fftw_execute(x2p_col);
+			momentumSpace.applyOnTheLeft(freePropagator.asDiagonal());
+			fftw_execute(p2x_col);
+			positionSpace_c /= V;
+		}
+	}
+
+	void apply_propagator_vector () {
+		if (open_boundary) {
+			v_x = freePropagator_open * v_x;
+		} else {
+			fftw_execute(x2p_vec);
+			v_p = v_p.array() * freePropagator.array();
+			fftw_execute(p2x_vec);
+			v_x /= V;
+		}
+	}
+
 	void accumulate_forward (int start = 0, int end = -1) {
 		positionSpace_c.setIdentity(V, V);
 		end = end<0?N:end;
@@ -437,55 +355,43 @@ class Simulation {
 		for (int i=start;i<end;i++) {
 			//std::cerr << "accumulate_f. " << i << " determinant = " << positionSpace_c.determinant() << std::endl;
 			positionSpace_c.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(i)).array()*freePropagator_x.array()).matrix().asDiagonal());
-			fftw_execute(x2p_col);
-			momentumSpace.applyOnTheLeft(freePropagator.asDiagonal());
-			fftw_execute(p2x_col);
-			positionSpace_c /= V;
+			apply_propagator_matrix();
 		}
 		positionSpace = positionSpace_c.real();
 	}
 
-	void accumulate_backward (int start = 0, int end = -1) {
-		Real X = 1.0 - A*A;
-		positionSpace_c.setIdentity(V, V);
-		end = end<0?N:end;
-		end = end>N?N:end;
-		for (int i=start;i<end;i++) {
-			positionSpace_c.applyOnTheRight(((Vector_d::Constant(V, 1.0)-diagonal(i)).array()*freePropagator_x_b.array()).matrix().asDiagonal());
-			fftw_execute(x2p_row);
-			momentumSpace.applyOnTheRight(freePropagator_b.asDiagonal());
-			fftw_execute(p2x_row);
-			positionSpace_c /= V*X;
-		}
-		positionSpace = positionSpace_c.real();
-	}
+	//void accumulate_backward (int start = 0, int end = -1) {
+		//Real X = 1.0 - A*A;
+		//positionSpace_c.setIdentity(V, V);
+		//end = end<0?N:end;
+		//end = end>N?N:end;
+		//for (int i=start;i<end;i++) {
+			//positionSpace_c.applyOnTheRight(((Vector_d::Constant(V, 1.0)-diagonal(i)).array()*freePropagator_x_b.array()).matrix().asDiagonal());
+			//fftw_execute(x2p_row);
+			//momentumSpace.applyOnTheRight(freePropagator_b.asDiagonal());
+			//fftw_execute(p2x_row);
+			//positionSpace_c /= V*X;
+		//}
+		//positionSpace = positionSpace_c.real();
+	//}
 
-	void compute_uv_f (int x, int t) {
-		v_x = Vector_cd::Zero(V);
-		v_x[x] = 1.0;
-		for (int i=t+1;i<N;i++) {
-			fftw_execute(x2p_vec);
-			v_p = v_p.array() * freePropagator.array();
-			fftw_execute(p2x_vec);
-			v_x = v_x.array() * (Vector_d::Constant(V, 1.0)+diagonal(i)).array() * freePropagator_x.array();
-			v_x /= V;
-		}
-		fftw_execute(x2p_vec);
-		v_p = v_p.array() * freePropagator.array();
-		fftw_execute(p2x_vec);
-		v_x /= V;
-		cache.u = (-2*diagonal(t)[x]*v_x*freePropagator_x[x]).real();
-		v_x = Vector_cd::Zero(V);
-		v_x[x] = 1.0;
-		for (int i=t-1;i>=0;i--) {
-			fftw_execute(x2p_vec);
-			v_p = v_p.array() * freePropagator.array();
-			fftw_execute(p2x_vec);
-			v_x = v_x.array() * (Vector_d::Constant(V, 1.0)+diagonal(i)).array() * freePropagator_x.array();
-			v_x /= V;
-		}
-		cache.v = v_x.real();
-	}
+	//void compute_uv_f (int x, int t) {
+		//v_x = Vector_cd::Zero(V);
+		//v_x[x] = 1.0;
+		//for (int i=t+1;i<N;i++) {
+			//apply_propagator_vector();
+			//v_x = v_x.array() * (Vector_d::Constant(V, 1.0)+diagonal(i)).array() * freePropagator_x.array();
+		//}
+		//apply_propagator_vector();
+		//cache.u = (-2*diagonal(t)[x]*v_x*freePropagator_x[x]).real();
+		//v_x = Vector_cd::Zero(V);
+		//v_x[x] = 1.0;
+		//for (int i=t-1;i>=0;i--) {
+			//apply_propagator_vector();
+			//v_x = v_x.array() * (Vector_d::Constant(V, 1.0)+diagonal(i)).array() * freePropagator_x.array();
+		//}
+		//cache.v = v_x.real();
+	//}
 
 	void compute_uv_f_short (int x, int t) {
 		int start = mslices*(t/mslices);
@@ -494,65 +400,47 @@ class Simulation {
 		v_x = Vector_cd::Zero(V);
 		v_x[x] = 1.0;
 		for (int i=t+1;i<end;i++) {
-			fftw_execute(x2p_vec);
-			v_p = v_p.array() * freePropagator.array();
-			fftw_execute(p2x_vec);
+			apply_propagator_vector();
 			v_x = v_x.array() * (Vector_d::Constant(V, 1.0)+diagonal(i)).array() * freePropagator_x.array();
-			v_x /= V;
 		}
-		fftw_execute(x2p_vec);
-		v_p = v_p.array() * freePropagator.array();
-		fftw_execute(p2x_vec);
-		v_x /= V;
+		apply_propagator_vector();
 		cache.u_smart = (-2*diagonal(t)[x]*v_x*freePropagator_x[x]).real();
 		v_x = Vector_cd::Zero(V);
 		v_x[x] = 1.0;
 		for (int i=t-1;i>=start;i--) {
-			fftw_execute(x2p_vec);
-			v_p = v_p.array() * freePropagator.array();
-			fftw_execute(p2x_vec);
+			apply_propagator_vector();
 			v_x = v_x.array() * (Vector_d::Constant(V, 1.0)+diagonal(i)).array() * freePropagator_x.array();
-			v_x /= V;
 		}
 		cache.v_smart = v_x.real();
 	}
 
-	void compute_uv_f_smart (int x, int t) {
-		int start = mslices*(t/mslices);
-		int end = mslices*(1+t/mslices);
-		if (end>N) end = N;
-		v_x = Vector_cd::Zero(V);
-		v_x[x] = 1.0;
-		for (int i=t+1;i<end;i++) {
-			fftw_execute(x2p_vec);
-			v_p = v_p.array() * freePropagator.array();
-			fftw_execute(p2x_vec);
-			v_x = v_x.array() * (Vector_d::Constant(V, 1.0)+diagonal(i)).array() * freePropagator_x.array();
-			v_x /= V;
-		}
-		fftw_execute(x2p_vec);
-		v_p = v_p.array() * freePropagator.array();
-		fftw_execute(p2x_vec);
-		v_x /= V;
-		cache.u_smart = cache.u = (-2*diagonal(t)[x]*v_x*freePropagator_x[x]).real();
-		for (size_t i=t/mslices+1;i<slices.size();i++) {
-			//std::cerr << i << ' ' << t/mslices << ' ' << slices.size() << std::endl;
-			cache.u.applyOnTheLeft(slices[i]);
-		}
-		v_x = Vector_cd::Zero(V);
-		v_x[x] = 1.0;
-		for (int i=t-1;i>=start;i--) {
-			fftw_execute(x2p_vec);
-			v_p = v_p.array() * freePropagator.array();
-			fftw_execute(p2x_vec);
-			v_x = v_x.array() * (Vector_d::Constant(V, 1.0)+diagonal(i)).array() * freePropagator_x.array();
-			v_x /= V;
-		}
-		cache.v_smart = cache.v = v_x.real();
-		for (int i=t/mslices-1;i>=0;i--) {
-			cache.v.applyOnTheLeft(slices[i].transpose());
-		}
-	}
+	//void compute_uv_f_smart (int x, int t) {
+		//int start = mslices*(t/mslices);
+		//int end = mslices*(1+t/mslices);
+		//if (end>N) end = N;
+		//v_x = Vector_cd::Zero(V);
+		//v_x[x] = 1.0;
+		//for (int i=t+1;i<end;i++) {
+			//apply_propagator_vector();
+			//v_x = v_x.array() * (Vector_d::Constant(V, 1.0)+diagonal(i)).array() * freePropagator_x.array();
+		//}
+		//apply_propagator_vector();
+		//cache.u_smart = cache.u = (-2*diagonal(t)[x]*v_x*freePropagator_x[x]).real();
+		//for (size_t i=t/mslices+1;i<slices.size();i++) {
+			////std::cerr << i << ' ' << t/mslices << ' ' << slices.size() << std::endl;
+			//cache.u.applyOnTheLeft(slices[i]);
+		//}
+		//v_x = Vector_cd::Zero(V);
+		//v_x[x] = 1.0;
+		//for (int i=t-1;i>=start;i--) {
+			//apply_propagator_vector();
+			//v_x = v_x.array() * (Vector_d::Constant(V, 1.0)+diagonal(i)).array() * freePropagator_x.array();
+		//}
+		//cache.v_smart = cache.v = v_x.real();
+		//for (int i=t/mslices-1;i>=0;i--) {
+			//cache.v.applyOnTheLeft(slices[i].transpose());
+		//}
+	//}
 
 	void flip (int t, int x) {
 		diagonal(t)[x] = -diagonal(t)[x];
@@ -565,6 +453,7 @@ class Simulation {
 	}
 
 	void redo_all () {
+		//std::cerr << "redoing " << svd.S.array().log().sum() << std::endl;
 		//make_slices();
 		//int old_msvd = msvd;
 		//msvd = 1;
@@ -573,65 +462,27 @@ class Simulation {
 		make_svd_inverse();
 		make_density_matrices();
 		double np = svd_probability();
-		if (fabs(np-plog-update_prob)>1.0e-6) std::cerr << plog+update_prob << " <> " << np << " ~~ " << np-plog-update_prob << std::endl;
-		//error[last_t].add(np-plog-update_prob);
+		if (fabs(np-plog-update_prob)>1.0e-8) {
+			std::cerr << plog+update_prob << " <> " << np << " ~~ " << np-plog-update_prob << std::endl;
+			std::cerr << "    " << np-plog << " ~~ " << update_prob << std::endl;
+		}
 		plog = np;
 		psign = svd_sign();
 		reset_updates();
 	}
 
-	std::pair<double, double> rank1_probability (int x, int t) { // FIXME: use SVD / higher beta
-		compute_uv_f_short(x, t);
-		const int L = update_size;
-		update_U.col(L) = first_slice_inverse * cache.u_smart;
-		update_Vt.row(L) = cache.v_smart.transpose();
-		double d1 = ((update_Vt.topRows(L+1)*svd_inverse_up.U) * svd_inverse_up.S.asDiagonal() * (svd_inverse_up.Vt*update_U.leftCols(L+1)) + Matrix_d::Identity(L+1, L+1)).determinant();
-		double d2 = ((update_Vt.topRows(L+1)*svd_inverse_dn.U) * svd_inverse_dn.S.asDiagonal() * (svd_inverse_dn.Vt*update_U.leftCols(L+1)) + Matrix_d::Identity(L+1, L+1)).determinant();
-		double s = 1.0;
-		if (d1 < 0) {
-			s *= -1.0;
-			d1 *= -1.0;
-		}
-		if (d2 < 0) {
-			s *= -1.0;
-			d2 *= -1.0;
-		}
-		//double d1 = ( (update_Vt.topRows(L+1)*svdA.Vt.transpose())*svdA.S.array().inverse().matrix().asDiagonal()*(svdA.U.transpose()*update_U.leftCols(L+1))*std::exp(+beta*B*0.5+beta*mu) + Eigen::MatrixXd::Identity(L+1, L+1) ).determinant();
-		//double d2 = ( (update_Vt.topRows(L+1)*svdB.Vt.transpose())*svdB.S.array().inverse().matrix().asDiagonal()*(svdB.U.transpose()*update_U.leftCols(L+1))*std::exp(-beta*B*0.5+beta*mu) + Eigen::MatrixXd::Identity(L+1, L+1) ).determinant();
-		//std::cerr << L <<  " (" << x << ", " << t << ')' << std::endl;
-		return std::pair<double, double>(std::log(d1)+std::log(d2), s);
-	}
+	std::pair<double, double> rank1_probability (int x, int t);
 
 	void make_tests () {
 	}
 
-	bool metropolis (int M = 0) {
-		steps++;
-		bool ret = false;
-		int x = randomPosition(generator);
-		int t = randomStep(generator);
-		std::pair<double, double> r1 = rank1_probability(x, t);
-		ret = -trialDistribution(generator)<r1.first-update_prob;
-		if (ret) {
-			//std::cerr << "accepted" << std::endl;
-			diagonal(t)[x] = -diagonal(t)[x];
-			slices[t/mslices] += cache.u_smart*cache.v_smart.transpose();
-			update_size++;
-			update_prob = r1.first;
-			update_sign = r1.second;
-			//last_t = t;
-		} else {
-		}
-		return ret;
-	}
+	bool metropolis ();
 
 	double fraction_completed () const {
 		return 1.0;
 	}
 
 	void update () {
-		//std::ofstream out("list_svd.dat", std::ios::app);
-		//out << svd.S.array().log().transpose() << ' ' << beta*(-mu-B*0.5) << ' ' << beta*(-mu+B*0.5) << std::endl;
 		for (int i=0;i<flips_per_update;i++) {
 			acceptance.add(metropolis()?1.0:0.0);
 			sign.add(psign*update_sign);
@@ -648,6 +499,9 @@ class Simulation {
 		time_shift = randomTime(generator);
 		make_slices();
 		redo_all();
+		//time_shift = randomTime(generator);
+		//make_slices();
+		//redo_all();
 		//std::cerr << "update finished" << std::endl;
 		//std::ofstream out("error.dat");
 		//for (int i=0;i<N;i++) {
@@ -657,13 +511,14 @@ class Simulation {
 
 	double get_kinetic_energy (const Matrix_d &M) {
 		positionSpace_c = M.cast<Complex>();
-		fftw_execute(x2p_col);
-		momentumSpace.applyOnTheLeft(energies.asDiagonal());
-		fftw_execute(p2x_col);
+		//fftw_execute(x2p_col);
+		//momentumSpace.applyOnTheLeft(energies.asDiagonal());
+		//fftw_execute(p2x_col);
 		return positionSpace_c.real().trace() / V;
 	}
 
 	double pair_correlation (const Matrix_d& rho_up, const Matrix_d& rho_dn) {
+		return 0.0;
 		double ret = 0.0;
 		for (int x=0;x<V;x++) {
 			for (int y=0;y<V;y++) {
@@ -691,6 +546,8 @@ class Simulation {
 		return ret / V / V;
 	}
 
+
+
 	void measure () {
 		double s = svd_sign();
 		rho_up = Matrix_d::Identity(V, V) - svdA.inverse();
@@ -706,7 +563,7 @@ class Simulation {
 		//magnetization_slow.add(s*(n_up-n_dn)/2.0/V);
 		order_parameter.add(op);
 		kinetic.add(s*K_up-s*K_dn);
-		interaction.add(s*g*n2);
+		interaction.add(s*g*n2/tx/V);
 		//sign.add(svd_sign());
 		//- (d1_up*d2_up).sum() - (d1_dn*d2_dn).sum();
 		for (int i=0;i<V;i++) {
@@ -718,8 +575,8 @@ class Simulation {
 		Matrix_d F_dn = Matrix_d::Identity(V, V) - svdB.inverse();
 		const double dtau = beta/slices.size();
 		for (const Matrix_d& U : slices) {
-			F_up.applyOnTheLeft(U*std::exp(+dtau*B*0.5+dtau*mu));
-			F_dn.applyOnTheLeft(U*std::exp(-dtau*B*0.5+dtau*mu));
+			//F_up.applyOnTheLeft(U*std::exp(+dtau*B*0.5+dtau*mu));
+			//F_dn.applyOnTheLeft(U*std::exp(-dtau*B*0.5+dtau*mu));
 			d_wave_chi += pair_correlation(F_up, F_dn);
 		}
 		chi_d.add(s*d_wave_chi*beta/slices.size());
@@ -755,6 +612,8 @@ class Simulation {
 	int volume () { return V; }
 	int timeSlices () { return N; }
 
+	void write_wavefunction (std::ostream &out);
+
 	void output_results () {
 		std::ostringstream buf;
 		buf << outfn << "stablefast_U" << (g/tx) << "_T" << 1.0/(beta*tx) << '_' << Lx << 'x' << Ly << 'x' << Lz << ".dat";
@@ -765,7 +624,7 @@ class Simulation {
 			<< ' ' << magnetization.mean() << ' ' << magnetization.variance()
 			//<< ' ' << acceptance.mean() << ' ' << acceptance.variance()
 			<< ' ' << kinetic.mean()/tx/V << ' ' << kinetic.variance()/tx/tx/V/V
-			<< ' ' << interaction.mean()/tx/V << ' ' << interaction.variance()/tx/tx/V/V;
+			<< ' ' << interaction.mean() << ' ' << interaction.variance();
 		out << ' ' << order_parameter.mean() << ' ' << order_parameter.variance();
 		out << ' ' << chi_af.mean() << ' ' << chi_af.variance();
 		out << ' ' << chi_d.mean() << ' ' << chi_d.variance();
