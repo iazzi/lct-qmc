@@ -46,7 +46,7 @@ for _, fn in ipairs{...} do
 	local p = io.popen('ls '..fn)
 	for f in p:lines() do
 		table.insert(files, f)
-		print(f)
+		--print(f)
 	end
 	p:close()
 end
