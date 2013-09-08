@@ -37,9 +37,19 @@ class PreciseMatrix {
 	const PreciseMatrix& operator*= (double x);
 	const PreciseMatrix& operator+= (const Eigen::MatrixXd& B);
 	void applyOnTheLeft (const Eigen::MatrixXd& B);
+	void applyOnTheLeft (const PreciseMatrix& B);
 	void swap (PreciseMatrix& other);
 	int inPlaceLU ();
+	void balance ();
+	void reduce_to_hessenberg ();
+	void extract_hessenberg_H (PreciseMatrix& other);
+	void extract_hessenberg_UV (PreciseMatrix& U, PreciseMatrix& V);
+	void reduce_to_ev (PreciseMatrix& wr, PreciseMatrix& wi);
+	void copy_into (Eigen::MatrixXd& other);
 };
+
+std::ostream& operator<< (std::ostream& out, const PreciseMatrix& A);
+std::ostream& operator<< (std::ostream& out, const mpfr_t& x);
 
 
 
