@@ -6,51 +6,63 @@
 #include <Eigen/QR>
 #include <Eigen/Eigenvalues>
 
-#define PREC 32
+#include <cstdlib>
 
 using namespace std;
 using namespace Eigen;
 
-int main () {
-	Eigen::MatrixXd R = Eigen::MatrixXd::Random(6, 6);
-	//Eigen::PartialPivLU<Eigen::MatrixXd> LU(R);
-	PreciseMatrix A(PREC), B(PREC), U(PREC), V(PREC);
-	Eigen::HessenbergDecomposition<MatrixXd> hd(R);
-	Eigen::EigenSolver<MatrixXd> solver(R);
-	//R = hd.matrixH();
-	A = R;
-	//B = Eigen::MatrixXd::Identity(3, 4);
-	//cout << A << endl;
-	//cout << B << endl;
-	//A.applyOnTheLeft(Eigen::MatrixXd::Identity(3, 4));
-	//A.inPlaceLU();
-	//cout << A << endl;
-	//cout << LU.matrixLU() << endl << endl;
-	//R += R.triangularView<Eigen::StrictlyUpper>();
-	//R += R.triangularView<Eigen::StrictlyUpper>();
-	//R += R.triangularView<Eigen::StrictlyUpper>();
-	//R += R.triangularView<Eigen::StrictlyUpper>();
-	//cout << R << endl << endl;
-	//A = R;
-	cout << A << endl;
-	//A.balance();
-	cout << solver.eigenvalues().transpose() << endl;
-	A.reduce_to_hessenberg();
-	A.extract_hessenberg_H(B);
-	A.extract_hessenberg_UV(U, V);
-	V.applyOnTheLeft(U);
-	cout << V << endl;
-	A.extract_hessenberg_UV(U, V);
-	V.applyOnTheLeft(B);
-	V.applyOnTheLeft(U);
-	cout << V << endl;
-	B.copy_into(R);
+int main (int argc, char **argv) {
+	const int n = argc>1?atoi(argv[1]):4;
+	const int PREC = argc>2?atoi(argv[2]):32;
+	Eigen::MatrixXd R = Eigen::MatrixXd::Random(n, n), T1;
+	PreciseMatrix A(PREC), B(PREC), U(PREC), V(PREC), Q(PREC), T2(PREC);
 	PreciseMatrix wr(PREC), wi(PREC);
-	B.reduce_to_ev(wr, wi);
-	cout << wr << endl;
-	cout << wi << endl;
-	cout << R << endl << endl;
-	cout << R.eigenvalues().transpose() << endl;
-	//cout << hd.matrixH() << endl << endl;
+	Eigen::EigenSolver<MatrixXd> solver(R);
+	A = R;
+	//cout << A << endl;
+	//cout << solver.eigenvalues().transpose() << endl;
+	//A.solve_eigenproblem(wr, wi, U, V);
+	//wr.transpose_in_place();
+	//wi.transpose_in_place();
+	//cout << wr << wi << endl;
+	//cout << A << endl;
+	//V.applyOnTheLeft(A);
+	//V.applyOnTheLeft(U);
+	//cout << V << endl;
+
+	//A.reduce_to_hessenberg();
+	//A.extract_hessenberg_H(B);
+	//A.extract_hessenberg_UV(U, V);
+	//cout << B << endl;
+	//B.reduce_to_ev_verbose(wr, wi, Q);
+	//wr.transpose_in_place(); wi.transpose_in_place(); cout << wr << wi << endl;
+	//cout << B << endl;
+	//B = Q;
+	//B.applyOnTheLeft(Q);
+	//cout << B << endl;
+	//Q.copy_transpose(U);
+	//U.applyOnTheLeft(B);
+	//U.applyOnTheLeft(Q);
+	//cout << U << endl;
+	
+	std::vector<int> perm;
+	cout << A << endl;
+	A.in_place_LU(perm);
+	U = MatrixXd::Zero(n, n);
+	A.extract_bands(U, 0, n);
+	cout << U << endl;
+	B = MatrixXd::Identity(n, n);
+	A.extract_bands(B, 0, -n);
+	cout << B << endl;
+	for (auto i : perm) cout << i << ' ';
+	cout << endl;
+	wr = MatrixXd::Random(n, 1);
+	wr.transpose_in_place(); cout << wr << endl; wr.transpose_in_place();
+	A.apply_inverse_LU_vector(wr, perm);
+	wr.transpose_in_place(); cout << wr << endl; wr.transpose_in_place();
+	wr.applyOnTheLeft(U);
+	wr.applyOnTheLeft(B);
+	wr.permute_rows(perm);
+	wr.transpose_in_place(); cout << wr << endl; wr.transpose_in_place();
 }
 
