@@ -14,6 +14,17 @@ extern "C" void dgesvd_ (const char *jobu, const char *jobvt,
 		double *VT, const int &ldvt,
 		double *work, const int &lwork, int &info);
 
+extern "C" void dggev_ (const char *jobvl, const char *jobvr,
+		const int &N,
+		double *A, const int &lda,
+		double *B, const int &ldb,
+		double *alphar,
+		double *alphai,
+		double *beta,
+		double *VL, const int &ldvl,
+		double *VR, const int &ldvr,
+		double *work, const int &lwork, int &info);
+
 struct SVDHelper {
 	typedef Eigen::VectorXd Vector;
 	typedef Eigen::MatrixXd Matrix;
@@ -211,6 +222,29 @@ struct SVDHelper {
 		//U.applyOnTheRight(other);
 		//Vt.applyOnTheLeft(other);
 		//std::cerr << "Vt " << Vt << std::endl << std::endl;
+	}
+
+	void diagonalize () {
+		const int N = S.size();
+		Matrix A = Matrix::Zero(N, N);
+		Matrix B = Matrix::Zero(N, N);
+		A.diagonal() = S;
+		B = (Vt*U).transpose();
+		Vector alphar = Vector::Zero(N);
+		Vector alphai = Vector::Zero(N);
+		Vector beta = Vector::Zero(N);
+		//Matrix VR = Matrix::Zero(N, N);
+		int info;
+		dggev_("N", "N", N, A.data(), N, B.data(), N, alphar.data(), alphai.data(), beta.data(), NULL, 1, NULL, 1, work.data(), work.size(), info);
+		std::cerr << "sv: " << S.transpose() << std::endl;
+		std::cerr << "dggev: " << info << std::endl;
+		std::cerr << alphar.transpose() << std::endl;
+		std::cerr << alphai.transpose() << std::endl;
+		std::cerr << beta.transpose() << std::endl;
+		int x = 0;
+		for (int i=0;i<N;i++) if (alphai[i]==0.0 && alphar[i]/beta[i]<0.0) x++;
+		std::cerr << x << " negatives" << std::endl;
+		std::cerr << S.array().log().sum() << " vs. " << alphar.array().abs().log().sum()-beta.array().log().sum() << std::endl;
 	}
 
 	void printout () {
