@@ -76,6 +76,10 @@ class Simulation {
 	Matrix_d update_U;
 	Matrix_d update_Vt;
 
+	Matrix_d hamiltonian;
+
+	public:
+
 	int msvd;
 	SVDHelper svd;
 	SVDHelper svdA;
@@ -136,6 +140,7 @@ class Simulation {
 	mymeasurement<double> interaction;
 	mymeasurement<double> sign;
 	mymeasurement<double> measured_sign;
+	mymeasurement<double> exact_sign;
 	std::vector<mymeasurement<double>> d_up;
 	std::vector<mymeasurement<double>> d_dn;
 	std::vector<mymeasurement<double>> spincorrelation;
@@ -178,6 +183,7 @@ class Simulation {
 		chi_d.set_name("Chi (D-wave)");
 		chi_af.set_name("Chi (AF)");
 		measured_sign.set_name("Sign (Measurements)");
+		exact_sign.set_name("Sign (Exact)");
 		//magnetization_slow.set_name("Magnetization (slow)");
 		for (int i=0;i<V;i++) {
 			d_up.push_back(mymeasurement<double>());
@@ -454,7 +460,7 @@ class Simulation {
 
 	void redo_all () {
 		//std::cerr << "redoing " << svd.S.array().log().sum() << std::endl;
-		//make_slices();
+		make_slices();
 		//int old_msvd = msvd;
 		//msvd = 1;
 		make_svd();
@@ -476,7 +482,21 @@ class Simulation {
 	void make_tests () {
 	}
 
+	double ising_energy (int x, int t);
+	bool anneal_ising ();
+	bool metropolis_ising ();
 	bool metropolis ();
+
+	void set_time_shift (int t) { time_shift = t%N; redo_all(); }
+	bool shift_time () { 
+		time_shift += mslices;
+		bool ret = time_shift>=N;
+		if (ret) time_shift -= N;
+		redo_all();
+		return ret;
+	}
+
+	void load_sigma (lua_State *L, const char *fn);
 
 	double fraction_completed () const {
 		return 1.0;
@@ -497,7 +517,7 @@ class Simulation {
 			//make_tests();
 		}
 		time_shift = randomTime(generator);
-		make_slices();
+		//make_slices();
 		redo_all();
 		//time_shift = randomTime(generator);
 		//make_slices();
@@ -507,6 +527,28 @@ class Simulation {
 		//for (int i=0;i<N;i++) {
 			//if (error[i].samples()>0) out << i << ' ' << error[i].mean() << std::endl;
 		//}
+	}
+
+	bool collapse_updates () {
+		if (update_size>=max_update_size) {
+			plog += update_prob;
+			psign *= update_sign;
+			make_svd();
+			make_svd_inverse();
+			reset_updates();
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+	void update_ising () {
+		for (int i=0;i<flips_per_update;i++) {
+			collapse_updates();
+			metropolis_ising();
+		}
+		time_shift = randomTime(generator);
+		redo_all();
 	}
 
 	double get_kinetic_energy (const Matrix_d &M) {
@@ -548,67 +590,8 @@ class Simulation {
 
 
 
-	void measure () {
-		double s = svd_sign();
-		rho_up = Matrix_d::Identity(V, V) - svdA.inverse();
-		rho_dn = svdB.inverse();
-		double K_up = get_kinetic_energy(rho_up);
-		double K_dn = get_kinetic_energy(rho_dn);
-		double n_up = rho_up.diagonal().array().sum();
-		double n_dn = rho_dn.diagonal().array().sum();
-		double op = (rho_up.diagonal().array()-rho_dn.diagonal().array()).square().sum();
-		double n2 = (rho_up.diagonal().array()*rho_dn.diagonal().array()).sum();
-		density.add(s*(n_up+n_dn)/V);
-		magnetization.add(s*(n_up-n_dn)/2.0/V);
-		//magnetization_slow.add(s*(n_up-n_dn)/2.0/V);
-		order_parameter.add(op);
-		kinetic.add(s*K_up-s*K_dn);
-		interaction.add(s*g*n2/tx/V);
-		//sign.add(svd_sign());
-		//- (d1_up*d2_up).sum() - (d1_dn*d2_dn).sum();
-		for (int i=0;i<V;i++) {
-			d_up[i].add(s*rho_up(i, i));
-			d_dn[i].add(s*rho_dn(i, i));
-		}
-		double d_wave_chi = 0.0;
-		Matrix_d F_up = svdA.inverse();
-		Matrix_d F_dn = Matrix_d::Identity(V, V) - svdB.inverse();
-		const double dtau = beta/slices.size();
-		for (const Matrix_d& U : slices) {
-			//F_up.applyOnTheLeft(U*std::exp(+dtau*B*0.5+dtau*mu));
-			//F_dn.applyOnTheLeft(U*std::exp(-dtau*B*0.5+dtau*mu));
-			d_wave_chi += pair_correlation(F_up, F_dn);
-		}
-		chi_d.add(s*d_wave_chi*beta/slices.size());
-		double af_ =((rho_up.diagonal().array()-rho_dn.diagonal().array())*staggering).sum()/double(V);
-		chi_af.add(s*beta*af_*af_);
-		for (int k=1;k<=Lx/2;k++) {
-			double ssz = 0.0;
-			for (int j=0;j<V;j++) {
-				int x = j;
-				int y = shift_x(j, k);
-				ssz += rho_up(x, x)*rho_up(y, y) + rho_dn(x, x)*rho_dn(y, y);
-				ssz -= rho_up(x, x)*rho_dn(y, y) + rho_dn(x, x)*rho_up(y, y);
-				ssz -= rho_up(x, y)*rho_up(y, x) + rho_dn(x, y)*rho_dn(y, x);
-			}
-			spincorrelation[k].add(s*0.25*ssz);
-			if (isnan(ssz)) {
-				//std::cerr << "explain:" << std::endl;
-				//std::cerr << "k=" << k << " ssz=" << ssz << std::endl;
-				//for (int j=0;j<V;j++) {
-					//int x = j;
-					//int y = shift_x(j, k);
-					//std::cerr << " j=" << j
-						//<< " a_j=" << (rho_up(x, x)*rho_up(y, y) + rho_dn(x, x)*rho_dn(y, y))
-						//<< " b_j=" << (rho_up(x, x)*rho_dn(y, y) + rho_dn(x, x)*rho_up(y, y))
-						//<< " c_j=" << (rho_up(x, y)*rho_up(y, x) + rho_dn(x, y)*rho_dn(y, x)) << std::endl;
-				//}
-				//throw "";
-			}
-		}
-		if (staggered_field!=0.0) staggered_magnetization.add(s*(rho_up.diagonal().array()*staggering - rho_dn.diagonal().array()*staggering).sum()/V);
-	}
-
+	void measure ();
+	void measure_sign ();
 	int volume () { return V; }
 	int timeSlices () { return N; }
 
@@ -629,6 +612,7 @@ class Simulation {
 		out << ' ' << chi_af.mean() << ' ' << chi_af.variance();
 		out << ' ' << chi_d.mean() << ' ' << chi_d.variance();
 		out << ' ' << measured_sign.mean() << ' ' << measured_sign.variance();
+		out << ' ' << exact_sign.mean() << ' ' << exact_sign.variance();
 		//if (staggered_field!=0.0) out << ' ' << -staggered_magnetization.mean()/staggered_field << ' ' << staggered_magnetization.variance();
 		for (int i=0;i<V;i++) {
 			//out << ' ' << d_up[i].mean();
@@ -656,6 +640,10 @@ class Simulation {
 		fftw_destroy_plan(x2p_row);
 		fftw_destroy_plan(p2x_row);
 	}
+
+	double recheck ();
+	void straighten_slices ();
+
 	protected:
 };
 
