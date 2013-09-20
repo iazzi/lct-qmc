@@ -87,25 +87,49 @@ int main (int argc, char **argv) {
 					lua_getfield(L, -1, "SWEEPS"); int total_sweeps = lua_tointeger(L, -1); lua_pop(L, 1);
 					Simulation simulation(L, -1);
 					lua_pop(L, 1);
+					//simulation.load_sigma(L, "nice.lua");
 					lock.unlock();
+					//for (int i=0;i<0;i++) simulation.update_ising();
+					//log << "annealed";
+					//simulation.straighten_slices();
+					//simulation.set_time_shift(0);
+					//do {
+						//simulation.anneal_ising();
+					//} while(!simulation.shift_time());
+					//simulation.recheck();
+					//simulation.svd.diagonalize();
 					try {
 						t0 = steady_clock::now();
 						for (int i=0;i<thermalization_sweeps;i++) {
 							if (duration_cast<seconds_type>(steady_clock::now()-t1).count()>5) {
 								t1 = steady_clock::now();
-								log << "thread" << j << "thermalizing: " << i << '/' << thermalization_sweeps << '.' << (double(simulation.steps)/duration_cast<seconds_type>(t1-t0).count()) << "steps per second";
+								log << "thread" << j << "thermalizing: " << i << '/' << thermalization_sweeps << "..." << (double(simulation.steps)/duration_cast<seconds_type>(t1-t0).count()) << "steps per second";
 								//log << simulation.sign;
 								//log << simulation.acceptance;
 							}
 							simulation.update();
+							if (simulation.psign<0.0) {
+								log << "negative sign found... saving";
+								//for (int i=0;i<10000;i++) simulation.anneal_ising();
+								//simulation.set_time_shift(0);
+								//do {
+									//simulation.anneal_ising();
+								//} while(!simulation.shift_time());
+								//log << "annealed";
+								//simulation.straighten_slices();
+								simulation.recheck();
+								//simulation.svd.diagonalize();
+								throw "";
+							}
 						}
 						log << "thread" << j << "thermalized";
 						simulation.measured_sign.clear();
+						simulation.steps = 0;
 						t0 = steady_clock::now();
 						for (int i=0;i<total_sweeps;i++) {
 							if (duration_cast<seconds_type>(steady_clock::now()-t1).count()>5) {
 								t1 = steady_clock::now();
-								log << "thread" << j << "running: " << i << '/' << total_sweeps << '.' << (double(simulation.steps)/duration_cast<seconds_type>(t1-t0).count()) << "steps per second";
+								log << "thread" << j << "running: " << i << '/' << total_sweeps << "..." << (double(simulation.steps)/duration_cast<seconds_type>(t1-t0).count()) << "steps per second";
 								//log << simulation.sign;
 								//log << simulation.acceptance;
 								//log << simulation.density;
@@ -119,6 +143,11 @@ int main (int argc, char **argv) {
 							}
 							simulation.update();
 							simulation.measure();
+							simulation.measure_sign();
+							if (simulation.psign<0.0) {
+								//simulation.svd.diagonalize();
+								//throw -1;
+							}
 						}
 						log << "thread" << j << "finished simulation" << job;
 						lock.lock();
