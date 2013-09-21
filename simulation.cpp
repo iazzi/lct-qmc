@@ -255,7 +255,7 @@ bool Simulation::anneal_ising () {
 			std::pair<double, double> r1 = rank1_probability(x, t);
 			double en = ising_energy(x, t);
 			ret = 0.0 < en;
-			if (ret && r1.second==update_sign) {
+			if (r1.second==update_sign) {
 				//std::cerr << "accepted" << std::endl;
 				diagonal(t)[x] = -diagonal(t)[x];
 				slices[t/mslices] += cache.u_smart*cache.v_smart.transpose();
