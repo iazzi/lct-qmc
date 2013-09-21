@@ -66,7 +66,7 @@ for y in range(mu_max, mu_min, 30) do
 				SVD = 1,
 				max_update_size = 1,
 				flips_per_update = 1;
-				open_boundary = false,
+				open_boundary = true,
 			} )
 	end
 end

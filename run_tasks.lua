@@ -6,8 +6,8 @@ time = time or '1:00'
 
 local prog = io.popen('pwd'):read('*l')..'/stablefast'
 
-for i in io.popen('ls '..dir..''):lines() do
-	local t = dofile(dir..i)
+for i in io.popen('ls '..dir..'/*in'):lines() do
+	local t = dofile(i)
 	if type(t)=='table' and t[1].outfile then
 		local f = io.open(t[1].outfile)
 		if not f then
