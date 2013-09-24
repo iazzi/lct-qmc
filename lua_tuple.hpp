@@ -25,6 +25,7 @@ static void lua_get (lua_State *L, named_tuple<Args...> &t) {
 	int dummy[sizeof...(Args)] = {
 		(lua_getfield(L, -1, Args::name(t)), lua_get(L, Args::ref(t)), lua_pop(L, 1), 0)...
 	};
+	(void)dummy;
 }
 
 template <class ... Args>
@@ -33,5 +34,6 @@ static void lua_set (lua_State *L, named_tuple<Args...> &t) {
 	int dummy[sizeof...(Args)] = {
 		(lua_set(L, Args::value(t)), lua_setfield(L, -2, Args::name(t)), 0)...
 	};
+	(void)dummy;
 }
 

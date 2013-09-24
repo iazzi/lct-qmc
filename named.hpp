@@ -37,6 +37,7 @@ struct named_tuple : public Args... {
 		out << "{ ";
 		int dummy[sizeof...(Args)] = { (out << Args::name() << " = " << Args::value() << "; ", 0)... };
 		out << "}";
+		(void)dummy;
 	}
 };
 
