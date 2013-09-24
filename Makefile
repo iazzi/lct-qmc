@@ -34,6 +34,8 @@ stablefast: stablefast.o simulation.o mpfr.o
 
 simulation.o: simulation.cpp simulation.hpp
 
+stablefast.o: stablefast.cpp simulation.hpp
+
 test_params: test_params.o simulation.o mpfr.o
 
 mpfr_test: mpfr_test.o mpfr.o
