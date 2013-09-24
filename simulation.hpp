@@ -40,7 +40,7 @@ class Simulation {
 	double A; // sqrt(exp(g*dt)-1)
 	double B; // magnetic field
 	double tx, ty, tz; // nearest neighbour hopping
-	double Vx, Vy, Vz; // trap strength
+	//double Vx, Vy, Vz; // trap strength
 	double staggered_field;
 	bool open_boundary;
 	std::vector<Vector_d> diagonals;
@@ -60,8 +60,8 @@ class Simulation {
 	Vector_d freePropagator_b;
 	Matrix_d freePropagator_open;
 	Vector_d potential;
-	Vector_d freePropagator_x;
-	Vector_d freePropagator_x_b;
+	//Vector_d freePropagator_x;
+	//Vector_d freePropagator_x_b;
 	Array_d staggering;
 
 	Matrix_d positionSpace; // current matrix in position space
@@ -363,7 +363,7 @@ class Simulation {
 		end = end>N?N:end;
 		for (int i=start;i<end;i++) {
 			//std::cerr << "accumulate_f. " << i << " determinant = " << positionSpace_c.determinant() << std::endl;
-			positionSpace_c.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(i)).array()*freePropagator_x.array()).matrix().asDiagonal());
+			positionSpace_c.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(i)).array()).matrix().asDiagonal());
 			apply_propagator_matrix();
 		}
 		positionSpace = positionSpace_c.real();
@@ -410,15 +410,15 @@ class Simulation {
 		v_x[x] = 1.0;
 		for (int i=t+1;i<end;i++) {
 			apply_propagator_vector();
-			v_x = v_x.array() * (Vector_d::Constant(V, 1.0)+diagonal(i)).array() * freePropagator_x.array();
+			v_x = v_x.array() * (Vector_d::Constant(V, 1.0)+diagonal(i)).array();
 		}
 		apply_propagator_vector();
-		cache.u_smart = (-2*diagonal(t)[x]*v_x*freePropagator_x[x]).real();
+		cache.u_smart = (-2*diagonal(t)[x]*v_x).real();
 		v_x = Vector_cd::Zero(V);
 		v_x[x] = 1.0;
 		for (int i=t-1;i>=start;i--) {
 			apply_propagator_vector();
-			v_x = v_x.array() * (Vector_d::Constant(V, 1.0)+diagonal(i)).array() * freePropagator_x.array();
+			v_x = v_x.array() * (Vector_d::Constant(V, 1.0)+diagonal(i)).array();
 		}
 		cache.v_smart = v_x.real();
 	}

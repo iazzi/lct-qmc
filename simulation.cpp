@@ -40,8 +40,8 @@ void Simulation::prepare_propagators () {
 	freePropagator = Vector_d::Zero(V);
 	freePropagator_b = Vector_d::Zero(V);
 	potential = Vector_d::Zero(V);
-	freePropagator_x = Vector_d::Zero(V);
-	freePropagator_x_b = Vector_d::Zero(V);
+	//freePropagator_x = Vector_d::Zero(V);
+	//freePropagator_x_b = Vector_d::Zero(V);
 	staggering = Array_d::Zero(V);
 	for (int i=0;i<V;i++) {
 		int x = (i/Lz/Ly)%Lx;
@@ -55,8 +55,8 @@ void Simulation::prepare_propagators () {
 		freePropagator[i] = exp(-dt*energies[i]);
 		freePropagator_b[i] = exp(dt*energies[i]);
 		potential[i] = (x+y+z)%2?-staggered_field:staggered_field;
-		freePropagator_x[i] = exp(-dt*potential[i]);
-		freePropagator_x_b[i] = exp(dt*potential[i]);
+		//freePropagator_x[i] = exp(-dt*potential[i]);
+		//freePropagator_x_b[i] = exp(dt*potential[i]);
 		staggering[i] = (x+y+z)%2?-1.0:1.0;
 	}
 }
@@ -65,7 +65,7 @@ void Simulation::load (lua_State *L, int index) {
 	lua_pushvalue(L, index);
 	lua_get(L, config);
 	lua_pop(L, 1);
-	std::cerr << config << std::endl;
+	//std::cerr << config << std::endl;
 	lua_getfield(L, index, "SEED");
 	if (lua_isnumber(L, -1)) {
 		generator.seed(lua_tointeger(L, -1));
@@ -82,9 +82,9 @@ void Simulation::load (lua_State *L, int index) {
 	lua_getfield(L, index, "tx");   tx = lua_tonumber(L, -1);                  lua_pop(L, 1);
 	lua_getfield(L, index, "ty");   ty = lua_tonumber(L, -1);                  lua_pop(L, 1);
 	lua_getfield(L, index, "tz");   tz = lua_tonumber(L, -1);                  lua_pop(L, 1);
-	lua_getfield(L, index, "Vx");   Vx = lua_tonumber(L, -1);                  lua_pop(L, 1);
-	lua_getfield(L, index, "Vy");   Vy = lua_tonumber(L, -1);                  lua_pop(L, 1);
-	lua_getfield(L, index, "Vz");   Vz = lua_tonumber(L, -1);                  lua_pop(L, 1);
+	//lua_getfield(L, index, "Vx");   Vx = lua_tonumber(L, -1);                  lua_pop(L, 1);
+	//lua_getfield(L, index, "Vy");   Vy = lua_tonumber(L, -1);                  lua_pop(L, 1);
+	//lua_getfield(L, index, "Vz");   Vz = lua_tonumber(L, -1);                  lua_pop(L, 1);
 	lua_getfield(L, index, "U");    g = -lua_tonumber(L, -1);                  lua_pop(L, 1); // FIXME: check this // should be right as seen in A above
 	lua_getfield(L, index, "mu");   mu = lua_tonumber(L, -1);                  lua_pop(L, 1);
 	lua_getfield(L, index, "B");    B = lua_tonumber(L, -1);                   lua_pop(L, 1);
@@ -117,9 +117,9 @@ void Simulation::save (lua_State *L, int index) {
 	lua_pushnumber(L, tx); lua_setfield(L, index, "tx");
 	lua_pushnumber(L, ty); lua_setfield(L, index, "ty");
 	lua_pushnumber(L, tz); lua_setfield(L, index, "tz");
-	lua_pushnumber(L, Vx); lua_setfield(L, index, "Vx");
-	lua_pushnumber(L, Vy); lua_setfield(L, index, "Vy");
-	lua_pushnumber(L, Vz); lua_setfield(L, index, "Vz");
+	//lua_pushnumber(L, Vx); lua_setfield(L, index, "Vx");
+	//lua_pushnumber(L, Vy); lua_setfield(L, index, "Vy");
+	//lua_pushnumber(L, Vz); lua_setfield(L, index, "Vz");
 	lua_pushnumber(L, -g); lua_setfield(L, index, "U");
 	lua_pushnumber(L, mu); lua_setfield(L, index, "mu");
 	lua_pushnumber(L, B); lua_setfield(L, index, "B");
@@ -285,7 +285,7 @@ double Simulation::recheck () {
 	PreciseMatrix C(prec), Q(prec), wr(prec), wi(prec);
 	A = Matrix_d::Identity(V, V);
 	for (int i=0;i<N;i++) {
-		A.applyOnTheLeft(freePropagator_open*((Vector_d::Constant(V, 1.0)+diagonal(i)).array()*freePropagator_x.array()).matrix().asDiagonal());
+		A.applyOnTheLeft(freePropagator_open*((Vector_d::Constant(V, 1.0)+diagonal(i)).array()).matrix().asDiagonal());
 	}
 	A2 = A1 = W = A;
 	A1 *= std::exp(beta*B/2+beta*mu);
@@ -370,7 +370,7 @@ double Simulation::recheck () {
 		for (int j=0;j<V;j++) wf << " " << v.coeff(j, 0) << ",";
 		wf << " norm = " << lambda << ", },\n";
 		if (i==N) break;
-		v.applyOnTheLeft(freePropagator_open*((Vector_d::Constant(V, 1.0)+diagonal(i)).array()*freePropagator_x.array()).matrix().asDiagonal());
+		v.applyOnTheLeft(freePropagator_open*((Vector_d::Constant(V, 1.0)+diagonal(i)).array()).matrix().asDiagonal());
 		v.get_norm(lambda);
 		v.normalize();
 	}
