@@ -1,6 +1,8 @@
 #include "simulation.hpp"
 #include "mpfr.hpp"
 
+#include "lua_tuple.hpp"
+
 // FIXME only works in 2D
 void Simulation::prepare_open_boundaries () {
 	std::uniform_real_distribution<double> d;
@@ -60,6 +62,10 @@ void Simulation::prepare_propagators () {
 }
 
 void Simulation::load (lua_State *L, int index) {
+	lua_pushvalue(L, index);
+	lua_get(L, config);
+	lua_pop(L, 1);
+	std::cerr << config << std::endl;
 	lua_getfield(L, index, "SEED");
 	if (lua_isnumber(L, -1)) {
 		generator.seed(lua_tointeger(L, -1));

@@ -1,6 +1,8 @@
 #ifndef SIMULATION_HPP
 #define SIMULATION_HPP
 
+#include "config.hpp"
+
 #include "svd.hpp"
 #include "types.hpp"
 #include "measurements.hpp"
@@ -27,6 +29,7 @@ template <typename T> using mymeasurement = measurement<T, false>;
 
 class Simulation {
 	private:
+	config::hubbard_config config;
 	int Lx, Ly, Lz; // size of the system
 	int V; // volume of the system
 	int N; // number of time-steps
@@ -628,7 +631,7 @@ class Simulation {
 
 	std::string params () {
 		std::ostringstream buf;
-		buf << "T=" << 1.0/(beta*tx) << "";
+		buf << config << std::endl;
 		return buf.str();
 	}
 
