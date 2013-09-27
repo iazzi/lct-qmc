@@ -45,8 +45,7 @@ template <>
 struct named_tuple<> {
 	named_tuple () {}
 	void stream (std::ostream& out) const {
-		out << "{ ";
-		out << "}";
+		out << "{}";
 	}
 };
 

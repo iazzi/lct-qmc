@@ -11,7 +11,7 @@ static void lua_get (lua_State *L, size_t &v) { v = lua_tointeger(L, -1); }
 static void lua_get (lua_State *L, float &v) { v = lua_tonumber(L, -1); }
 static void lua_get (lua_State *L, double &v) { v = lua_tonumber(L, -1); }
 static void lua_get (lua_State *L, char &v) { v = lua_tostring(L, -1)[0]; }
-static void lua_get (lua_State *L, std::string &v) { v = lua_tostring(L, -1); } // FIXME: embedded '\0'
+static void lua_get (lua_State *L, std::string &v) { v = lua_isstring(L, -1)?lua_tostring(L, -1):""; } // FIXME: embedded '\0'
 
 static void lua_set (lua_State *L, int v) { lua_pushinteger(L, v); }
 static void lua_set (lua_State *L, size_t v) { lua_pushinteger(L, v); }
