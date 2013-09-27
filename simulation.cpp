@@ -39,7 +39,7 @@ void Simulation::prepare_propagators () {
 	energies = Vector_d::Zero(V);
 	freePropagator = Vector_d::Zero(V);
 	freePropagator_b = Vector_d::Zero(V);
-	potential = Vector_d::Zero(V);
+	//potential = Vector_d::Zero(V);
 	//freePropagator_x = Vector_d::Zero(V);
 	//freePropagator_x_b = Vector_d::Zero(V);
 	staggering = Array_d::Zero(V);
@@ -54,7 +54,7 @@ void Simulation::prepare_propagators () {
 		energies[i] += -2.0 * ( tx * cos(2.0*kx*pi/Kx) + ty * cos(2.0*ky*pi/Ky) + tz * cos(2.0*kz*pi/Kz) );
 		freePropagator[i] = exp(-dt*energies[i]);
 		freePropagator_b[i] = exp(dt*energies[i]);
-		potential[i] = (x+y+z)%2?-staggered_field:staggered_field;
+		//potential[i] = (x+y+z)%2?-staggered_field:staggered_field;
 		//freePropagator_x[i] = exp(-dt*potential[i]);
 		//freePropagator_x_b[i] = exp(dt*potential[i]);
 		staggering[i] = (x+y+z)%2?-1.0:1.0;
@@ -88,7 +88,7 @@ void Simulation::load (lua_State *L, int index) {
 	lua_getfield(L, index, "U");    g = -lua_tonumber(L, -1);                  lua_pop(L, 1); // FIXME: check this // should be right as seen in A above
 	lua_getfield(L, index, "mu");   mu = lua_tonumber(L, -1);                  lua_pop(L, 1);
 	lua_getfield(L, index, "B");    B = lua_tonumber(L, -1);                   lua_pop(L, 1);
-	lua_getfield(L, index, "h");    staggered_field = lua_tonumber(L, -1);     lua_pop(L, 1);
+	//lua_getfield(L, index, "h");    staggered_field = lua_tonumber(L, -1);     lua_pop(L, 1);
 	lua_getfield(L, index, "RESET");  reset = lua_toboolean(L, -1);            lua_pop(L, 1);
 	//lua_getfield(L, index, "REWEIGHT");  reweight = lua_tointeger(L, -1);      lua_pop(L, 1);
 	lua_getfield(L, index, "OUTPUT");  outfn = lua_tostring(L, -1);            lua_pop(L, 1);
@@ -123,7 +123,7 @@ void Simulation::save (lua_State *L, int index) {
 	lua_pushnumber(L, -g); lua_setfield(L, index, "U");
 	lua_pushnumber(L, mu); lua_setfield(L, index, "mu");
 	lua_pushnumber(L, B); lua_setfield(L, index, "B");
-	lua_pushnumber(L, staggered_field); lua_setfield(L, index, "h");
+	//lua_pushnumber(L, staggered_field); lua_setfield(L, index, "h");
 	lua_pushinteger(L, mslices); lua_setfield(L, index, "SLICES");
 	lua_pushinteger(L, msvd); lua_setfield(L, index, "SVD");
 	lua_pushinteger(L, max_update_size); lua_setfield(L, index, "max_update_size");
@@ -485,7 +485,7 @@ void Simulation::measure () {
 			//throw "";
 		}
 	}
-	if (staggered_field!=0.0) staggered_magnetization.add(s*(rho_up.diagonal().array()*staggering - rho_dn.diagonal().array()*staggering).sum()/V);
+	//if (staggered_field!=0.0) staggered_magnetization.add(s*(rho_up.diagonal().array()*staggering - rho_dn.diagonal().array()*staggering).sum()/V);
 }
 
 

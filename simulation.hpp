@@ -41,7 +41,7 @@ class Simulation {
 	double B; // magnetic field
 	double tx, ty, tz; // nearest neighbour hopping
 	//double Vx, Vy, Vz; // trap strength
-	double staggered_field;
+	//double staggered_field;
 	bool open_boundary;
 	std::vector<Vector_d> diagonals;
 
@@ -59,7 +59,7 @@ class Simulation {
 	Vector_d freePropagator;
 	Vector_d freePropagator_b;
 	Matrix_d freePropagator_open;
-	Vector_d potential;
+	//Vector_d potential;
 	//Vector_d freePropagator_x;
 	//Vector_d freePropagator_x_b;
 	Array_d staggering;
