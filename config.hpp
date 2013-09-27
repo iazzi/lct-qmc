@@ -15,9 +15,10 @@ namespace config {
 	named_type(double, tx);
 	named_type(double, ty);
 	named_type(double, tz);
+	named_type(std::string, type);
 	//double Vx, Vy, Vz; // trap strength
 	//double staggered_field;
-	typedef named_tuple<Lx_t, Ly_t, Lz_t, N_t, beta_t, U_t, mu_t, B_t, tx_t, ty_t, tz_t> hubbard_config;
+	typedef named_tuple<Lx_t, Ly_t, Lz_t, N_t, beta_t, U_t, mu_t, B_t, tx_t, ty_t, tz_t, type_t> hubbard_config;
 }
 
 #endif // CONFIG_HPP
