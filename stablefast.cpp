@@ -109,17 +109,9 @@ int main (int argc, char **argv) {
 							}
 							simulation.update();
 							if (simulation.psign<0.0) {
-								log << "negative sign found... saving";
-								//for (int i=0;i<10000;i++) simulation.anneal_ising();
-								//simulation.set_time_shift(0);
-								//do {
-									//simulation.anneal_ising();
-								//} while(!simulation.shift_time());
-								//log << "annealed";
-								//simulation.straighten_slices();
-								simulation.recheck();
-								//simulation.svd.diagonalize();
-								throw "";
+								//log << "negative sign found... saving";
+								//simulation.recheck();
+								//throw "";
 							}
 						}
 						log << "thread" << j << "thermalized";
@@ -130,20 +122,11 @@ int main (int argc, char **argv) {
 							if (duration_cast<seconds_type>(steady_clock::now()-t1).count()>5) {
 								t1 = steady_clock::now();
 								log << "thread" << j << "running: " << i << '/' << total_sweeps << "..." << (double(simulation.steps)/duration_cast<seconds_type>(t1-t0).count()) << "steps per second";
-								//log << simulation.sign;
-								//log << simulation.acceptance;
-								//log << simulation.density;
-								//log << simulation.magnetization;
-								//log << simulation.magnetization_slow;
-								//lock.lock();
-								//lua_getglobal(L, "print_r");
-								//L << simulation.magnetization;
-								//lua_pcall(L, 1, 0, 0);
-								//lock.unlock();
 							}
 							simulation.update();
-							simulation.measure();
+							//simulation.measure();
 							simulation.measure_sign();
+							//log << simulation.measured_sign;
 							if (simulation.psign<0.0) {
 								//simulation.svd.diagonalize();
 								//throw -1;
@@ -151,7 +134,8 @@ int main (int argc, char **argv) {
 						}
 						log << "thread" << j << "finished simulation" << job;
 						lock.lock();
-						simulation.output_results();
+						//simulation.output_results();
+						simulation.output_sign();
 						lua_rawgeti(L, -1, job);
 						simulation.save(L, lua_gettop(L));
 						lua_getglobal(L, "serialize");

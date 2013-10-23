@@ -14,9 +14,9 @@ void Simulation::prepare_open_boundaries () {
 				int b = ((x+1)%Lx)*Ly*Lz + y*Lz + z;
 				int c = x*Ly*Lz + ((y+1)%Ly)*Lz + z;
 				int d = x*Ly*Lz + y*Lz + (z+1)%Lz;
-				if (Lx>1 && x!=Lx-1) H(a, b) = H(b, a) = tx;
-				if (Ly>1 && y!=Ly-1) H(a, c) = H(c, a) = ty;
-				if (Lz>1 && z!=Lz-1) H(a, d) = H(d, a) = tz;
+				if (Lx>1 && x!=Lx-0) H(a, b) = H(b, a) = tx;
+				if (Ly>1 && y!=Ly-0) H(a, c) = H(c, a) = ty;
+				if (Lz>1 && z!=Lz-0) H(a, d) = H(d, a) = tz;
 			}
 		}
 	}
@@ -59,6 +59,64 @@ void Simulation::prepare_propagators () {
 		//freePropagator_x_b[i] = exp(dt*potential[i]);
 		staggering[i] = (x+y+z)%2?-1.0:1.0;
 	}
+}
+
+void Simulation::init () {
+	if (Lx<2) { Lx = 1; tx = 0.0; }
+	if (Ly<2) { Ly = 1; ty = 0.0; }
+	if (Lz<2) { Lz = 1; tz = 0.0; }
+	V = Lx * Ly * Lz;
+	mslices = mslices>0?mslices:N;
+	mslices = mslices<N?mslices:N;
+	time_shift = 0;
+	if (max_update_size<1) max_update_size = 1;
+	if (flips_per_update<1) flips_per_update = max_update_size;
+	randomPosition = std::uniform_int_distribution<int>(0, V-1);
+	randomTime = std::uniform_int_distribution<int>(0, N-1);
+	randomStep = std::uniform_int_distribution<int>(0, mslices-1);
+	dt = beta/N;
+	A = sqrt(exp(g*dt)-1.0);
+	diagonals.insert(diagonals.begin(), N, Vector_d::Zero(V));
+	for (size_t i=0;i<diagonals.size();i++) {
+		for (int j=0;j<V;j++) {
+			diagonals[i][j] = distribution(generator)?A:-A;
+			//diagonals[i][j] = i<N/4.9?-A:A;
+			diagonals[i][j] = -A;
+		}
+	}
+	v_x = Vector_cd::Zero(V);
+	v_p = Vector_cd::Zero(V);
+	positionSpace.setIdentity(V, V);
+	positionSpace_c.setIdentity(V, V);
+	momentumSpace.setIdentity(V, V);
+
+	const int size[] = { Lx, Ly, Lz, };
+	x2p_vec = fftw_plan_dft(3, size, reinterpret_cast<fftw_complex*>(v_x.data()), reinterpret_cast<fftw_complex*>(v_p.data()), FFTW_FORWARD, FFTW_PATIENT);
+	p2x_vec = fftw_plan_dft(3, size, reinterpret_cast<fftw_complex*>(v_p.data()), reinterpret_cast<fftw_complex*>(v_x.data()), FFTW_BACKWARD, FFTW_PATIENT);
+	x2p_col = fftw_plan_many_dft(3, size, V, reinterpret_cast<fftw_complex*>(positionSpace_c.data()),
+			NULL, 1, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()), NULL, 1, V, FFTW_FORWARD, FFTW_PATIENT);
+	p2x_col = fftw_plan_many_dft(3, size, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()),
+			NULL, 1, V, reinterpret_cast<fftw_complex*>(positionSpace_c.data()), NULL, 1, V, FFTW_BACKWARD, FFTW_PATIENT);
+	x2p_row = fftw_plan_many_dft(3, size, V, reinterpret_cast<fftw_complex*>(positionSpace_c.data()),
+			NULL, V, 1, reinterpret_cast<fftw_complex*>(momentumSpace.data()), NULL, V, 1, FFTW_FORWARD, FFTW_PATIENT);
+	p2x_row = fftw_plan_many_dft(3, size, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()),
+			NULL, V, 1, reinterpret_cast<fftw_complex*>(positionSpace_c.data()), NULL, V, 1, FFTW_BACKWARD, FFTW_PATIENT);
+
+	positionSpace.setIdentity(V, V);
+	momentumSpace.setIdentity(V, V);
+
+	prepare_propagators();
+	prepare_open_boundaries();
+
+	make_slices();
+	make_svd();
+	make_svd_inverse();
+	make_density_matrices();
+	plog = svd_probability();
+	psign = svd_sign();
+
+	init_measurements();
+	reset_updates();
 }
 
 void Simulation::load (lua_State *L, int index) {
@@ -158,8 +216,14 @@ std::pair<double, double> Simulation::rank1_probability (int x, int t) {
 	const int L = update_size;
 	update_U.col(L) = first_slice_inverse * cache.u_smart;
 	update_Vt.row(L) = cache.v_smart.transpose();
-	double d1 = ((update_Vt.topRows(L+1)*svd_inverse_up.U) * svd_inverse_up.S.asDiagonal() * (svd_inverse_up.Vt*update_U.leftCols(L+1)) + Matrix_d::Identity(L+1, L+1)).determinant();
-	double d2 = ((update_Vt.topRows(L+1)*svd_inverse_dn.U) * svd_inverse_dn.S.asDiagonal() * (svd_inverse_dn.Vt*update_U.leftCols(L+1)) + Matrix_d::Identity(L+1, L+1)).determinant();
+	double d1, d2;
+	if (true) {
+		d1 = (update_Vt.topRows(L+1)*update_U.leftCols(L+1) - (update_Vt.topRows(L+1)*svd_inverse_up.U) * svd_inverse_up.S.asDiagonal() * (svd_inverse_up.Vt*update_U.leftCols(L+1)) + Matrix_d::Identity(L+1, L+1)).determinant();
+		d2 = (update_Vt.topRows(L+1)*update_U.leftCols(L+1) - (update_Vt.topRows(L+1)*svd_inverse_dn.U) * svd_inverse_dn.S.asDiagonal() * (svd_inverse_dn.Vt*update_U.leftCols(L+1)) + Matrix_d::Identity(L+1, L+1)).determinant();
+	} else {
+		d1 = ((update_Vt.topRows(L+1)*svd_inverse_up.U) * svd_inverse_up.S.asDiagonal() * (svd_inverse_up.Vt*update_U.leftCols(L+1)) + Matrix_d::Identity(L+1, L+1)).determinant();
+		d2 = ((update_Vt.topRows(L+1)*svd_inverse_dn.U) * svd_inverse_dn.S.asDiagonal() * (svd_inverse_dn.Vt*update_U.leftCols(L+1)) + Matrix_d::Identity(L+1, L+1)).determinant();
+	}
 	double s = 1.0;
 	if (d1 < 0) {
 		s *= -1.0;
@@ -280,7 +344,7 @@ void Simulation::write_wavefunction (std::ostream &out) {
 }
 
 double Simulation::recheck () {
-	const int prec = 1024;
+	const int prec = 512;
 	PreciseMatrix A(prec), W(prec), A1(prec), A2(prec);
 	PreciseMatrix C(prec), Q(prec), wr(prec), wi(prec);
 	A = Matrix_d::Identity(V, V);
@@ -305,6 +369,7 @@ double Simulation::recheck () {
 	int sign = s1*s2*mpfr_sgn(d);
 	mpfr_abs(d, d, A.rnd());
 	mpfr_log(d, d, A.rnd());
+	std::cout << "SVDs: " << svd.S.transpose() << '\n';
 	std::cout << "svd determinant: " << (psign<0.0?"-exp(":"exp(") << plog << ')';
 	if (sign<0) {
 		std::cout << ", exact determinant: -exp(" << d << ')' << std::endl;
@@ -312,6 +377,7 @@ double Simulation::recheck () {
 		std::cout << ", exact determinant: +exp(" << d << ')' << std::endl;
 	}
 	mpfr_clear(d);
+	return sign<0?-1.0:1.0;
 	W.reduce_to_hessenberg();
 	W.extract_hessenberg_H(C);
 	C.reduce_to_ev(wr, wi);
@@ -329,11 +395,9 @@ double Simulation::recheck () {
 	}
 	std::cout << std::endl;
 	A1 = A;
-	std::cout << "allocating lambda " << n1 << ' ' << prec << std::endl;
 	mpfr_t lambda;
 	mpfr_init2(lambda, prec);
 	mpfr_mul_d(lambda, wr.coeff(n1, 0), 1.00, A1.rnd());
-	std::cout << "allocated lambda" << std::endl;
 	for (size_t i=0;i<V;i++) {
 		mpfr_sub(A1.coeff(i, i), A1.coeff(i, i), lambda, A1.rnd());
 	}
@@ -424,7 +488,20 @@ void Simulation::straighten_slices () {
 }
 
 void Simulation::measure_sign () {
-	exact_sign.add(recheck());
+	int old_msvd = msvd;
+	msvd = 1;
+	make_svd();
+	make_svd_inverse();
+	make_density_matrices();
+	double np = svd_probability();
+	double ns = svd_sign();
+	msvd = old_msvd;
+	make_svd();
+	make_svd_inverse();
+	make_density_matrices();
+	measured_sign.add(psign*update_sign);
+	sign_correlation.add(psign*update_sign*ns);
+	//if (psign*update_sign<0.0 && recheck()>0.0) throw "";
 }
 
 void Simulation::measure () {

@@ -143,6 +143,7 @@ class Simulation {
 	mymeasurement<double> interaction;
 	mymeasurement<double> sign;
 	mymeasurement<double> measured_sign;
+	mymeasurement<double> sign_correlation;
 	mymeasurement<double> exact_sign;
 	std::vector<mymeasurement<double>> d_up;
 	std::vector<mymeasurement<double>> d_dn;
@@ -186,6 +187,7 @@ class Simulation {
 		chi_d.set_name("Chi (D-wave)");
 		chi_af.set_name("Chi (AF)");
 		measured_sign.set_name("Sign (Measurements)");
+		sign_correlation.set_name("Sign Correlation");
 		exact_sign.set_name("Sign (Exact)");
 		//magnetization_slow.set_name("Magnetization (slow)");
 		for (int i=0;i<V;i++) {
@@ -208,62 +210,7 @@ class Simulation {
 		update_Vt.setZero(max_update_size, V);
 	}
 
-	void init () {
-		if (Lx<2) { Lx = 1; tx = 0.0; }
-		if (Ly<2) { Ly = 1; ty = 0.0; }
-		if (Lz<2) { Lz = 1; tz = 0.0; }
-		V = Lx * Ly * Lz;
-		mslices = mslices>0?mslices:N;
-		mslices = mslices<N?mslices:N;
-		time_shift = 0;
-		if (max_update_size<1) max_update_size = 1;
-		if (flips_per_update<1) flips_per_update = max_update_size;
-		randomPosition = std::uniform_int_distribution<int>(0, V-1);
-		randomTime = std::uniform_int_distribution<int>(0, N-1);
-		randomStep = std::uniform_int_distribution<int>(0, mslices-1);
-		dt = beta/N;
-		A = sqrt(exp(g*dt)-1.0);
-		diagonals.insert(diagonals.begin(), N, Vector_d::Zero(V));
-		for (size_t i=0;i<diagonals.size();i++) {
-			for (int j=0;j<V;j++) {
-				diagonals[i][j] = distribution(generator)?A:-A;
-				//diagonals[i][j] = i<N/4.9?-A:A;
-			}
-		}
-		v_x = Vector_cd::Zero(V);
-		v_p = Vector_cd::Zero(V);
-		positionSpace.setIdentity(V, V);
-		positionSpace_c.setIdentity(V, V);
-		momentumSpace.setIdentity(V, V);
-
-		const int size[] = { Lx, Ly, Lz, };
-		x2p_vec = fftw_plan_dft(3, size, reinterpret_cast<fftw_complex*>(v_x.data()), reinterpret_cast<fftw_complex*>(v_p.data()), FFTW_FORWARD, FFTW_PATIENT);
-		p2x_vec = fftw_plan_dft(3, size, reinterpret_cast<fftw_complex*>(v_p.data()), reinterpret_cast<fftw_complex*>(v_x.data()), FFTW_BACKWARD, FFTW_PATIENT);
-		x2p_col = fftw_plan_many_dft(3, size, V, reinterpret_cast<fftw_complex*>(positionSpace_c.data()),
-				NULL, 1, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()), NULL, 1, V, FFTW_FORWARD, FFTW_PATIENT);
-		p2x_col = fftw_plan_many_dft(3, size, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()),
-				NULL, 1, V, reinterpret_cast<fftw_complex*>(positionSpace_c.data()), NULL, 1, V, FFTW_BACKWARD, FFTW_PATIENT);
-		x2p_row = fftw_plan_many_dft(3, size, V, reinterpret_cast<fftw_complex*>(positionSpace_c.data()),
-				NULL, V, 1, reinterpret_cast<fftw_complex*>(momentumSpace.data()), NULL, V, 1, FFTW_FORWARD, FFTW_PATIENT);
-		p2x_row = fftw_plan_many_dft(3, size, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()),
-				NULL, V, 1, reinterpret_cast<fftw_complex*>(positionSpace_c.data()), NULL, V, 1, FFTW_BACKWARD, FFTW_PATIENT);
-
-		positionSpace.setIdentity(V, V);
-		momentumSpace.setIdentity(V, V);
-
-		prepare_propagators();
-		prepare_open_boundaries();
-
-		make_slices();
-		make_svd();
-		make_svd_inverse();
-		make_density_matrices();
-		plog = svd_probability();
-		psign = svd_sign();
-
-		init_measurements();
-		reset_updates();
-	}
+	void init ();
 
 	void load (lua_State *L, int index);
 
@@ -287,10 +234,10 @@ class Simulation {
 	}
 
 	void make_slices () {
-		slices.clear();
+		slices.resize(N/mslices + ((N%mslices>0)?1:0));
 		for (int i=0;i<N;i+=mslices) {
 			accumulate_forward(i, i+mslices);
-			slices.push_back(positionSpace);
+			slices[i/mslices] = positionSpace;
 		}
 	}
 
@@ -314,15 +261,23 @@ class Simulation {
 	}
 
 	void make_svd_inverse () {
-		svd_inverse = svd;
-		svd_inverse.invertInPlace();
-		svd_inverse_up = svd_inverse;
-		svd_inverse_up.add_identity(std::exp(-beta*B*0.5-beta*mu));
-		svd_inverse_up.invertInPlace();
-		svd_inverse_dn = svd_inverse;
-		svd_inverse_dn.add_identity(std::exp(+beta*B*0.5-beta*mu));
-		svd_inverse_dn.invertInPlace();
 		first_slice_inverse = slices[0].inverse();
+		if (true) {
+			make_density_matrices();
+			svd_inverse_up = svdA;
+			svd_inverse_up.invertInPlace();
+			svd_inverse_dn = svdB;
+			svd_inverse_dn.invertInPlace();
+		} else {
+			svd_inverse = svd;
+			svd_inverse.invertInPlace();
+			svd_inverse_up = svd_inverse;
+			svd_inverse_up.add_identity(std::exp(-beta*B*0.5-beta*mu));
+			svd_inverse_up.invertInPlace();
+			svd_inverse_dn = svd_inverse;
+			svd_inverse_dn.add_identity(std::exp(+beta*B*0.5-beta*mu));
+			svd_inverse_dn.invertInPlace();
+		}
 	}
 
 	double svd_probability () {
@@ -462,21 +417,35 @@ class Simulation {
 	}
 
 	void redo_all () {
-		//std::cerr << "redoing " << svd.S.array().log().sum() << std::endl;
 		make_slices();
-		//int old_msvd = msvd;
-		//msvd = 1;
 		make_svd();
-		//msvd = old_msvd;
 		make_svd_inverse();
 		make_density_matrices();
 		double np = svd_probability();
-		if (fabs(np-plog-update_prob)>1.0e-8) {
+		double ns = svd_sign();
+		//if (fabs(np-plog-update_prob)>1.0e-8 || psign*update_sign!=ns) {
+		if (psign*update_sign!=ns) {
 			std::cerr << plog+update_prob << " <> " << np << " ~~ " << np-plog-update_prob << std::endl;
-			std::cerr << "    " << np-plog << " ~~ " << update_prob << std::endl;
+			std::cerr << psign*update_sign << " <==> " << ns << std::endl;
+			plog = np;
+			psign = ns;
+			if (ns!=recheck()) {
+				int old_msvd = msvd;
+				do {
+					make_svd();
+					make_svd_inverse();
+					make_density_matrices();
+					double np = svd_probability();
+					double ns = svd_sign();
+					std::cout << (ns>0.0?"+exp(":"-exp(") << np << ") ";
+				} while (--msvd>20);
+				std::cout << std::endl;
+				msvd = old_msvd;
+			}
+			//std::cerr << "    " << np-plog << " ~~ " << update_prob << std::endl;
 		}
 		plog = np;
-		psign = svd_sign();
+		psign = ns;
 		reset_updates();
 	}
 
@@ -499,6 +468,11 @@ class Simulation {
 		return ret;
 	}
 
+	void test_wrap () {
+		time_shift = 0;
+		redo_all();
+	}
+
 	void load_sigma (lua_State *L, const char *fn);
 
 	double fraction_completed () const {
@@ -507,29 +481,12 @@ class Simulation {
 
 	void update () {
 		for (int i=0;i<flips_per_update;i++) {
+			collapse_updates();
 			acceptance.add(metropolis()?1.0:0.0);
 			sign.add(psign*update_sign);
-			measured_sign.add(psign*update_sign);
-			if (update_size>=max_update_size) {
-				plog += update_prob;
-				psign *= update_sign;
-				make_svd();
-				make_svd_inverse();
-				reset_updates();
-			}
-			//make_tests();
 		}
 		time_shift = randomTime(generator);
-		//make_slices();
 		redo_all();
-		//time_shift = randomTime(generator);
-		//make_slices();
-		//redo_all();
-		//std::cerr << "update finished" << std::endl;
-		//std::ofstream out("error.dat");
-		//for (int i=0;i<N;i++) {
-			//if (error[i].samples()>0) out << i << ' ' << error[i].mean() << std::endl;
-		//}
 	}
 
 	bool collapse_updates () {
@@ -599,6 +556,28 @@ class Simulation {
 	int timeSlices () { return N; }
 
 	void write_wavefunction (std::ostream &out);
+
+	void output_sign () {
+		std::ostringstream buf;
+		buf << outfn << "sign.dat";
+		std::ofstream out(buf.str(), reset?std::ios::trunc:std::ios::app);
+		out << "# " << params();
+		out << 1.0/(beta*tx) << ' ' << 0.5*(B+g)/tx;
+		out << ' ' << measured_sign.mean() << ' ' << measured_sign.error();
+		out << ' ' << sign_correlation.mean() << ' ' << sign_correlation.error();
+		//out << ' ' << exact_sign.mean() << ' ' << exact_sign.variance();
+		//if (staggered_field!=0.0) out << ' ' << -staggered_magnetization.mean()/staggered_field << ' ' << staggered_magnetization.variance();
+		for (int i=0;i<V;i++) {
+			//out << ' ' << d_up[i].mean();
+		}
+		for (int i=0;i<V;i++) {
+			//out << ' ' << d_dn[i].mean();
+		}
+		for (int i=1;i<=Lx/2;i++) {
+			//out << ' ' << spincorrelation[i].mean()/V << ' ' << spincorrelation[i].variance();
+		}
+		out << std::endl << std::endl;
+	}
 
 	void output_results () {
 		std::ostringstream buf;
