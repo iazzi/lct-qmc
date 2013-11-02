@@ -132,20 +132,20 @@ void Simulation::load (lua_State *L, int index) {
 		in >> generator;
 	}
 	lua_pop(L, 1);
-	lua_getfield(L, index, "Lx");   this->Lx = lua_tointeger(L, -1);           lua_pop(L, 1);
-	lua_getfield(L, index, "Ly");   this->Ly = lua_tointeger(L, -1);           lua_pop(L, 1);
-	lua_getfield(L, index, "Lz");   this->Lz = lua_tointeger(L, -1);           lua_pop(L, 1);
-	lua_getfield(L, index, "N");    N = lua_tointeger(L, -1);                  lua_pop(L, 1);
+	Lx = config.Lx;
+	Ly = config.Ly;
+	Lz = config.Lz;
+	N = config.N;
 	lua_getfield(L, index, "T");    beta = 1.0/lua_tonumber(L, -1);            lua_pop(L, 1);
-	lua_getfield(L, index, "tx");   tx = lua_tonumber(L, -1);                  lua_pop(L, 1);
-	lua_getfield(L, index, "ty");   ty = lua_tonumber(L, -1);                  lua_pop(L, 1);
-	lua_getfield(L, index, "tz");   tz = lua_tonumber(L, -1);                  lua_pop(L, 1);
+	tx = config.tx;
+	ty = config.ty;
+	tz = config.tz;
 	//lua_getfield(L, index, "Vx");   Vx = lua_tonumber(L, -1);                  lua_pop(L, 1);
 	//lua_getfield(L, index, "Vy");   Vy = lua_tonumber(L, -1);                  lua_pop(L, 1);
 	//lua_getfield(L, index, "Vz");   Vz = lua_tonumber(L, -1);                  lua_pop(L, 1);
-	lua_getfield(L, index, "U");    g = -lua_tonumber(L, -1);                  lua_pop(L, 1); // FIXME: check this // should be right as seen in A above
-	lua_getfield(L, index, "mu");   mu = lua_tonumber(L, -1);                  lua_pop(L, 1);
-	lua_getfield(L, index, "B");    B = lua_tonumber(L, -1);                   lua_pop(L, 1);
+	g = -config.U;
+	mu = config.mu;
+	B = config.B;
 	//lua_getfield(L, index, "h");    staggered_field = lua_tonumber(L, -1);     lua_pop(L, 1);
 	lua_getfield(L, index, "RESET");  reset = lua_toboolean(L, -1);            lua_pop(L, 1);
 	//lua_getfield(L, index, "REWEIGHT");  reweight = lua_tointeger(L, -1);      lua_pop(L, 1);
@@ -162,7 +162,7 @@ void Simulation::load (lua_State *L, int index) {
 }
 
 void Simulation::save (lua_State *L, int index) {
-	if (index<1) index = lua_gettop(L)+index;
+	if (index<1) index = lua_gettop(L)+index+1;
 	std::stringstream out;
 	out << generator;
 	lua_pushstring(L, out.str().c_str());
@@ -489,7 +489,7 @@ void Simulation::straighten_slices () {
 
 void Simulation::measure_sign () {
 	int old_msvd = msvd;
-	msvd = 1;
+	msvd = 4;
 	make_svd();
 	make_svd_inverse();
 	make_density_matrices();
