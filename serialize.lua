@@ -13,7 +13,7 @@ local function serialize (f, o)
 	elseif t=='table' then
 		f:write('{\n')
 		for k, v in pairs(o) do
-			if type(k)=='string' and k:match('[_%a][_%w]*') then
+			if type(k)=='string' and k:match('^[_%a][_%w]*$') then
 				f:write(' ', k, ' = ')
 			else
 				f:write(' [') serialize(f, k) f:write('] = ')
