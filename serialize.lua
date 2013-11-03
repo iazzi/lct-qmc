@@ -1,8 +1,9 @@
 #!/usr/bin/lua
 
 local function serialize (f, o)
+	local flush = false
 	if f==nil then return end
-	if type(f)=='string' then f = assert(io.open(f, 'w')) end
+	if type(f)=='string' then f = assert(io.open(f, 'w')) f:write("return ") flush = true end
 	local t = type(o)
 	if t=='number' then
 		f:write(string.format('%a', o))
@@ -25,6 +26,7 @@ local function serialize (f, o)
 	else
 		io.stderr:write("Unknown type `"..t.."`")
 	end
+	if flush then f:flush() end
 end
 
 return serialize
