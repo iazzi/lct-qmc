@@ -53,19 +53,21 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 		log << "thread" << j << "running simulation" << job;
 		lua_getfield(L, -1, "THERMALIZATION"); int thermalization_sweeps = lua_tointeger(L, -1); lua_pop(L, 1);
 		lua_getfield(L, -1, "SWEEPS"); int total_sweeps = lua_tointeger(L, -1); lua_pop(L, 1);
+		lua_getfield(L, -1, "savefile"); std::string savefile = lua_isstring(L, -1)?lua_tostring(L, -1):std::string(); lua_pop(L, 1);
 		Simulation simulation(L, -1);
 		lua_pop(L, 1);
+		if (!savefile.empty()) {
+			if (luaL_dofile(L, savefile.c_str())) {
+				lua_pop(L, 1);
+			} else {
+				lua_getfield(L, -1, "THERMALIZATION"); thermalization_sweeps = lua_tointeger(L, -1); lua_pop(L, 1);
+				lua_getfield(L, -1, "SWEEPS"); total_sweeps = lua_tointeger(L, -1); lua_pop(L, 1);
+				simulation.load_checkpoint(L);
+				lua_pop(L, 1);
+			}
+		}
 		//simulation.load_sigma(L, "nice.lua");
 		lock.unlock();
-		//for (int i=0;i<0;i++) simulation.update_ising();
-		//log << "annealed";
-		//simulation.straighten_slices();
-		//simulation.set_time_shift(0);
-		//do {
-		//simulation.anneal_ising();
-		//} while(!simulation.shift_time());
-		//simulation.recheck();
-		//simulation.svd.diagonalize();
 		try {
 			t0 = steady_clock::now();
 			for (int i=0;i<thermalization_sweeps;i++) {
@@ -74,6 +76,20 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 					log << "thread" << j << "thermalizing: " << i << '/' << thermalization_sweeps << "..." << (double(simulation.steps)/duration_cast<seconds_type>(t1-t0).count()) << "steps per second";
 					//log << simulation.sign;
 					//log << simulation.acceptance;
+					if (!savefile.empty()) {
+						lock.lock();
+						simulation.save_checkpoint(L);
+						lua_pushinteger(L, thermalization_sweeps-i);
+						lua_setfield(L, -2, "THERMALIZATION");
+						lua_pushinteger(L, total_sweeps);
+						lua_setfield(L, -2, "SWEEPS");
+						lua_getglobal(L, "serialize");
+						lua_insert(L, -2);
+						lua_pushstring(L, savefile.c_str());
+						lua_insert(L, -2);
+						lua_pcall(L, 2, 0, 0);
+						lock.unlock();
+					}
 				}
 				simulation.update();
 				if (simulation.psign<0.0) {
@@ -90,6 +106,20 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 				if (duration_cast<seconds_type>(steady_clock::now()-t1).count()>5) {
 					t1 = steady_clock::now();
 					log << "thread" << j << "running: " << i << '/' << total_sweeps << "..." << (double(simulation.steps)/duration_cast<seconds_type>(t1-t0).count()) << "steps per second";
+					if (!savefile.empty()) {
+						lock.lock();
+						simulation.save_checkpoint(L);
+						lua_pushinteger(L, 0);
+						lua_setfield(L, -2, "THERMALIZATION");
+						lua_pushinteger(L, total_sweeps-i);
+						lua_setfield(L, -2, "SWEEPS");
+						lua_getglobal(L, "serialize");
+						lua_insert(L, -2);
+						lua_pushstring(L, savefile.c_str());
+						lua_insert(L, -2);
+						lua_pcall(L, 2, 0, 0);
+						lock.unlock();
+					}
 				}
 				simulation.update();
 				//simulation.measure();
