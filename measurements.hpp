@@ -196,6 +196,16 @@ template <typename T, bool Log> lua_State* operator>> (lua_State *L, measurement
 	return L;
 }
 
+template <typename T, bool Log>
+void lua_set (lua_State *L, measurement<T, Log> m) {
+	L << m;
+}
+
+template <typename T, bool Log>
+void lua_get (lua_State *L, measurement<T, Log> &m) {
+	L >>= m;
+}
+
 
 #endif // __MEASUREMENTS_HPP
 
