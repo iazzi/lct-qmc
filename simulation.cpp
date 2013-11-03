@@ -207,6 +207,78 @@ void Simulation::save (lua_State *L, int index) {
 	lua_setfield(L, index, "results");
 }
 
+void Simulation::load_checkpoint (lua_State *L) {
+	lua_getfield(L, -1, "SEED");
+	std::stringstream in;
+	in.str(lua_tostring(L, -1));
+	in >> generator;
+	lua_pop(L, 1);
+	lua_getfield(L, -1, "time_shift");
+	time_shift = lua_tointeger(L, -1);
+	lua_pop(L, 1);
+	lua_getfield(L, -1, "results");
+	lua_getfield(L, -1, "acceptance");
+	L >> acceptance;
+	lua_getfield(L, -1, "sign");
+	L >> sign;
+	lua_getfield(L, -1, "measured_sign");
+	L >> measured_sign;
+	lua_getfield(L, -1, "sign_correlation");
+	L >> sign_correlation;
+	lua_pop(L, 1);
+	lua_getfield(L, -1, "sigma");
+	for (int i=0;i<N;i++) {
+		for (int j=0;j<V;j++) {
+			lua_rawgeti(L, -1, i*V+j+1);
+			diagonals[i][j] = lua_tonumber(L, -1);
+			lua_pop(L, 1);
+			//std::cerr << (diagonals[i][j]<0.0?'-':'+') << ' ';
+		}
+	}
+	//std::cerr << std::endl;
+	lua_pop(L, 1);
+}
+
+void Simulation::save_checkpoint (lua_State *L) {
+	lua_newtable(L);
+	std::stringstream out;
+	out << generator;
+	lua_pushstring(L, out.str().c_str());
+	lua_setfield(L, -2, "SEED");
+	lua_pushinteger(L, time_shift);
+	lua_setfield(L, -2, "time_shift");
+	lua_newtable(L);
+	L << sign;
+	lua_setfield(L, -2, "sign");
+	L << acceptance;
+	lua_setfield(L, -2, "acceptance");
+	L << density;
+	lua_setfield(L, -2, "density");
+	L << magnetization;
+	lua_setfield(L, -2, "magnetization");
+	L << order_parameter;
+	lua_setfield(L, -2, "order_parameter");
+	L << chi_af;
+	lua_setfield(L, -2, "chi_af");
+	L << measured_sign;
+	lua_setfield(L, -2, "measured_sign");
+	L << sign_correlation;
+	lua_setfield(L, -2, "sign_correlation");
+	L << chi_d;
+	lua_setfield(L, -2, "chi_d");
+	lua_setfield(L, -2, "results");
+	lua_newtable(L);
+	for (int i=0;i<N;i++) {
+		for (int j=0;j<V;j++) {
+			lua_pushnumber(L, diagonals[i][j]);
+			lua_rawseti(L, -2, i*V+j+1);
+			//std::cerr << (diagonals[i][j]<0.0?'-':'+') << ' ';
+		}
+	}
+	//std::cerr << std::endl;
+	lua_setfield(L, -2, "sigma");
+}
+
 std::pair<double, double> Simulation::rank1_probability (int x, int t) {
 	compute_uv_f_short(x, t);
 	//diagonal(t)[x] = -diagonal(t)[x];

@@ -213,8 +213,9 @@ class Simulation {
 	void init ();
 
 	void load (lua_State *L, int index);
-
 	void save (lua_State *L, int index);
+	void load_checkpoint (lua_State *L);
+	void save_checkpoint (lua_State *L);
 
 	Simulation (lua_State *L, int index) : distribution(0.8), trialDistribution(1.0), steps(0) {
 		load(L, index);
@@ -424,7 +425,7 @@ class Simulation {
 		double np = svd_probability();
 		double ns = svd_sign();
 		//if (fabs(np-plog-update_prob)>1.0e-8 || psign*update_sign!=ns) {
-		if (psign*update_sign!=ns) {
+		if (psign*update_sign!=ns && false) {
 			std::cerr << plog+update_prob << " <> " << np << " ~~ " << np-plog-update_prob << std::endl;
 			std::cerr << psign*update_sign << " <==> " << ns << std::endl;
 			plog = np;
