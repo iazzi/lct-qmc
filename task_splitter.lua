@@ -3,6 +3,7 @@
 local conf, dir = ...
 local t = dofile(conf)
 dir = '/cluster/scratch_xl/public/miazzi/'..dir..'/'
+local prog = io.popen('pwd'):read('*l')..'/stablefast'
 
 assert(os.execute('mkdir '..dir))
 os.execute('cp '..conf..' '..dir..'config.lua')
@@ -20,6 +21,7 @@ for i, c in ipairs(t) do
 		else
 		end
 	end
+	f:write('    savefile = "'..dir..tostring(i)..'.out",\n')
 	f:write('    outfile = "'..dir..tostring(i)..'.out",\n')
 	f:write('  },\n')
 	f:write('}\n')

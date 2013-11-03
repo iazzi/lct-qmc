@@ -42,8 +42,8 @@ local seed = 33333 -- os.time()
 local mu_min, mu_max = -2.0*(tx+ty+tz), U/2
 --mu_max, mu_min = mu_max - 0.5*t, mu_max - 1.20*t
 
-for y in range(mu_max, mu_min, 30) do
-	for x in range(0.05, 0.5, 20) do
+for y in range(mu_max, mu_max, 30) do
+	for x in range(0.5, 0.5, -20) do
 			seed = seed + 127
 			tasks:insert( flip_params{
 				Lx = 4,
@@ -58,8 +58,8 @@ for y in range(mu_max, mu_min, 30) do
 				mu = y,
 				B = 0.0,
 				h = 0.0e-2,
-				THERMALIZATION = 30000,
-				SWEEPS = 300000,
+				THERMALIZATION = 300,
+				SWEEPS = 300,
 				SEED = seed,
 				OUTPUT = 'sign_',
 				SLICES = 1,
@@ -67,6 +67,9 @@ for y in range(mu_max, mu_min, 30) do
 				max_update_size = 1,
 				flips_per_update = 1;
 				open_boundary = true,
+				savefile = "save.test",
+				outfile = "out.test",
+				type="open";
 			} )
 	end
 end
