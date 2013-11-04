@@ -22,7 +22,7 @@ local function serialize (f, o)
 			serialize(f, v)
 			f:write(',\n')
 		end
-		f:write('}\n')
+		f:write('}')
 	else
 		io.stderr:write("Unknown type `"..t.."`")
 	end

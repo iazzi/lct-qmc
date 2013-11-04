@@ -78,8 +78,12 @@ class measurement {
 			return m2 - m*m;
 		}
 
-		T error (int i = 0) const {
+		T error (int i) const {
 			return sqrt( variance(i) / double(n_[i]) );
+		}
+
+		T error () const {
+			return error(std::max(size_t(0), bins()-6));
 		}
 
 		size_t bins() const { return n_.size(); }
@@ -98,8 +102,7 @@ template <typename T, bool Log> std::ostream& operator<< (std::ostream& out, con
 	if (m.samples()==0) {
 		out << m.name() << ": Empty." << std::endl;
 	} else {
-		int N = m.bins()-6;
-		N = N>0?N:0;
+		int N = std::max(m.bins()-6, sizet(0));
 		out << m.name() << ": " << m.mean() << " +- " << m.error(N) << std::endl;
 		if (N<2 || 2*m.error(N-1)<(m.error(N)+m.error(N-2))) {
 			out << "NOT CONVERGING" << std::endl;
