@@ -39,6 +39,7 @@ typedef std::chrono::duration<double> seconds_type;
 void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic<int> &current, std::atomic<int> &failed) {
 	steady_clock::time_point t0 = steady_clock::now();
 	steady_clock::time_point t1 = steady_clock::now();
+	steady_clock::time_point t2 = steady_clock::now();
 	log << "thread" << j << "starting";
 	while (true) {
 		int job = current.fetch_add(1);
@@ -71,25 +72,26 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 		try {
 			t0 = steady_clock::now();
 			for (int i=0;i<thermalization_sweeps;i++) {
+				if (duration_cast<seconds_type>(steady_clock::now()-t2).count()>120 && !savefile.empty()) {
+					t2 = steady_clock::now();
+					lock.lock();
+					simulation.save_checkpoint(L);
+					lua_pushinteger(L, thermalization_sweeps-i);
+					lua_setfield(L, -2, "THERMALIZATION");
+					lua_pushinteger(L, total_sweeps);
+					lua_setfield(L, -2, "SWEEPS");
+					lua_pushstring(L, getenv("LSB_JOBID"));
+					lua_setfield(L, -2, "JOBID");
+					lua_getglobal(L, "serialize");
+					lua_insert(L, -2);
+					lua_pushstring(L, savefile.c_str());
+					lua_insert(L, -2);
+					lua_pcall(L, 2, 0, 0);
+					lock.unlock();
+				}
 				if (duration_cast<seconds_type>(steady_clock::now()-t1).count()>5) {
 					t1 = steady_clock::now();
 					log << "thread" << j << "thermalizing: " << i << '/' << thermalization_sweeps << "..." << (double(simulation.steps)/duration_cast<seconds_type>(t1-t0).count()) << "steps per second";
-					//log << simulation.sign;
-					//log << simulation.acceptance;
-					if (!savefile.empty()) {
-						lock.lock();
-						simulation.save_checkpoint(L);
-						lua_pushinteger(L, thermalization_sweeps-i);
-						lua_setfield(L, -2, "THERMALIZATION");
-						lua_pushinteger(L, total_sweeps);
-						lua_setfield(L, -2, "SWEEPS");
-						lua_getglobal(L, "serialize");
-						lua_insert(L, -2);
-						lua_pushstring(L, savefile.c_str());
-						lua_insert(L, -2);
-						lua_pcall(L, 2, 0, 0);
-						lock.unlock();
-					}
 				}
 				simulation.update();
 				if (simulation.psign<0.0) {
@@ -103,23 +105,26 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 			simulation.steps = 0;
 			t0 = steady_clock::now();
 			for (int i=0;i<total_sweeps;i++) {
+				if (duration_cast<seconds_type>(steady_clock::now()-t2).count()>120 && !savefile.empty()) {
+					t2 = steady_clock::now();
+					lock.lock();
+					simulation.save_checkpoint(L);
+					lua_pushinteger(L, 0);
+					lua_setfield(L, -2, "THERMALIZATION");
+					lua_pushinteger(L, total_sweeps-i);
+					lua_setfield(L, -2, "SWEEPS");
+					lua_pushstring(L, getenv("LSB_JOBID"));
+					lua_setfield(L, -2, "JOBID");
+					lua_getglobal(L, "serialize");
+					lua_insert(L, -2);
+					lua_pushstring(L, savefile.c_str());
+					lua_insert(L, -2);
+					lua_pcall(L, 2, 0, 0);
+					lock.unlock();
+				}
 				if (duration_cast<seconds_type>(steady_clock::now()-t1).count()>5) {
 					t1 = steady_clock::now();
 					log << "thread" << j << "running: " << i << '/' << total_sweeps << "..." << (double(simulation.steps)/duration_cast<seconds_type>(t1-t0).count()) << "steps per second";
-					if (!savefile.empty()) {
-						lock.lock();
-						simulation.save_checkpoint(L);
-						lua_pushinteger(L, 0);
-						lua_setfield(L, -2, "THERMALIZATION");
-						lua_pushinteger(L, total_sweeps-i);
-						lua_setfield(L, -2, "SWEEPS");
-						lua_getglobal(L, "serialize");
-						lua_insert(L, -2);
-						lua_pushstring(L, savefile.c_str());
-						lua_insert(L, -2);
-						lua_pcall(L, 2, 0, 0);
-						lock.unlock();
-					}
 				}
 				simulation.update();
 				//simulation.measure();
