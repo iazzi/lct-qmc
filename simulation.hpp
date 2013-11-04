@@ -29,6 +29,8 @@ template <typename T> using mymeasurement = measurement<T, false>;
 
 class Simulation {
 	private:
+
+	// Model parameters
 	config::hubbard_config config;
 	int Lx, Ly, Lz; // size of the system
 	int V; // volume of the system
@@ -42,13 +44,23 @@ class Simulation {
 	double tx, ty, tz; // nearest neighbour hopping
 	//double Vx, Vy, Vz; // trap strength
 	//double staggered_field;
-	bool open_boundary;
+
+
+	//state
 	std::vector<Vector_d> diagonals;
 
-	//int update_start;
-	//int update_end;
-
+	// Monte Carlo scheme settings
 	std::mt19937_64 generator;
+	bool reset;
+	std::string outfn;
+	int mslices;
+	int msvd;
+	int flips_per_update;
+	int max_update_size;
+	bool open_boundary;
+
+
+	// RNG distributions
 	std::bernoulli_distribution distribution;
 	std::uniform_int_distribution<int> randomPosition;
 	std::uniform_int_distribution<int> randomTime;
@@ -68,14 +80,11 @@ class Simulation {
 	Matrix_cd positionSpace_c; // current matrix in position space
 	Matrix_cd momentumSpace;
 
-	int mslices;
 	std::vector<Matrix_d> slices;
-	int flips_per_update;
 
 	double update_prob;
 	double update_sign;
 	int update_size;
-	int max_update_size;
 	Matrix_d update_U;
 	Matrix_d update_Vt;
 
@@ -83,7 +92,6 @@ class Simulation {
 
 	public:
 
-	int msvd;
 	SVDHelper svd;
 	SVDHelper svdA;
 	SVDHelper svdB;
@@ -106,11 +114,6 @@ class Simulation {
 
 	double plog;
 	double psign;
-
-	bool reset;
-	//int reweight;
-	std::string outfn;
-	//std::ofstream logfile;
 
 	Matrix_d rho_up;
 	Matrix_d rho_dn;
@@ -149,6 +152,7 @@ class Simulation {
 	std::vector<mymeasurement<double>> d_dn;
 	std::vector<mymeasurement<double>> spincorrelation;
 	std::vector<mymeasurement<double>> error;
+	// RNG distributions
 	mymeasurement<double> staggered_magnetization;
 
 	int time_shift;

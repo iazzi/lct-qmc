@@ -124,14 +124,6 @@ void Simulation::load (lua_State *L, int index) {
 	lua_get(L, config);
 	lua_pop(L, 1);
 	//std::cerr << config << std::endl;
-	lua_getfield(L, index, "SEED");
-	if (lua_isnumber(L, -1)) {
-		generator.seed(lua_tointeger(L, -1));
-	} else if (lua_isstring(L, -1)) {
-		std::stringstream in(std::string(lua_tostring(L, -1)));
-		in >> generator;
-	}
-	lua_pop(L, 1);
 	Lx = config.Lx;
 	Ly = config.Ly;
 	Lz = config.Lz;
@@ -143,6 +135,14 @@ void Simulation::load (lua_State *L, int index) {
 	g = -config.U;
 	mu = config.mu;
 	B = config.B;
+	lua_getfield(L, index, "SEED");
+	if (lua_isnumber(L, -1)) {
+		generator.seed(lua_tointeger(L, -1));
+	} else if (lua_isstring(L, -1)) {
+		std::stringstream in(std::string(lua_tostring(L, -1)));
+		in >> generator;
+	}
+	lua_pop(L, 1);
 	//lua_getfield(L, index, "h");    staggered_field = lua_tonumber(L, -1);     lua_pop(L, 1);
 	lua_getfield(L, index, "RESET");  reset = lua_toboolean(L, -1);            lua_pop(L, 1);
 	//lua_getfield(L, index, "REWEIGHT");  reweight = lua_tointeger(L, -1);      lua_pop(L, 1);
@@ -152,8 +152,6 @@ void Simulation::load (lua_State *L, int index) {
 	lua_getfield(L, index, "max_update_size");     max_update_size = lua_tointeger(L, -1);            lua_pop(L, 1);
 	lua_getfield(L, index, "flips_per_update");     flips_per_update = lua_tointeger(L, -1);            lua_pop(L, 1);
 	lua_getfield(L, index, "open_boundary");     open_boundary = lua_toboolean(L, -1);            lua_pop(L, 1);
-	//lua_getfield(L, index, "update_start");     update_start = lua_tointeger(L, -1);         lua_pop(L, 1);
-	//lua_getfield(L, index, "update_end");       update_end = lua_tointeger(L, -1);           lua_pop(L, 1);
 	//lua_getfield(L, index, "LOGFILE");  logfile.open(lua_tostring(L, -1));     lua_pop(L, 1);
 	init();
 }
