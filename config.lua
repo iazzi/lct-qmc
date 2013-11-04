@@ -50,6 +50,7 @@ for y in range(mu_max, mu_max, 30) do
 				Ly = 4,
 				Lz = 1,
 				T = x*t,
+				beta = 1.0/x/t,
 				N = 20/x,
 				tx = 1.0*tx,
 				ty = 1.0*ty,
