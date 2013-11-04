@@ -25,7 +25,7 @@ void Simulation::prepare_open_boundaries () {
 	solver.compute(H);
 	freePropagator_open = solver.eigenvectors() * (-dt*solver.eigenvalues().array()).exp().matrix().asDiagonal() * solver.eigenvectors().transpose();
 	//std::cerr << "() " << solver.eigenvalues().array().sum() << std::endl;
-	std::cout << H << std::endl << std::endl;
+	//std::cout << H << std::endl << std::endl;
 	//v_x.setRandom();
 	//std::cout << (freePropagator_open*v_x).transpose() << std::endl;
 	//apply_propagator_vector();
@@ -136,13 +136,10 @@ void Simulation::load (lua_State *L, int index) {
 	Ly = config.Ly;
 	Lz = config.Lz;
 	N = config.N;
-	lua_getfield(L, index, "T");    beta = 1.0/lua_tonumber(L, -1);            lua_pop(L, 1);
+	beta = config.beta;
 	tx = config.tx;
 	ty = config.ty;
 	tz = config.tz;
-	//lua_getfield(L, index, "Vx");   Vx = lua_tonumber(L, -1);                  lua_pop(L, 1);
-	//lua_getfield(L, index, "Vy");   Vy = lua_tonumber(L, -1);                  lua_pop(L, 1);
-	//lua_getfield(L, index, "Vz");   Vz = lua_tonumber(L, -1);                  lua_pop(L, 1);
 	g = -config.U;
 	mu = config.mu;
 	B = config.B;
