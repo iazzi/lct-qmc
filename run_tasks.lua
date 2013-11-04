@@ -4,7 +4,7 @@ local name, time = ...
 dir = '/cluster/scratch_xl/public/miazzi/'..name..'/'
 time = time or '1:00'
 
-local prog = io.popen('pwd'):read('*l')..'/stablefast'
+local prog = io.popen('pwd'):read('*l')..'/main'
 if not io.open(dir..'exec') then
 	os.execute('cp '..prog..' '..dir..'exec')
 else
