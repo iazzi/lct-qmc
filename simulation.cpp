@@ -431,7 +431,7 @@ double Simulation::recheck () {
 	mpfr_t d;
 	mpfr_init2(d, prec);
 	mpfr_set_d(d, 1.0, A.rnd());
-	for (size_t i=0;i<V;i++) {
+	for (int i=0;i<V;i++) {
 		mpfr_mul(d, d, A1.coeff(i, i), A1.rnd());
 		mpfr_mul(d, d, A2.coeff(i, i), A2.rnd());
 	}
@@ -451,7 +451,7 @@ double Simulation::recheck () {
 	W.extract_hessenberg_H(C);
 	C.reduce_to_ev(wr, wi);
 	int n1 = -1, n2 = -1;
-	for (size_t i=0;i<V;i++) {
+	for (int i=0;i<V;i++) {
 		if (mpfr_zero_p(wi.coeff(i, 0)) && mpfr_sgn(wr.coeff(i, 0))<0) {
 			if (n1==-1) {
 				n1 = i;
@@ -467,7 +467,7 @@ double Simulation::recheck () {
 	mpfr_t lambda;
 	mpfr_init2(lambda, prec);
 	mpfr_mul_d(lambda, wr.coeff(n1, 0), 1.00, A1.rnd());
-	for (size_t i=0;i<V;i++) {
+	for (int i=0;i<V;i++) {
 		mpfr_sub(A1.coeff(i, i), A1.coeff(i, i), lambda, A1.rnd());
 	}
 	std::cout << "todo: LU" << std::endl;
@@ -562,7 +562,7 @@ void Simulation::measure_sign () {
 	make_svd();
 	make_svd_inverse();
 	make_density_matrices();
-	double np = svd_probability();
+	//double np = svd_probability();
 	double ns = svd_sign();
 	msvd = old_msvd;
 	make_svd();
