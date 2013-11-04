@@ -590,16 +590,16 @@ class Simulation {
 		outfn = buf.str();
 		std::ofstream out(outfn, reset?std::ios::trunc:std::ios::app);
 		out << 1.0/(beta*tx) << ' ' << 0.5*(B+g)/tx
-			<< ' ' << density.mean() << ' ' << density.variance()
-			<< ' ' << magnetization.mean() << ' ' << magnetization.variance()
+			<< ' ' << density.mean() << ' ' << density.error()
+			<< ' ' << magnetization.mean() << ' ' << magnetization.error()
 			//<< ' ' << acceptance.mean() << ' ' << acceptance.variance()
-			<< ' ' << kinetic.mean()/tx/V << ' ' << kinetic.variance()/tx/tx/V/V
-			<< ' ' << interaction.mean() << ' ' << interaction.variance();
-		out << ' ' << order_parameter.mean() << ' ' << order_parameter.variance();
-		out << ' ' << chi_af.mean() << ' ' << chi_af.variance();
-		out << ' ' << chi_d.mean() << ' ' << chi_d.variance();
-		out << ' ' << measured_sign.mean() << ' ' << measured_sign.variance();
-		out << ' ' << exact_sign.mean() << ' ' << exact_sign.variance();
+			<< ' ' << kinetic.mean()/tx/V << ' ' << kinetic.error()/tx/tx/V/V
+			<< ' ' << interaction.mean() << ' ' << interaction.error();
+		out << ' ' << order_parameter.mean() << ' ' << order_parameter.error();
+		out << ' ' << chi_af.mean() << ' ' << chi_af.error();
+		out << ' ' << chi_d.mean() << ' ' << chi_d.error();
+		out << ' ' << measured_sign.mean() << ' ' << measured_sign.error();
+		out << ' ' << exact_sign.mean() << ' ' << exact_sign.error();
 		//if (staggered_field!=0.0) out << ' ' << -staggered_magnetization.mean()/staggered_field << ' ' << staggered_magnetization.variance();
 		for (int i=0;i<V;i++) {
 			//out << ' ' << d_up[i].mean();
