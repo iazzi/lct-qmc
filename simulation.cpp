@@ -585,7 +585,7 @@ void Simulation::measure () {
 	magnetization.add(s*(n_up-n_dn)/2.0/V);
 	//magnetization_slow.add(s*(n_up-n_dn)/2.0/V);
 	order_parameter.add(op);
-	kinetic.add(s*K_up-s*K_dn);
+	kinetic.add(s*(K_up-K_dn)/tx/V);
 	interaction.add(s*g*n2/tx/V);
 	//sign.add(svd_sign());
 	//- (d1_up*d2_up).sum() - (d1_dn*d2_dn).sum();

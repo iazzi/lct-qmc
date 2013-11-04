@@ -593,7 +593,7 @@ class Simulation {
 			<< ' ' << density.mean() << ' ' << density.error()
 			<< ' ' << magnetization.mean() << ' ' << magnetization.error()
 			//<< ' ' << acceptance.mean() << ' ' << acceptance.variance()
-			<< ' ' << kinetic.mean()/tx/V << ' ' << kinetic.error()/tx/tx/V/V
+			<< ' ' << kinetic.mean() << ' ' << kinetic.error()
 			<< ' ' << interaction.mean() << ' ' << interaction.error();
 		out << ' ' << order_parameter.mean() << ' ' << order_parameter.error();
 		out << ' ' << chi_af.mean() << ' ' << chi_af.error();
