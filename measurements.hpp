@@ -102,7 +102,7 @@ template <typename T, bool Log> std::ostream& operator<< (std::ostream& out, con
 	if (m.samples()==0) {
 		out << m.name() << ": Empty." << std::endl;
 	} else {
-		int N = std::max(m.bins()-6, sizet(0));
+		int N = std::max(m.bins()-6, size_t(0));
 		out << m.name() << ": " << m.mean() << " +- " << m.error(N) << std::endl;
 		if (N<2 || 2*m.error(N-1)<(m.error(N)+m.error(N-2))) {
 			out << "NOT CONVERGING" << std::endl;
