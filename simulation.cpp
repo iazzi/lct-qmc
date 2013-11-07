@@ -195,8 +195,8 @@ void Simulation::save (lua_State *L, int index) {
 	lua_setfield(L, -2, "order_parameter");
 	L << chi_af;
 	lua_setfield(L, -2, "chi_af");
-	L << measured_sign;
-	lua_setfield(L, -2, "measured_sign");
+	//L << measured_sign;
+	//lua_setfield(L, -2, "measured_sign");
 	L << chi_d;
 	lua_setfield(L, -2, "chi_d");
 	lua_setfield(L, index, "results");
@@ -212,14 +212,33 @@ void Simulation::load_checkpoint (lua_State *L) {
 	time_shift = lua_tointeger(L, -1);
 	lua_pop(L, 1);
 	lua_getfield(L, -1, "results");
-	lua_getfield(L, -1, "acceptance");
-	L >> acceptance;
 	lua_getfield(L, -1, "sign");
-	L >> sign;
-	lua_getfield(L, -1, "measured_sign");
-	L >> measured_sign;
-	lua_getfield(L, -1, "sign_correlation");
-	L >> sign_correlation;
+	lua_get(L, sign);
+	lua_pop(L, 1);
+	lua_getfield(L, -1, "acceptance");
+	lua_get(L, acceptance);
+	lua_pop(L, 1);
+	lua_getfield(L, -1, "density");
+	lua_get(L, density);
+	lua_pop(L, 1);
+	lua_getfield(L, -1, "magnetization");
+	lua_get(L, magnetization);
+	lua_pop(L, 1);
+	lua_getfield(L, -1, "order_parameter");
+	lua_get(L, order_parameter);
+	lua_pop(L, 1);
+	lua_getfield(L, -1, "chi_af");
+	lua_get(L, chi_af);
+	lua_pop(L, 1);
+	//lua_getfield(L, -1, "measured_sign");
+	//lua_get(L, measured_sign);
+	//lua_pop(L, 1);
+	//lua_getfield(L, -1, "sign_correlation");
+	//lua_get(L, sign_correlation);
+	//lua_pop(L, 1);
+	lua_getfield(L, -1, "chi_d");
+	lua_get(L, chi_d);
+	lua_pop(L, 1);
 	lua_pop(L, 1);
 	lua_getfield(L, -1, "sigma");
 	for (int i=0;i<N;i++) {
@@ -255,10 +274,10 @@ void Simulation::save_checkpoint (lua_State *L) {
 	lua_setfield(L, -2, "order_parameter");
 	L << chi_af;
 	lua_setfield(L, -2, "chi_af");
-	L << measured_sign;
-	lua_setfield(L, -2, "measured_sign");
-	L << sign_correlation;
-	lua_setfield(L, -2, "sign_correlation");
+	//L << measured_sign;
+	//lua_setfield(L, -2, "measured_sign");
+	//L << sign_correlation;
+	//lua_setfield(L, -2, "sign_correlation");
 	L << chi_d;
 	lua_setfield(L, -2, "chi_d");
 	lua_setfield(L, -2, "results");
@@ -555,19 +574,19 @@ void Simulation::straighten_slices () {
 }
 
 void Simulation::measure_sign () {
-	int old_msvd = msvd;
-	msvd = 4;
-	make_svd();
-	make_svd_inverse();
-	make_density_matrices();
+	//int old_msvd = msvd;
+	//msvd = 4;
+	//make_svd();
+	//make_svd_inverse();
+	//make_density_matrices();
 	//double np = svd_probability();
-	double ns = svd_sign();
-	msvd = old_msvd;
-	make_svd();
-	make_svd_inverse();
-	make_density_matrices();
-	measured_sign.add(psign*update_sign);
-	sign_correlation.add(psign*update_sign*ns);
+	//double ns = svd_sign();
+	//msvd = old_msvd;
+	//make_svd();
+	//make_svd_inverse();
+	//make_density_matrices();
+	sign.add(psign*update_sign);
+	//sign_correlation.add(psign*update_sign*ns);
 	//if (psign*update_sign<0.0 && recheck()>0.0) throw "";
 }
 
@@ -581,6 +600,7 @@ void Simulation::measure () {
 	double n_dn = rho_dn.diagonal().array().sum();
 	double op = (rho_up.diagonal().array()-rho_dn.diagonal().array()).square().sum();
 	double n2 = (rho_up.diagonal().array()*rho_dn.diagonal().array()).sum();
+	sign.add(psign*update_sign);
 	density.add(s*(n_up+n_dn)/V);
 	magnetization.add(s*(n_up-n_dn)/2.0/V);
 	//magnetization_slow.add(s*(n_up-n_dn)/2.0/V);
@@ -600,9 +620,9 @@ void Simulation::measure () {
 	for (const Matrix_d& U : slices) {
 		//F_up.applyOnTheLeft(U*std::exp(+dtau*B*0.5+dtau*mu));
 		//F_dn.applyOnTheLeft(U*std::exp(-dtau*B*0.5+dtau*mu));
-		d_wave_chi += pair_correlation(F_up, F_dn);
+		//d_wave_chi += pair_correlation(F_up, F_dn);
 	}
-	chi_d.add(s*d_wave_chi*beta/slices.size());
+	//chi_d.add(s*d_wave_chi*beta/slices.size());
 	double af_ =((rho_up.diagonal().array()-rho_dn.diagonal().array())*staggering).sum()/double(V);
 	chi_af.add(s*beta*af_*af_);
 	for (int k=1;k<=Lx/2;k++) {

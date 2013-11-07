@@ -27,6 +27,25 @@ static const double pi = 3.141592653589793238462643383279502884197;
 
 template <typename T> using mymeasurement = measurement<T, false>;
 
+#if 0
+static auto measurements_proto = make_named_tuple(
+		named_value2(mymeasurement<double>(), acceptance),
+		named_value2(mymeasurement<double>(), density),
+		named_value2(mymeasurement<double>(), magnetization),
+		named_value2(mymeasurement<double>(), order_parameter),
+		named_value2(mymeasurement<double>(), chi_d),
+		named_value2(mymeasurement<double>(), chi_af),
+		named_value2(mymeasurement<double>(), kinetic),
+		named_value2(mymeasurement<double>(), interaction),
+		named_value2(mymeasurement<double>(), sign),
+		named_value2(mymeasurement<double>(), measured_sign),
+		named_value2(mymeasurement<double>(), sign_correlation)
+		);
+};
+
+typedef decltype(measurements_proto) measurements_type;
+#endif
+
 class Simulation {
 	private:
 
@@ -145,8 +164,8 @@ class Simulation {
 	mymeasurement<double> kinetic;
 	mymeasurement<double> interaction;
 	mymeasurement<double> sign;
-	mymeasurement<double> measured_sign;
-	mymeasurement<double> sign_correlation;
+	//mymeasurement<double> measured_sign;
+	//mymeasurement<double> sign_correlation;
 	mymeasurement<double> exact_sign;
 	std::vector<mymeasurement<double>> d_up;
 	std::vector<mymeasurement<double>> d_dn;
@@ -190,8 +209,8 @@ class Simulation {
 		order_parameter.set_name("Order Parameter");
 		chi_d.set_name("Chi (D-wave)");
 		chi_af.set_name("Chi (AF)");
-		measured_sign.set_name("Sign (Measurements)");
-		sign_correlation.set_name("Sign Correlation");
+		//measured_sign.set_name("Sign (Measurements)");
+		//sign_correlation.set_name("Sign Correlation");
 		exact_sign.set_name("Sign (Exact)");
 		//magnetization_slow.set_name("Magnetization (slow)");
 		for (int i=0;i<V;i++) {
@@ -488,7 +507,6 @@ class Simulation {
 		for (int i=0;i<flips_per_update;i++) {
 			collapse_updates();
 			acceptance.add(metropolis()?1.0:0.0);
-			sign.add(psign*update_sign);
 		}
 		time_shift = randomTime(generator);
 		redo_all();
@@ -564,12 +582,12 @@ class Simulation {
 
 	void output_sign () {
 		std::ostringstream buf;
-		buf << outfn << "sign.dat";
+		buf << outfn << "_sign.dat";
 		std::ofstream out(buf.str(), reset?std::ios::trunc:std::ios::app);
 		out << "# " << params();
 		out << 1.0/(beta*tx) << ' ' << 0.5*(B+g)/tx;
-		out << ' ' << measured_sign.mean() << ' ' << measured_sign.error();
-		out << ' ' << sign_correlation.mean() << ' ' << sign_correlation.error();
+		//out << ' ' << measured_sign.mean() << ' ' << measured_sign.error();
+		//out << ' ' << sign_correlation.mean() << ' ' << sign_correlation.error();
 		//out << ' ' << exact_sign.mean() << ' ' << exact_sign.variance();
 		//if (staggered_field!=0.0) out << ' ' << -staggered_magnetization.mean()/staggered_field << ' ' << staggered_magnetization.variance();
 		for (int i=0;i<V;i++) {
@@ -588,7 +606,7 @@ class Simulation {
 		std::ostringstream buf;
 		buf << outfn << "stablefast_U" << (g/tx) << "_T" << 1.0/(beta*tx) << '_' << Lx << 'x' << Ly << 'x' << Lz << ".dat";
 		outfn = buf.str();
-		std::ofstream out(outfn, reset?std::ios::trunc:std::ios::app);
+		std::ofstream out(buf.str(), reset?std::ios::trunc:std::ios::app);
 		out << 1.0/(beta*tx) << ' ' << 0.5*(B+g)/tx
 			<< ' ' << density.mean() << ' ' << density.error()
 			<< ' ' << magnetization.mean() << ' ' << magnetization.error()
@@ -597,9 +615,9 @@ class Simulation {
 			<< ' ' << interaction.mean() << ' ' << interaction.error();
 		out << ' ' << order_parameter.mean() << ' ' << order_parameter.error();
 		out << ' ' << chi_af.mean() << ' ' << chi_af.error();
-		out << ' ' << chi_d.mean() << ' ' << chi_d.error();
-		out << ' ' << measured_sign.mean() << ' ' << measured_sign.error();
-		out << ' ' << exact_sign.mean() << ' ' << exact_sign.error();
+		//out << ' ' << chi_d.mean() << ' ' << chi_d.error();
+		out << ' ' << sign.mean() << ' ' << sign.error();
+		//out << ' ' << exact_sign.mean() << ' ' << exact_sign.error();
 		//if (staggered_field!=0.0) out << ' ' << -staggered_magnetization.mean()/staggered_field << ' ' << staggered_magnetization.variance();
 		for (int i=0;i<V;i++) {
 			//out << ' ' << d_up[i].mean();
