@@ -72,7 +72,7 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 		try {
 			t0 = steady_clock::now();
 			for (int i=0;i<thermalization_sweeps;i++) {
-				if (duration_cast<seconds_type>(steady_clock::now()-t2).count()>120 && !savefile.empty()) {
+				if (duration_cast<seconds_type>(steady_clock::now()-t2).count()>600 && !savefile.empty()) {
 					t2 = steady_clock::now();
 					lock.lock();
 					simulation.save_checkpoint(L);
@@ -94,18 +94,12 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 					log << "thread" << j << "thermalizing: " << i << '/' << thermalization_sweeps << "..." << (double(simulation.steps)/duration_cast<seconds_type>(t1-t0).count()) << "steps per second";
 				}
 				simulation.update();
-				if (simulation.psign<0.0) {
-					//log << "negative sign found... saving";
-					//simulation.recheck();
-					//throw "";
-				}
 			}
 			log << "thread" << j << "thermalized";
-			simulation.measured_sign.clear();
 			simulation.steps = 0;
 			t0 = steady_clock::now();
 			for (int i=0;i<total_sweeps;i++) {
-				if (duration_cast<seconds_type>(steady_clock::now()-t2).count()>120 && !savefile.empty()) {
+				if (duration_cast<seconds_type>(steady_clock::now()-t2).count()>600 && !savefile.empty()) {
 					t2 = steady_clock::now();
 					lock.lock();
 					simulation.save_checkpoint(L);
@@ -127,18 +121,13 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 					log << "thread" << j << "running: " << i << '/' << total_sweeps << "..." << (double(simulation.steps)/duration_cast<seconds_type>(t1-t0).count()) << "steps per second";
 				}
 				simulation.update();
-				//simulation.measure();
-				simulation.measure_sign();
-				//log << simulation.measured_sign;
-				if (simulation.psign<0.0) {
-					//simulation.svd.diagonalize();
-					//throw -1;
-				}
+				simulation.measure();
+				//simulation.measure_sign();
 			}
 			log << "thread" << j << "finished simulation" << job;
 			lock.lock();
-			//simulation.output_results();
-			simulation.output_sign();
+			simulation.output_results();
+			//simulation.output_sign();
 			lua_rawgeti(L, -1, job);
 			simulation.save(L, lua_gettop(L));
 			lua_getglobal(L, "serialize");
