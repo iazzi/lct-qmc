@@ -29,6 +29,7 @@ extern "C" {
 
 //#define fftw_execute (void)
 
+template <typename T> using mymeasurement = measurement<T, false>;
 static const double pi = 3.141592653589793238462643383279502884197;
 
 class Simulation {
