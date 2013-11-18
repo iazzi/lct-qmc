@@ -4,6 +4,7 @@
 #include <thread>
 #include <chrono>
 #include <atomic>
+#include <sstream>
 
 using namespace std;
 using namespace std::chrono;
@@ -19,12 +20,17 @@ int main (int argc, char **argv) {
 		return -1;
 	}
 
-	fftw_init_threads();
-	fftw_plan_with_nthreads(1);
-
 	int nthreads = 1;
 	char *e = getenv("LSB_HOSTS");
 	while (e!=NULL && *e!='\0') if (*(e++)==' ') nthreads++;
+	e = getenv("SLURM_NPROCS");
+	if (e) {
+		string f(e);
+		if (!f.empty()) {
+			stringstream g(f);
+			g >> nthreads;
+		}
+	}
 
 	lua_getfield(L, -1, "THREADS");
 	if (lua_tointeger(L, -1)) {
@@ -41,16 +47,17 @@ int main (int argc, char **argv) {
 	failed = 0;
 	std::atomic<int> current;
 	current = 1;
+	double eta = 0.0;
 	lua_len(L, -1);
 	size_t njobs = lua_tonumber(L, -1);
 	lua_pop(L, 1);
 	for (int j=0;j<nthreads;j++) {
-		threads[j] = std::thread( [=, &log, &lock, &current, &failed] () {
+		threads[j] = std::thread( [=, &log, &lock, &current, &failed, &eta] () {
 				steady_clock::time_point t0 = steady_clock::now();
 				steady_clock::time_point t1 = steady_clock::now();
 				while (true) {
 					int job = current.fetch_add(1);
-					double fps, mps;
+					double ups, mps;
 					lock.lock();
 					lua_rawgeti(L, -1, job);
 					if (lua_isnil(L, -1)) {
@@ -61,16 +68,20 @@ int main (int argc, char **argv) {
 					}
 					log << "thread" << j << "running simulation" << job << '/' << njobs;
 					Simulation simulation(L, -1);
+					lua_getfield(L, -1, "THERMALIZATION"); int thermalization_sweeps = lua_tointeger(L, -1); lua_pop(L, 1);
+					lua_getfield(L, -1, "SWEEPS"); int total_sweeps = lua_tointeger(L, -1); lua_pop(L, 1);
 					lua_pop(L, 1);
 					lock.unlock();
 					try {
+						int updates = 0;
 						t0 = steady_clock::now();
 						while (duration_cast<seconds_type>(steady_clock::now()-t0).count()<10) {
 							simulation.update();
+							updates++;
 						}
 						t1 = steady_clock::now();
-						fps = (double(simulation.steps)/duration_cast<seconds_type>(t1-t0).count());
-						log << fps << "flips per second";
+						ups = (double(updates)/duration_cast<seconds_type>(t1-t0).count());
+						log << ups << "updates per second";
 						int measures = 0;
 						t0 = steady_clock::now();
 						while (duration_cast<seconds_type>(steady_clock::now()-t0).count()<10) {
@@ -87,17 +98,14 @@ int main (int argc, char **argv) {
 					log << "thread" << j << "saving simulation" << job;
 					lock.lock();
 					lua_rawgeti(L, -1, job);
-					lua_pushnumber(L, fps);
-					lua_setfield(L, -2, "fps");
+					lua_pushnumber(L, ups);
+					lua_setfield(L, -2, "ups");
 					lua_pushnumber(L, mps);
 					lua_setfield(L, -2, "mps");
+					lua_pushnumber(L, (thermalization_sweeps+total_sweeps)/ups + total_sweeps/mps);
+					lua_setfield(L, -2, "ETA");
 					lua_pop(L, 1);
-
-					//lua_getglobal(L, "serialize");
-					//lua_pushstring(L, "test_out.lua");
-					//lua_pushvalue(L, -3);
-					//lua_pcall(L, 2, 0, 0);
-
+					eta += (thermalization_sweeps+total_sweeps)/ups + total_sweeps/mps;
 					lock.unlock();
 				}
 		});
@@ -112,7 +120,6 @@ int main (int argc, char **argv) {
 	std::cout << failed << " tasks failed" << std::endl;
 
 	lua_close(L);
-	fftw_cleanup_threads();
 	return 0;
 }
 
