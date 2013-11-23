@@ -54,7 +54,6 @@ int main (int argc, char **argv) {
 	int njobs = lua_tonumber(L, -1);
 	lua_pop(L, 1);
 	std::vector<double> times;
-	times.resize(njobs);
 	for (int job=1;job<=njobs;job++) {
 		steady_clock::time_point t0 = steady_clock::now();
 		steady_clock::time_point t1 = steady_clock::now();
@@ -68,6 +67,7 @@ int main (int argc, char **argv) {
 			Simulation simulation(L, -1);
 			lua_getfield(L, -1, "THERMALIZATION"); int thermalization_sweeps = lua_tointeger(L, -1); lua_pop(L, 1);
 			lua_getfield(L, -1, "SWEEPS"); int total_sweeps = lua_tointeger(L, -1); lua_pop(L, 1);
+			//lua_getfield(L, -1, "TIMES"); int repetitions = std::max(int(lua_tointeger(L, -1)), 1); lua_pop(L, 1);
 			lua_pop(L, 1);
 			int updates = 0;
 			t0 = steady_clock::now();
@@ -90,31 +90,35 @@ int main (int argc, char **argv) {
 			double jeta = (thermalization_sweeps+total_sweeps)/ups + total_sweeps/mps;
 			log << "estimated time:" << jeta;
 			eta += jeta;
-			times[job-1] = eta;
+			//for (int k=0;k<repetitions;k++)
+				times.push_back(jeta);
 	}
 	lua_close(L);
 	struct Batch {
 		double eta;
 		set<int> jobs;
 		bool operator< (const Batch& other) const {
-			return eta < other.eta;
+			return eta > other.eta;
 		}
 		Batch (double t) : eta(t) {}
 		Batch (double t, int j) : eta(t) { jobs.insert(j); }
+		Batch (const Batch& other, double t, int j) : eta(other.eta), jobs(other.jobs) { eta += t; jobs.insert(j); }
 	};
 	set<Batch> batches;
+	njobs = times.size();
+	log << njobs << "jobs";
 	for (int j=0;j<njobs;j++) {
-		for (auto b : batches) {
-			if (b.eta+times[j]<18*3600) {
-				b.eta += times[j];
+		for (set<Batch>::iterator b = batches.begin();b!=batches.end();++b) {
+			if (b->eta+times[j]<18*3600) {
+				batches.insert(Batch(*b, times[j], j));
+				batches.erase(b);
 				times[j] = 0.0;
-				b.jobs.insert(j);
 				break;
 			}
 		}
 		if (times[j]>0.0) {
 			set<Batch>::iterator b = batches.insert(Batch(times[j], j)).first;
-				times[j] = 0.0;
+			times[j] = 0.0;
 		}
 	}
 	for (auto b : batches) {
@@ -127,16 +131,17 @@ int main (int argc, char **argv) {
 	outname.append(".batch");
 	ofstream out(outname);
 	out <<
-		"#!/usr/bin/bash -l\n"
+		"#!/usr/local/bin/bash -l\n"
 		"#\n"
 		"#SBATCH --job-name=\"test\"\n"
 		"#SBATCH --partition=dphys_compute\n"
-		"#SBATCH --cpus-per-task=20\n"
+		//"#SBATCH --cpus-per-task=20\n"
 		//"#SBATCH --nodes=1\n"
 		//"#SBATCH --ntasks-per-node=1\n"
 		"#SBATCH --output=outtest.%j.out\n"
 		"#SBATCH --error=errtest.%j.err\n";
-	out <<  "#SBATCH --time=" << time_str(2*eta/20) << "\n";
+	//out <<  "#SBATCH --time=24:00:00\n";
+	out <<  "#SBATCH --time=" << time_str(1.2*eta) << "\n";
 	out << "./main " << argv[1] << "\n";
 	return 0;
 }
