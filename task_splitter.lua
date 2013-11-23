@@ -2,12 +2,14 @@
 
 local conf, dir = ...
 local t = dofile(conf)
-dir = '/cluster/scratch_xl/public/miazzi/'..dir..'/'
-local prog = io.popen('pwd'):read('*l')..'/stablefast'
+dir = os.getenv('HOME')..'/'..dir..'/'
+--dir = '/cluster/scratch_xl/public/miazzi/'..dir..'/'
+local prog = io.popen('pwd'):read('*l')..'/main'
 
 assert(os.execute('mkdir '..dir))
 os.execute('cp '..conf..' '..dir..'config.lua')
 os.execute('cp serialize.lua '..dir)
+os.execute('cp helpers.lua '..dir)
 for i, c in ipairs(t) do
 	--sanitize
 	if c.T and not c.beta then
