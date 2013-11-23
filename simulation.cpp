@@ -80,8 +80,8 @@ void Simulation::init () {
 	for (size_t i=0;i<diagonals.size();i++) {
 		for (int j=0;j<V;j++) {
 			diagonals[i][j] = distribution(generator)?A:-A;
-			//diagonals[i][j] = i<N/4.9?-A:A;
-			diagonals[i][j] = -A;
+			diagonals[i][j] = i<N/4.9?-A:A;
+			diagonals[i][j] = A;
 		}
 	}
 	v_x = Vector_cd::Zero(V);
@@ -230,6 +230,9 @@ void Simulation::load_checkpoint (lua_State *L) {
 	lua_getfield(L, -1, "chi_af");
 	lua_get(L, chi_af);
 	lua_pop(L, 1);
+	lua_getfield(L, -1, "exact_sign");
+	lua_get(L, exact_sign);
+	lua_pop(L, 1);
 	//lua_getfield(L, -1, "measured_sign");
 	//lua_get(L, measured_sign);
 	//lua_pop(L, 1);
@@ -274,6 +277,8 @@ void Simulation::save_checkpoint (lua_State *L) {
 	lua_setfield(L, -2, "order_parameter");
 	L << chi_af;
 	lua_setfield(L, -2, "chi_af");
+	L << exact_sign;
+	lua_setfield(L, -2, "exact_sign");
 	//L << measured_sign;
 	//lua_setfield(L, -2, "measured_sign");
 	//L << sign_correlation;
@@ -585,7 +590,8 @@ void Simulation::measure_sign () {
 	//make_svd();
 	//make_svd_inverse();
 	//make_density_matrices();
-	sign.add(psign*update_sign);
+	//sign.add(psign*update_sign);
+	exact_sign.add(psign*update_sign*recheck());
 	//sign_correlation.add(psign*update_sign*ns);
 	//if (psign*update_sign<0.0 && recheck()>0.0) throw "";
 }
@@ -604,7 +610,7 @@ void Simulation::measure () {
 	density.add(s*(n_up+n_dn)/V);
 	magnetization.add(s*(n_up-n_dn)/2.0/V);
 	//magnetization_slow.add(s*(n_up-n_dn)/2.0/V);
-	order_parameter.add(op);
+	order_parameter.add(s*op/V);
 	kinetic.add(s*(K_up-K_dn)/tx/V);
 	interaction.add(s*g*n2/tx/V);
 	//sign.add(svd_sign());

@@ -447,13 +447,13 @@ class Simulation {
 		make_density_matrices();
 		double np = svd_probability();
 		double ns = svd_sign();
-		//if (fabs(np-plog-update_prob)>1.0e-8 || psign*update_sign!=ns) {
-		if (psign*update_sign!=ns && false) {
-			std::cerr << plog+update_prob << " <> " << np << " ~~ " << np-plog-update_prob << std::endl;
-			std::cerr << psign*update_sign << " <==> " << ns << std::endl;
+		if (fabs(np-plog-update_prob)>1.0e-8 || psign*update_sign!=ns) {
+		//if (psign*update_sign!=ns && false) {
+			//std::cerr << plog+update_prob << " <> " << np << " ~~ " << np-plog-update_prob << '\t' << psign*update_sign << " <==> " << ns << std::endl;
 			plog = np;
 			psign = ns;
-			if (ns!=recheck()) {
+			//recheck();
+			if (false && ns!=recheck() && false) {
 				int old_msvd = msvd;
 				do {
 					make_svd();
@@ -474,9 +474,6 @@ class Simulation {
 	}
 
 	std::pair<double, double> rank1_probability (int x, int t);
-
-	void make_tests () {
-	}
 
 	double ising_energy (int x, int t);
 	bool anneal_ising ();
@@ -616,8 +613,8 @@ class Simulation {
 		out << ' ' << order_parameter.mean() << ' ' << order_parameter.error();
 		out << ' ' << chi_af.mean() << ' ' << chi_af.error();
 		//out << ' ' << chi_d.mean() << ' ' << chi_d.error();
+		out << ' ' << exact_sign.mean() << ' ' << exact_sign.error();
 		out << ' ' << sign.mean() << ' ' << sign.error();
-		//out << ' ' << exact_sign.mean() << ' ' << exact_sign.error();
 		//if (staggered_field!=0.0) out << ' ' << -staggered_magnetization.mean()/staggered_field << ' ' << staggered_magnetization.variance();
 		for (int i=0;i<V;i++) {
 			//out << ' ' << d_up[i].mean();
