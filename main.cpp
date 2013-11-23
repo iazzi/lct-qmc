@@ -59,6 +59,7 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 		lua_pop(L, 1);
 		if (!savefile.empty()) {
 			if (luaL_dofile(L, savefile.c_str())) {
+				log << "error loading savefile:" << lua_tostring(L, -1);
 				lua_pop(L, 1);
 			} else {
 				lua_getfield(L, -1, "THERMALIZATION"); thermalization_sweeps = lua_tointeger(L, -1); lua_pop(L, 1);
@@ -122,7 +123,7 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 				}
 				simulation.update();
 				simulation.measure();
-				//simulation.measure_sign();
+				simulation.measure_sign();
 			}
 			log << "thread" << j << "finished simulation" << job;
 			lock.lock();
