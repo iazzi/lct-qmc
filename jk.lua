@@ -14,6 +14,7 @@ end
 
 local function average (t, w)
 	local sum = 0
+	local sum2 = 0
 	local n = 0
 	if w then
 		for k, v in pairs(t) do
@@ -21,24 +22,26 @@ local function average (t, w)
 		end
 	else
 		for k, v in pairs(t) do
-			sum, n = sum + v, n + 1
+			sum, sum2, n = sum + v, sum2+v*v, n + 1
 		end
 	end
-	return sum / n
+	return sum / n, math.sqrt(sum2/n-sum*sum/n/n)/math.sqrt(n)
 end
 
-local function jk (t)
-	local sum = 0
-	local sum2 = 0.0
-	local n = 0
-	for k, v in pairs(t) do
-		n = n + 1
-		sum = sum + v
-		sum2 = sum2 + v*v
+local function jk (x, y, f)
+	f = f or function(x, y) return x/y end
+	local sum_x = 0
+	local sum_y = 0
+	local n = #x
+	for i = 1, n do
+		sum_x = sum_x + x[i]
+		sum_y = sum_y + y[i]
 	end
-	for k, v in pairs(t) do
+	local ret = {}
+	for i = 1, n do
+		ret[i] = f((sum_x-x[i])/(n-1), (sum_y-y[i])/(n-1))
 	end
-	return math.sqrt(sum2/n - sum*sum/n/n)/math.sqrt(n)
+	return average(ret)
 end
 
 local files = {}
@@ -75,12 +78,12 @@ for _, fn in ipairs(files) do
 	for T, u in pairs(t) do
 		for mu, v in pairs(u) do
 			local w = transpose(v)
-			for i = 1, #w, 2 do
-				local e = jk(w[i])
-				w[i] = average(w[i])
-				w[i+1] = math.sqrt(average(w[i+1])/#w[i+1])
+			for i = 1, #w-2, 2 do
+				w[i], w[i+1] = jk(w[i], w[#w-1])
+				--w[i+1] = math.sqrt(average(w[i+1])/#w[i+1])
 				--w[i+1] = math.sqrt(w[i+1]-w[i]*w[i])
 			end
+			w[#w-1], w[#w] = average(w[#w-1])
 			table.insert(out, { T, mu, table.unpack(w) })
 			--print(T, mu, table.unpack(w))
 		end
