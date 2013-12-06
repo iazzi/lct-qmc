@@ -123,7 +123,7 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 				}
 				simulation.update();
 				simulation.measure();
-				simulation.measure_sign();
+				//simulation.measure_sign();
 			}
 			log << "thread" << j << "finished simulation" << job;
 			lock.lock();
