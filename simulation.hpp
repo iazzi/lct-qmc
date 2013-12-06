@@ -388,23 +388,9 @@ class Simulation {
 		double np = svd_probability();
 		double ns = svd_sign();
 		if (fabs(np-plog-update_prob)>1.0e-8 || psign*update_sign!=ns) {
-		//if (psign*update_sign!=ns && false) {
 			std::cerr << plog+update_prob << " <> " << np << " ~~ " << np-plog-update_prob << '\t' << (psign*update_sign*ns) << std::endl;
 			plog = np;
 			psign = ns;
-			if (false && ns!=recheck().second && false) {
-				int old_msvd = msvd;
-				do {
-					make_svd();
-					make_svd_inverse();
-					make_density_matrices();
-					double np = svd_probability();
-					double ns = svd_sign();
-					std::cout << (ns>0.0?"+exp(":"-exp(") << np << ") ";
-				} while (--msvd>20);
-				std::cout << std::endl;
-				msvd = old_msvd;
-			}
 			//std::cerr << "    " << np-plog << " ~~ " << update_prob << std::endl;
 		}
 		plog = np;
