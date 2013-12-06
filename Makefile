@@ -15,10 +15,10 @@ test_params: test_params.o simulation.o mpfr.o
 setup_batch: setup_batch.o simulation.o mpfr.o
 
 parallel:
-	$(MAKE) all MYCXXFLAGS="-O3 -march=native -DNDEBUG -DEIGEN_NO_DEBUG -fopenmp" MYLDFLAGS="-fopenmp -lfftw3_threads"
+	$(MAKE) all MYCXXFLAGS="-O3 -march=native -DNDEBUG -DEIGEN_NO_DEBUG -fopenmp $(MYCXXFLAGS)" MYLDFLAGS="-fopenmp -lfftw3_threads"
 
 optimized:
-	$(MAKE) all MYCXXFLAGS="-O3 -march=native -DNDEBUG -DEIGEN_NO_DEBUG" MYLDFLAGS=""
+	$(MAKE) all MYCXXFLAGS="-O3 -march=native -DNDEBUG -DEIGEN_NO_DEBUG $(MYCXXFLAGS)" MYLDFLAGS=""
 
 debug:
 	$(MAKE) all MYCXXFLAGS="-g" MYLDFLAGS=""
