@@ -349,39 +349,6 @@ class Simulation {
 		positionSpace = positionSpace_c.real();
 	}
 
-	//void accumulate_backward (int start = 0, int end = -1) {
-		//Real X = 1.0 - A*A;
-		//positionSpace_c.setIdentity(V, V);
-		//end = end<0?N:end;
-		//end = end>N?N:end;
-		//for (int i=start;i<end;i++) {
-			//positionSpace_c.applyOnTheRight(((Vector_d::Constant(V, 1.0)-diagonal(i)).array()*freePropagator_x_b.array()).matrix().asDiagonal());
-			//fftw_execute(x2p_row);
-			//momentumSpace.applyOnTheRight(freePropagator_b.asDiagonal());
-			//fftw_execute(p2x_row);
-			//positionSpace_c /= V*X;
-		//}
-		//positionSpace = positionSpace_c.real();
-	//}
-
-	//void compute_uv_f (int x, int t) {
-		//v_x = Vector_cd::Zero(V);
-		//v_x[x] = 1.0;
-		//for (int i=t+1;i<N;i++) {
-			//apply_propagator_vector();
-			//v_x = v_x.array() * (Vector_d::Constant(V, 1.0)+diagonal(i)).array() * freePropagator_x.array();
-		//}
-		//apply_propagator_vector();
-		//cache.u = (-2*diagonal(t)[x]*v_x*freePropagator_x[x]).real();
-		//v_x = Vector_cd::Zero(V);
-		//v_x[x] = 1.0;
-		//for (int i=t-1;i>=0;i--) {
-			//apply_propagator_vector();
-			//v_x = v_x.array() * (Vector_d::Constant(V, 1.0)+diagonal(i)).array() * freePropagator_x.array();
-		//}
-		//cache.v = v_x.real();
-	//}
-
 	void compute_uv_f_short (int x, int t) {
 		int start = mslices*(t/mslices);
 		int end = mslices*(1+t/mslices);
@@ -402,34 +369,6 @@ class Simulation {
 		}
 		cache.v_smart = v_x.real();
 	}
-
-	//void compute_uv_f_smart (int x, int t) {
-		//int start = mslices*(t/mslices);
-		//int end = mslices*(1+t/mslices);
-		//if (end>N) end = N;
-		//v_x = Vector_cd::Zero(V);
-		//v_x[x] = 1.0;
-		//for (int i=t+1;i<end;i++) {
-			//apply_propagator_vector();
-			//v_x = v_x.array() * (Vector_d::Constant(V, 1.0)+diagonal(i)).array() * freePropagator_x.array();
-		//}
-		//apply_propagator_vector();
-		//cache.u_smart = cache.u = (-2*diagonal(t)[x]*v_x*freePropagator_x[x]).real();
-		//for (size_t i=t/mslices+1;i<slices.size();i++) {
-			////std::cerr << i << ' ' << t/mslices << ' ' << slices.size() << std::endl;
-			//cache.u.applyOnTheLeft(slices[i]);
-		//}
-		//v_x = Vector_cd::Zero(V);
-		//v_x[x] = 1.0;
-		//for (int i=t-1;i>=start;i--) {
-			//apply_propagator_vector();
-			//v_x = v_x.array() * (Vector_d::Constant(V, 1.0)+diagonal(i)).array() * freePropagator_x.array();
-		//}
-		//cache.v_smart = cache.v = v_x.real();
-		//for (int i=t/mslices-1;i>=0;i--) {
-			//cache.v.applyOnTheLeft(slices[i].transpose());
-		//}
-	//}
 
 	void flip (int t, int x) {
 		diagonal(t)[x] = -diagonal(t)[x];
