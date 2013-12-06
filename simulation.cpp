@@ -5,7 +5,6 @@
 
 // FIXME only works in 2D
 void Simulation::prepare_open_boundaries () {
-	std::uniform_real_distribution<double> d;
 	Matrix_d H = Matrix_d::Zero(V, V);
 	for (int x=0;x<Lx;x++) {
 		for (int y=0;y<Ly;y++) {
@@ -68,7 +67,7 @@ void Simulation::init () {
 	V = Lx * Ly * Lz;
 	mslices = mslices>0?mslices:N;
 	mslices = mslices<N?mslices:N;
-	time_shift = 0;
+	time_shift = 0 * mslices;
 	if (max_update_size<1) max_update_size = 1;
 	if (flips_per_update<1) flips_per_update = max_update_size;
 	randomPosition = std::uniform_int_distribution<int>(0, V-1);
@@ -77,11 +76,15 @@ void Simulation::init () {
 	dt = beta/N;
 	A = sqrt(exp(g*dt)-1.0);
 	diagonals.insert(diagonals.begin(), N, Vector_d::Zero(V));
+	distribution = std::bernoulli_distribution(0.5);
 	for (size_t i=0;i<diagonals.size();i++) {
+		diagonals[i] = Array_d::Constant(V, distribution(generator)?A:-A);
 		for (int j=0;j<V;j++) {
 			diagonals[i][j] = distribution(generator)?A:-A;
-			diagonals[i][j] = i<N/4.9?-A:A;
-			diagonals[i][j] = A;
+			//diagonals[i][j] = A;
+			//diagonals[i][j] = i<N/4.7?-A:A;
+			//diagonals[i][j] = A;
+			//if ((i*3+j)%7==1) diagonals[i][j] *= -1.0;
 		}
 	}
 	v_x = Vector_cd::Zero(V);
@@ -432,15 +435,22 @@ bool Simulation::anneal_ising () {
 }
 
 void Simulation::write_wavefunction (std::ostream &out) {
+	for (auto d : diagonals) {
+		out << (d.array()>Array_d::Zero(V)).transpose() << std::endl;
+	}
+	out << std::endl;
 }
 
-double Simulation::recheck () {
-	const int prec = 512;
+std::pair<double, double> Simulation::recheck () {
+	const int prec = 2048;
 	PreciseMatrix A(prec), W(prec), A1(prec), A2(prec);
 	PreciseMatrix C(prec), Q(prec), wr(prec), wi(prec);
 	A = Matrix_d::Identity(V, V);
 	for (int i=0;i<N;i++) {
-		A.applyOnTheLeft(freePropagator_open*((Vector_d::Constant(V, 1.0)+diagonal(i)).array()).matrix().asDiagonal());
+		//A.applyOnTheLeft(freePropagator_open*((Vector_d::Constant(V, 1.0)+diagonal(i)).array()).matrix().asDiagonal());
+	}
+	for (auto s:slices) {
+		A.applyOnTheLeft(s);
 	}
 	A2 = A1 = W = A;
 	A1 *= std::exp(beta*B/2+beta*mu);
@@ -463,12 +473,38 @@ double Simulation::recheck () {
 	std::cout << "SVDs: " << svd.S.transpose() << '\n';
 	std::cout << "svd determinant: " << (psign<0.0?"-exp(":"exp(") << plog << ')';
 	if (sign<0) {
-		std::cout << ", exact determinant: -exp(" << d << ')' << std::endl;
+		std::cout << ", exact probability: -exp(" << d << ')' << std::endl;
 	} else {
-		std::cout << ", exact determinant: +exp(" << d << ')' << std::endl;
+		std::cout << ", exact probability: +exp(" << d << ')' << std::endl;
 	}
+	double r = 0.0;
+	for (auto d : diagonals) {
+		r += (d.array()>Array_d::Zero(V)).count();
+	}
+	std::cout << "positive points = " << r/N/V << std::endl;
+	std::cout << "time_shift = " << time_shift << std::endl;
+	std::ofstream out;
+	if (svd_sign()*sign<0.0 && !isnan(plog)) {
+		std::cerr << "different!" << std::endl;
+		out.open("last_different.wf");
+	} else {
+		out.open("last_equal.wf");
+		std::cerr << "equal." << std::endl;
+	}
+	out << "# steps = " << steps << '/' << N*V << " (" << int(100*steps/N/V) << "%)" << std::endl;
+	out << "# time_shift = " << time_shift << std::endl;
+	out << "# svd probability = " << (psign<0.0?"-exp(":"exp(") << plog << ')' << std::endl;
+	if (sign<0) {
+		out << "# exact determinant: -exp(" << d << ')' << std::endl;
+	} else {
+		out << "# exact determinant: +exp(" << d << ')' << std::endl;
+	}
+	write_wavefunction(out);
+	out.flush();
+	out.close();
+	r = mpfr_get_d(d, A.rnd());
 	mpfr_clear(d);
-	return sign<0?-1.0:1.0;
+	return std::pair<double, double>(r, sign<0?-1.0:1.0);
 	W.reduce_to_hessenberg();
 	W.extract_hessenberg_H(C);
 	C.reduce_to_ev(wr, wi);
@@ -558,7 +594,7 @@ double Simulation::recheck () {
 	helper.fullSVD(tmp);
 	overlaps.applyOnTheRight(helper.Vt.transpose()*helper.U.transpose());
 	std::cerr << "===\n" << overlaps.transpose() << std::endl << std::endl;
-	return mpfr_sgn(d)<0?-1.0:1.0;
+	return std::pair<double, double>(r, sign<0?-1.0:1.0);
 }
 
 void Simulation::straighten_slices () {
@@ -591,7 +627,7 @@ void Simulation::measure_sign () {
 	//make_svd_inverse();
 	//make_density_matrices();
 	//sign.add(psign*update_sign);
-	exact_sign.add(psign*update_sign*recheck());
+	exact_sign.add(psign*update_sign*recheck().second);
 	//sign_correlation.add(psign*update_sign*ns);
 	//if (psign*update_sign<0.0 && recheck()>0.0) throw "";
 }

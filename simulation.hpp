@@ -67,6 +67,7 @@ class Simulation {
 
 	//state
 	std::vector<Vector_d> diagonals;
+	std::vector<Vector_d> diagonals_saved;
 
 	// Monte Carlo scheme settings
 	std::mt19937_64 generator;
@@ -240,7 +241,7 @@ class Simulation {
 	void load_checkpoint (lua_State *L);
 	void save_checkpoint (lua_State *L);
 
-	Simulation (lua_State *L, int index) : distribution(0.8), trialDistribution(1.0), steps(0) {
+	Simulation (lua_State *L, int index) : distribution(0.5), trialDistribution(1.0), steps(0) {
 		load(L, index);
 	}
 
@@ -449,11 +450,10 @@ class Simulation {
 		double ns = svd_sign();
 		if (fabs(np-plog-update_prob)>1.0e-8 || psign*update_sign!=ns) {
 		//if (psign*update_sign!=ns && false) {
-			//std::cerr << plog+update_prob << " <> " << np << " ~~ " << np-plog-update_prob << '\t' << psign*update_sign << " <==> " << ns << std::endl;
+			std::cerr << plog+update_prob << " <> " << np << " ~~ " << np-plog-update_prob << '\t' << (psign*update_sign*ns) << std::endl;
 			plog = np;
 			psign = ns;
-			//recheck();
-			if (false && ns!=recheck() && false) {
+			if (false && ns!=recheck().second && false) {
 				int old_msvd = msvd;
 				do {
 					make_svd();
@@ -470,6 +470,19 @@ class Simulation {
 		}
 		plog = np;
 		psign = ns;
+		if (isnan(plog)) {
+			std::cerr << "NaN found: restoring" << std::endl;
+			diagonals = diagonals_saved;
+			make_slices();
+			make_svd();
+			make_svd_inverse();
+			make_density_matrices();
+			plog = svd_probability();
+			psign = svd_sign();
+		} else {
+			diagonals_saved = diagonals;
+		}
+		//recheck();
 		reset_updates();
 	}
 
@@ -482,7 +495,7 @@ class Simulation {
 
 	void set_time_shift (int t) { time_shift = t%N; redo_all(); }
 	bool shift_time () { 
-		time_shift += mslices;
+		time_shift += 1*mslices;
 		bool ret = time_shift>=N;
 		if (ret) time_shift -= N;
 		redo_all();
@@ -505,8 +518,9 @@ class Simulation {
 			collapse_updates();
 			acceptance.add(metropolis()?1.0:0.0);
 		}
-		time_shift = randomTime(generator);
-		redo_all();
+		//time_shift = randomTime(generator);
+		//redo_all();
+		shift_time();
 	}
 
 	bool collapse_updates () {
@@ -643,7 +657,7 @@ class Simulation {
 		fftw_destroy_plan(p2x_row);
 	}
 
-	double recheck ();
+	std::pair<double, double> recheck ();
 	void straighten_slices ();
 
 	protected:
