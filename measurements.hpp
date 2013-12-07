@@ -69,7 +69,7 @@ class measurement {
 
 		T last_value (int i = 0) const { return x_[i]; }
 		T sum (int i = 0) const { return sums_[i]; }
-		T mean (int i = 0) const { return sums_[i] / double(n_[i]); }
+		T mean (int i = 0) const { if (bins()>0) return sums_[i] / double(n_[i]); else return T(); }
 		T square (int i = 0) const { return squared_sums_[i]; }
 
 		T variance (int i = 0) const {
@@ -79,7 +79,10 @@ class measurement {
 		}
 
 		T error (int i) const {
-			return sqrt( variance(i) / double(n_[i]) );
+			if (bins()>0)
+				return sqrt( variance(i) / double(n_[i]) );
+			else
+				return T();
 		}
 
 		T error () const {
