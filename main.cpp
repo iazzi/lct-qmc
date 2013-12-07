@@ -148,7 +148,6 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 			lua_getfield(L, -1, "outfile");
 			lua_insert(L, -2);
 			lua_pcall(L, 2, 0, 0);
-			cout << lua_tostring(L, -1) << endl;
 			lock.unlock();
 		} catch (...) {
 			failed++;
