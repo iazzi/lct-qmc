@@ -67,6 +67,18 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 				simulation.load_checkpoint(L);
 				lua_pop(L, 1);
 			}
+			simulation.save_checkpoint(L);
+			lua_pushinteger(L, thermalization_sweeps);
+			lua_setfield(L, -2, "THERMALIZATION");
+			lua_pushinteger(L, total_sweeps);
+			lua_setfield(L, -2, "SWEEPS");
+			lua_pushstring(L, getenv("LSB_JOBID"));
+			lua_setfield(L, -2, "JOBID");
+			lua_getglobal(L, "serialize");
+			lua_insert(L, -2);
+			lua_pushstring(L, savefile.c_str());
+			lua_insert(L, -2);
+			lua_pcall(L, 2, 0, 0);
 		}
 		//simulation.load_sigma(L, "nice.lua");
 		lock.unlock();
@@ -180,6 +192,7 @@ int main (int argc, char **argv) {
 		threads[j] = std::thread(run_thread, j, L, std::ref(log), std::ref(lock), std::ref(current), std::ref(failed));
 	}
 	for (std::thread& t : threads) t.join();
+	log << "joined threads";
 	lua_getglobal(L, "serialize");
 	lua_insert(L, -2);
 	lua_pushstring(L, "stablefast_out.lua");
