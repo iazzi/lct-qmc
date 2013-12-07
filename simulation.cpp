@@ -655,7 +655,7 @@ void Simulation::measure () {
 		d_up[i].add(s*rho_up(i, i));
 		d_dn[i].add(s*rho_dn(i, i));
 	}
-	double d_wave_chi = 0.0;
+	double d_wave_chi = pair_correlation(rho_up, rho_dn);
 	Matrix_d F_up = svdA.inverse();
 	Matrix_d F_dn = Matrix_d::Identity(V, V) - svdB.inverse();
 	const double dtau = beta/slices.size();
@@ -664,7 +664,7 @@ void Simulation::measure () {
 		//F_dn.applyOnTheLeft(U*std::exp(-dtau*B*0.5+dtau*mu));
 		//d_wave_chi += pair_correlation(F_up, F_dn);
 	}
-	//chi_d.add(s*d_wave_chi*beta/slices.size());
+	chi_d.add(s*d_wave_chi*beta);
 	double af_ =((rho_up.diagonal().array()-rho_dn.diagonal().array())*staggering).sum()/double(V);
 	chi_af.add(s*beta*af_*af_);
 	for (int k=1;k<=Lx/2;k++) {

@@ -479,7 +479,6 @@ class Simulation {
 	}
 
 	double pair_correlation (const Matrix_d& rho_up, const Matrix_d& rho_dn) {
-		return 0.0;
 		double ret = 0.0;
 		for (int x=0;x<V;x++) {
 			for (int y=0;y<V;y++) {
