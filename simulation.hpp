@@ -12,8 +12,6 @@
 #include <iostream>
 
 extern "C" {
-#include <fftw3.h>
-
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
@@ -97,8 +95,6 @@ class Simulation {
 	Array_d staggering;
 
 	Matrix_d positionSpace; // current matrix in position space
-	Matrix_cd positionSpace_c; // current matrix in position space
-	Matrix_cd momentumSpace;
 
 	std::vector<Matrix_d> slices;
 
@@ -122,15 +118,6 @@ class Simulation {
 
 	Vector_cd v_x;
 	Vector_cd v_p;
-
-	fftw_plan x2p_vec;
-	fftw_plan p2x_vec;
-
-	fftw_plan x2p_col;
-	fftw_plan p2x_col;
-
-	fftw_plan x2p_row;
-	fftw_plan p2x_row;
 
 	double plog;
 	double psign;
@@ -287,22 +274,11 @@ class Simulation {
 
 	void make_svd_inverse () {
 		first_slice_inverse = slices[0].inverse();
-		if (true) {
-			make_density_matrices();
-			svd_inverse_up = svdA;
-			svd_inverse_up.invertInPlace();
-			svd_inverse_dn = svdB;
-			svd_inverse_dn.invertInPlace();
-		} else {
-			svd_inverse = svd;
-			svd_inverse.invertInPlace();
-			svd_inverse_up = svd_inverse;
-			svd_inverse_up.add_identity(std::exp(-beta*B*0.5-beta*mu));
-			svd_inverse_up.invertInPlace();
-			svd_inverse_dn = svd_inverse;
-			svd_inverse_dn.add_identity(std::exp(+beta*B*0.5-beta*mu));
-			svd_inverse_dn.invertInPlace();
-		}
+		make_density_matrices();
+		svd_inverse_up = svdA;
+		svd_inverse_up.invertInPlace();
+		svd_inverse_dn = svdB;
+		svd_inverse_dn.invertInPlace();
 	}
 
 	double svd_probability () {
@@ -316,37 +292,21 @@ class Simulation {
 	}
 
 	void apply_propagator_matrix () {
-		if (open_boundary) {
-			positionSpace_c.applyOnTheLeft(freePropagator_open);
-		} else {
-			fftw_execute(x2p_col);
-			momentumSpace.applyOnTheLeft(freePropagator.asDiagonal());
-			fftw_execute(p2x_col);
-			positionSpace_c /= V;
-		}
+		positionSpace.applyOnTheLeft(freePropagator_open);
 	}
 
 	void apply_propagator_vector () {
-		if (open_boundary) {
-			v_x = freePropagator_open * v_x;
-		} else {
-			fftw_execute(x2p_vec);
-			v_p = v_p.array() * freePropagator.array();
-			fftw_execute(p2x_vec);
-			v_x /= V;
-		}
+		v_x = freePropagator_open * v_x;
 	}
 
 	void accumulate_forward (int start = 0, int end = -1) {
-		positionSpace_c.setIdentity(V, V);
+		positionSpace.setIdentity(V, V);
 		end = end<0?N:end;
 		end = end>N?N:end;
 		for (int i=start;i<end;i++) {
-			//std::cerr << "accumulate_f. " << i << " determinant = " << positionSpace_c.determinant() << std::endl;
-			positionSpace_c.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(i)).array()).matrix().asDiagonal());
+			positionSpace.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(i)).array()).matrix().asDiagonal());
 			apply_propagator_matrix();
 		}
-		positionSpace = positionSpace_c.real();
 	}
 
 	void compute_uv_f_short (int x, int t) {
@@ -384,7 +344,7 @@ class Simulation {
 		make_slices();
 		make_svd();
 		make_svd_inverse();
-		make_density_matrices();
+		//make_density_matrices(); // already called in make_svd_inverse
 		double np = svd_probability();
 		double ns = svd_sign();
 		if (fabs(np-plog-update_prob)>1.0e-8 || psign*update_sign!=ns) {
@@ -401,7 +361,7 @@ class Simulation {
 			make_slices();
 			make_svd();
 			make_svd_inverse();
-			make_density_matrices();
+			//make_density_matrices() // already called in make_svd_inverse;
 			plog = svd_probability();
 			psign = svd_sign();
 		} else {
@@ -454,6 +414,13 @@ class Simulation {
 			psign *= update_sign;
 			make_svd();
 			make_svd_inverse();
+			double np = svd_probability();
+			double ns = svd_sign();
+			if (fabs(np-plog)>1.0e-8 || psign!=ns) {
+				std::cerr << plog+update_prob << " <> " << np << " ~~ " << np-plog-update_prob << '\t' << (psign*update_sign*ns) << std::endl;
+			}
+			plog = np;
+			psign = ns;
 			reset_updates();
 			return true;
 		} else {
@@ -471,11 +438,8 @@ class Simulation {
 	}
 
 	double get_kinetic_energy (const Matrix_d &M) {
-		positionSpace_c = M.cast<Complex>();
-		//fftw_execute(x2p_col);
-		//momentumSpace.applyOnTheLeft(energies.asDiagonal());
-		//fftw_execute(p2x_col);
-		return positionSpace_c.real().trace() / V;
+		positionSpace = M;
+		return positionSpace.trace() / V;
 	}
 
 	double pair_correlation (const Matrix_d& rho_up, const Matrix_d& rho_dn) {
@@ -573,12 +537,6 @@ class Simulation {
 	}
 
 	~Simulation () {
-		fftw_destroy_plan(x2p_vec);
-		fftw_destroy_plan(p2x_vec);
-		fftw_destroy_plan(x2p_col);
-		fftw_destroy_plan(p2x_col);
-		fftw_destroy_plan(x2p_row);
-		fftw_destroy_plan(p2x_row);
 	}
 
 	std::pair<double, double> recheck ();

@@ -87,26 +87,10 @@ void Simulation::init () {
 			//if ((i*3+j)%7==1) diagonals[i][j] *= -1.0;
 		}
 	}
-	v_x = Vector_cd::Zero(V);
-	v_p = Vector_cd::Zero(V);
-	positionSpace.setIdentity(V, V);
-	positionSpace_c.setIdentity(V, V);
-	momentumSpace.setIdentity(V, V);
-
-	const int size[] = { Lx, Ly, Lz, };
-	x2p_vec = fftw_plan_dft(3, size, reinterpret_cast<fftw_complex*>(v_x.data()), reinterpret_cast<fftw_complex*>(v_p.data()), FFTW_FORWARD, FFTW_PATIENT);
-	p2x_vec = fftw_plan_dft(3, size, reinterpret_cast<fftw_complex*>(v_p.data()), reinterpret_cast<fftw_complex*>(v_x.data()), FFTW_BACKWARD, FFTW_PATIENT);
-	x2p_col = fftw_plan_many_dft(3, size, V, reinterpret_cast<fftw_complex*>(positionSpace_c.data()),
-			NULL, 1, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()), NULL, 1, V, FFTW_FORWARD, FFTW_PATIENT);
-	p2x_col = fftw_plan_many_dft(3, size, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()),
-			NULL, 1, V, reinterpret_cast<fftw_complex*>(positionSpace_c.data()), NULL, 1, V, FFTW_BACKWARD, FFTW_PATIENT);
-	x2p_row = fftw_plan_many_dft(3, size, V, reinterpret_cast<fftw_complex*>(positionSpace_c.data()),
-			NULL, V, 1, reinterpret_cast<fftw_complex*>(momentumSpace.data()), NULL, V, 1, FFTW_FORWARD, FFTW_PATIENT);
-	p2x_row = fftw_plan_many_dft(3, size, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()),
-			NULL, V, 1, reinterpret_cast<fftw_complex*>(positionSpace_c.data()), NULL, V, 1, FFTW_BACKWARD, FFTW_PATIENT);
+	v_x.setZero(V);
+	v_p.setZero(V);
 
 	positionSpace.setIdentity(V, V);
-	momentumSpace.setIdentity(V, V);
 
 	prepare_propagators();
 	prepare_open_boundaries();
@@ -615,21 +599,7 @@ void Simulation::straighten_slices () {
 }
 
 void Simulation::measure_sign () {
-	//int old_msvd = msvd;
-	//msvd = 4;
-	//make_svd();
-	//make_svd_inverse();
-	//make_density_matrices();
-	//double np = svd_probability();
-	//double ns = svd_sign();
-	//msvd = old_msvd;
-	//make_svd();
-	//make_svd_inverse();
-	//make_density_matrices();
-	//sign.add(psign*update_sign);
 	exact_sign.add(psign*update_sign*recheck().second);
-	//sign_correlation.add(psign*update_sign*ns);
-	//if (psign*update_sign<0.0 && recheck()>0.0) throw "";
 }
 
 void Simulation::measure () {
