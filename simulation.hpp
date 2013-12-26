@@ -71,6 +71,7 @@ class Simulation {
 	std::mt19937_64 generator;
 	bool reset;
 	std::string outfn;
+	std::string gf_name;
 	int mslices;
 	int msvd;
 	int flips_per_update;
@@ -89,6 +90,7 @@ class Simulation {
 	Vector_d freePropagator;
 	Vector_d freePropagator_b;
 	Matrix_d freePropagator_open;
+	Matrix_d freePropagator_inverse;
 	//Vector_d potential;
 	//Vector_d freePropagator_x;
 	//Vector_d freePropagator_x_b;
@@ -162,6 +164,9 @@ class Simulation {
 	// RNG distributions
 	mymeasurement<double> staggered_magnetization;
 
+	std::vector<mymeasurement<Eigen::ArrayXXd>> green_function_up;
+	std::vector<mymeasurement<Eigen::ArrayXXd>> green_function_dn;
+
 	int time_shift;
 
 	int shift_x (int x, int k) {
@@ -210,6 +215,8 @@ class Simulation {
 		}
 		for (int i=0;i<N;i++) {
 			error.push_back(mymeasurement<double>());
+			green_function_up.push_back(mymeasurement<Eigen::ArrayXXd>());
+			green_function_dn.push_back(mymeasurement<Eigen::ArrayXXd>());
 		}
 	}
 
@@ -348,7 +355,7 @@ class Simulation {
 		double np = svd_probability();
 		double ns = svd_sign();
 		if (fabs(np-plog-update_prob)>1.0e-8 || psign*update_sign!=ns) {
-			std::cerr << plog+update_prob << " <> " << np << " ~~ " << np-plog-update_prob << '\t' << (psign*update_sign*ns) << std::endl;
+			std::cerr << "redo " << plog+update_prob << " <> " << np << " ~~ " << np-plog-update_prob << '\t' << (psign*update_sign*ns) << std::endl;
 			plog = np;
 			psign = ns;
 			//std::cerr << "    " << np-plog << " ~~ " << update_prob << std::endl;
@@ -408,6 +415,8 @@ class Simulation {
 		shift_time();
 	}
 
+	void get_green_function (double s = 1.0);
+
 	bool collapse_updates () {
 		if (update_size>=max_update_size) {
 			plog += update_prob;
@@ -417,7 +426,7 @@ class Simulation {
 			double np = svd_probability();
 			double ns = svd_sign();
 			if (fabs(np-plog)>1.0e-8 || psign!=ns) {
-				std::cerr << plog+update_prob << " <> " << np << " ~~ " << np-plog-update_prob << '\t' << (psign*update_sign*ns) << std::endl;
+				std::cerr << "collapse " << plog+update_prob << " <> " << np << " ~~ " << np-plog-update_prob << '\t' << (psign*update_sign*ns) << std::endl;
 			}
 			plog = np;
 			psign = ns;
@@ -528,7 +537,17 @@ class Simulation {
 			//out << ' ' << spincorrelation[i].mean()/V << ' ' << spincorrelation[i].variance();
 		}
 		out << std::endl;
+		//out << "+-" << std::endl << green_function_up[0].error() << std::endl << std::endl;
+		//out << "Green Function Up (N-1)" << std::endl << green_function_up[N-1].mean() << std::endl << std::endl;
+		//out << "+-" << std::endl << green_function_up[N-1].error() << std::endl << std::endl;
+		//out << "Green Function Dn (0)" << std::endl << green_function_dn[0].mean() << std::endl << std::endl;
+		//out << "+-" << std::endl << green_function_dn[0].error() << std::endl << std::endl;
+		//out << "Green Function Dn (N-1)" << std::endl << green_function_dn[N-1].mean() << std::endl << std::endl;
+		//out << "+-" << std::endl << green_function_dn[N-1].error() << std::endl << std::endl;
+		write_green_function();
 	}
+
+	void write_green_function ();
 
 	std::string params () {
 		std::ostringstream buf;

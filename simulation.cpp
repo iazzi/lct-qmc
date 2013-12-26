@@ -23,6 +23,7 @@ void Simulation::prepare_open_boundaries () {
 	Eigen::SelfAdjointEigenSolver<Matrix_d> solver;
 	solver.compute(H);
 	freePropagator_open = solver.eigenvectors() * (-dt*solver.eigenvalues().array()).exp().matrix().asDiagonal() * solver.eigenvectors().transpose();
+	freePropagator_inverse = solver.eigenvectors() * (+dt*solver.eigenvalues().array()).exp().matrix().asDiagonal() * solver.eigenvectors().transpose();
 	//std::cerr << "() " << solver.eigenvalues().array().sum() << std::endl;
 	//std::cout << H << std::endl << std::endl;
 	//v_x.setRandom();
@@ -134,6 +135,7 @@ void Simulation::load (lua_State *L, int index) {
 	lua_getfield(L, index, "RESET");  reset = lua_toboolean(L, -1);            lua_pop(L, 1);
 	//lua_getfield(L, index, "REWEIGHT");  reweight = lua_tointeger(L, -1);      lua_pop(L, 1);
 	lua_getfield(L, index, "OUTPUT");  outfn = lua_tostring(L, -1);            lua_pop(L, 1);
+	lua_getfield(L, index, "gf_file"); gf_name = lua_tostring(L, -1);            lua_pop(L, 1);
 	lua_getfield(L, index, "SLICES");  mslices = lua_tointeger(L, -1);         lua_pop(L, 1);
 	lua_getfield(L, index, "SVD");     msvd = lua_tointeger(L, -1);            lua_pop(L, 1);
 	lua_getfield(L, index, "max_update_size");     max_update_size = lua_tointeger(L, -1);            lua_pop(L, 1);
@@ -628,12 +630,6 @@ void Simulation::measure () {
 	double d_wave_chi = pair_correlation(rho_up, rho_dn);
 	Matrix_d F_up = svdA.inverse();
 	Matrix_d F_dn = Matrix_d::Identity(V, V) - svdB.inverse();
-	const double dtau = beta/slices.size();
-	for (const Matrix_d& U : slices) {
-		//F_up.applyOnTheLeft(U*std::exp(+dtau*B*0.5+dtau*mu));
-		//F_dn.applyOnTheLeft(U*std::exp(-dtau*B*0.5+dtau*mu));
-		//d_wave_chi += pair_correlation(F_up, F_dn);
-	}
 	chi_d.add(s*d_wave_chi*beta);
 	double af_ =((rho_up.diagonal().array()-rho_dn.diagonal().array())*staggering).sum()/double(V);
 	chi_af.add(s*beta*af_*af_);
@@ -648,20 +644,88 @@ void Simulation::measure () {
 		}
 		spincorrelation[k].add(s*0.25*ssz);
 		if (isnan(ssz)) {
-			//std::cerr << "explain:" << std::endl;
-			//std::cerr << "k=" << k << " ssz=" << ssz << std::endl;
-			//for (int j=0;j<V;j++) {
-			//int x = j;
-			//int y = shift_x(j, k);
-			//std::cerr << " j=" << j
-			//<< " a_j=" << (rho_up(x, x)*rho_up(y, y) + rho_dn(x, x)*rho_dn(y, y))
-			//<< " b_j=" << (rho_up(x, x)*rho_dn(y, y) + rho_dn(x, x)*rho_up(y, y))
-			//<< " c_j=" << (rho_up(x, y)*rho_up(y, x) + rho_dn(x, y)*rho_dn(y, x)) << std::endl;
-			//}
-			//throw "";
 		}
 	}
 	//if (staggered_field!=0.0) staggered_magnetization.add(s*(rho_up.diagonal().array()*staggering - rho_dn.diagonal().array()*staggering).sum()/V);
+	get_green_function(s);
+}
+
+void Simulation::get_green_function (double s) {
+	double X = 1.0-A*A;
+	Matrix_d rho_up = Matrix_d::Identity(V, V) - svdA.inverse();
+	Matrix_d rho_dn = svdB.inverse();
+	SVDHelper help, flist[N], blist[N];
+	// spin up
+	help.setIdentity(V);
+	for (size_t t=0;t<N;t++) {
+		flist[t] = help;
+		help.U.applyOnTheLeft(freePropagator_open);
+		help.S *= std::exp(+dt*B*0.5+dt*mu);
+		help.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(t)).array()).matrix().asDiagonal());
+		help.absorbU();
+	}
+	help.setIdentity(V);
+	for (size_t t=0;t<N;t++) {
+		help.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)-diagonal(t)).array()).matrix().asDiagonal());
+		help.S *= std::exp(-dt*B*0.5-dt*mu)/X;
+		help.U.applyOnTheLeft(freePropagator_inverse);
+		help.absorbU();
+		blist[t] = help;
+	}
+	for (size_t t=0;t<N;t++) {
+		help = blist[N-1-t];
+		help.add_svd(flist[t]);
+		green_function_up[t].add(s*help.inverse());
+	}
+	// spin down
+	help.setIdentity(V);
+	for (size_t t=0;t<N;t++) {
+		flist[t] = help;
+		help.U.applyOnTheLeft(freePropagator_open);
+		help.S *= std::exp(-dt*B*0.5+dt*mu);
+		help.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(t)).array()).matrix().asDiagonal());
+		help.absorbU();
+	}
+	help.setIdentity(V);
+	for (size_t t=0;t<N;t++) {
+		help.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)-diagonal(t)).array()).matrix().asDiagonal());
+		help.S *= std::exp(+dt*B*0.5-dt*mu)/X;
+		help.U.applyOnTheLeft(freePropagator_inverse);
+		help.absorbU();
+		blist[t] = help;
+	}
+	for (size_t t=0;t<N;t++) {
+		help = blist[N-1-t];
+		help.add_svd(flist[t]);
+		green_function_dn[t].add(s*help.inverse());
+	}
+}
+
+void Simulation::write_green_function () {
+	if (gf_name.empty()) return;
+	std::ofstream out(gf_name);
+	Eigen::IOFormat HeavyFmt(Eigen::FullPrecision, 0, ", ", ",\n", "{", "}", "{", "}");
+	out << "beta = " << beta*tx << "\n";
+	out << "dtau = " << dt*tx << "\n";
+	out << "mu = " << mu/tx << "\n";
+	out << "B = " << B/tx << "\n";
+	out << "U = " << g/tx << "\n";
+	out << "Lx = " << Lx << "\n";
+	out << "Ly = " << Ly << "\n";
+	out << "Lz = " << Lz << "\n";
+	out << "N = " << N << "\n";
+	out << "G_up = {}\n";
+	out << "G_dn = {}\n";
+	out << "DG_up = {}\n";
+	out << "DG_dn = {}\n\n";
+	for (size_t t=0;t<N;t++) {
+		Matrix_d G = green_function_up[t].mean()/sign.mean();
+		out << "G_up[" << t << "] = " << G.format(HeavyFmt) << std::endl;
+	}
+	for (size_t t=0;t<N;t++) {
+		Matrix_d G = green_function_dn[t].mean()/sign.mean();
+		out << "G_dn[" << t << "] = " << G.format(HeavyFmt) << std::endl;
+	}
 }
 
 
