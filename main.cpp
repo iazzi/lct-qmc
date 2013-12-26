@@ -42,6 +42,7 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 	steady_clock::time_point t2 = steady_clock::now();
 	log << "thread" << j << "starting";
 	while (true) {
+		steady_clock::time_point t_start = steady_clock::now();
 		int job = current.fetch_add(1);
 		lock.lock();
 		lua_rawgeti(L, -1, job);
@@ -137,11 +138,14 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 				simulation.measure();
 				//simulation.measure_sign();
 			}
-			log << "thread" << j << "finished simulation" << job;
+			double seconds = duration_cast<seconds_type>(steady_clock::now()-t_start).count();
+			log << "thread" << j << "finished simulation" << job << "in" << seconds << "seconds";
 			lock.lock();
 			simulation.output_results();
 			//simulation.output_sign();
 			lua_rawgeti(L, -1, job);
+			lua_pushnumber(L, seconds);
+			lua_setfield(L, -2, "elapsed_time");
 			simulation.save(L, lua_gettop(L));
 			lua_getglobal(L, "serialize");
 			lua_insert(L, -2);
