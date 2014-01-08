@@ -192,9 +192,9 @@ struct SVDHelper {
 		const int N = S.size();
 		int info = 0;
 		Matrix A = U;
-		Matrix B = Vt;
-		other = (U.transpose()*s.U) * s.S.asDiagonal() * (s.Vt*Vt.transpose());
-		other.diagonal() += S;
+		Matrix B = s.Vt;
+		other = (U.transpose()*s.U) * s.S.asDiagonal();
+		other += S.asDiagonal() * (Vt*s.Vt.transpose());
 		dgesvd_("A", "A", N, N, other.data(), N, S.data(), U.data(), N, Vt.data(), N, work.data(), work.size(), info);
 		check_info(info);
 		U.applyOnTheLeft(A);
