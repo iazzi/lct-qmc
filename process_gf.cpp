@@ -16,9 +16,6 @@ extern "C" {
 
 using namespace std;
 
-int N, Lx, Ly;
-double beta;
-
 void average (fftw_complex &a, fftw_complex &b) {
 	a[0] += b[0];
 	a[0] /= 2.0;
@@ -28,9 +25,9 @@ void average (fftw_complex &a, fftw_complex &b) {
 	b[1] = a[1];
 }
 
-void load_gf (lua_State *L, fftw_complex *G, int Lx, int Ly) {
+void load_gf (lua_State *L, fftw_complex *G, int N, int Lx, int Ly) {
 	int V = Lx*Ly;
-	for (int t=0;t<N;t++) {
+	for (int t=0;t<=N;t++) {
 		lua_rawgeti(L, -1, t);
 		for (int x=0;x<V;x++) {
 			lua_rawgeti(L, -1, x+1);
@@ -60,7 +57,7 @@ void load_gf (lua_State *L, fftw_complex *G, int Lx, int Ly) {
 
 void transl_symm (fftw_complex* G, int N, int Lx, int Ly) {
 	int V = Lx*Ly;
-	for (int t=0;t<N;t++) {
+	for (int t=0;t<=N;t++) {
 		for (int x=1;x<V;x++) {
 			for (int y=0;y<V;y++) {
 				int x_a = x/Ly;
@@ -96,7 +93,7 @@ void transl_symm (fftw_complex* G, int N, int Lx, int Ly) {
 
 void symm (fftw_complex* G, int N, int Lx, int Ly) {
 	int V = Lx*Ly;
-	for (int t=0;t<N;t++) {
+	for (int t=0;t<=N;t++) {
 		for (int x=0;x<V;x++) {
 			for (int y=0;y<V;y++) {
 				int x_a = x/Ly;
@@ -124,7 +121,7 @@ void invert (fftw_complex &y) {
 
 void invert (fftw_complex* G, int N, int Lx, int Ly) {
 	int V = Lx*Ly;
-	for (int t=0;t<N;t++) {
+	for (int t=0;t<=N;t++) {
 		for (int x=0;x<V;x++) {
 			for (int y=0;y<V;y++) {
 				invert(G[t*V*V+x*V+y]);
@@ -135,7 +132,7 @@ void invert (fftw_complex* G, int N, int Lx, int Ly) {
 
 void flip_row (fftw_complex* G, int N, int Lx, int Ly) {
 	int V = Lx*Ly;
-	for (int t=0;t<N;t++) {
+	for (int t=0;t<=N;t++) {
 		for (int x=0;x<V;x++) {
 			for (int y=0;y<V;y++) {
 				int y_a = y/Ly;
@@ -151,6 +148,8 @@ void flip_row (fftw_complex* G, int N, int Lx, int Ly) {
 }
 
 int main (int argc, char **argv) {
+	int N, Lx, Ly;
+	double beta;
 	ofstream out(argv[2]);
 	lua_State *L = luaL_newstate();
 
@@ -175,19 +174,19 @@ int main (int argc, char **argv) {
 	int V = Lx*Ly;
 
 	int size[5] = { Lx, Ly, Lx, Ly };
-	fftw_complex *G_up_position = fftw_alloc_complex(N*V*V);
-	fftw_complex *G_up_momentum = fftw_alloc_complex(N*V*V);
-	fftw_complex *G_dn_position = fftw_alloc_complex(N*V*V);
-	fftw_complex *G_dn_momentum = fftw_alloc_complex(N*V*V);
-	fftw_plan g_up_plan = fftw_plan_many_dft(4, size, N, G_up_position, NULL, 1, V*V, G_up_momentum, NULL, 1, V*V, FFTW_FORWARD, FFTW_PATIENT);
-	fftw_plan g_dn_plan = fftw_plan_many_dft(4, size, N, G_dn_position, NULL, 1, V*V, G_dn_momentum, NULL, 1, V*V, FFTW_FORWARD, FFTW_PATIENT);
+	fftw_complex *G_up_position = fftw_alloc_complex((N+1)*V*V);
+	fftw_complex *G_up_momentum = fftw_alloc_complex((N+1)*V*V);
+	fftw_complex *G_dn_position = fftw_alloc_complex((N+1)*V*V);
+	fftw_complex *G_dn_momentum = fftw_alloc_complex((N+1)*V*V);
+	fftw_plan g_up_plan = fftw_plan_many_dft(4, size, N+1, G_up_position, NULL, 1, V*V, G_up_momentum, NULL, 1, V*V, FFTW_FORWARD, FFTW_PATIENT);
+	fftw_plan g_dn_plan = fftw_plan_many_dft(4, size, N+1, G_dn_position, NULL, 1, V*V, G_dn_momentum, NULL, 1, V*V, FFTW_FORWARD, FFTW_PATIENT);
 
 	lua_getglobal(L, "G_up");
-	load_gf(L, G_up_position, Lx, Ly);
+	load_gf(L, G_up_position, N, Lx, Ly);
 	lua_pop(L, 1);
 
 	lua_getglobal(L, "G_dn");
-	load_gf(L, G_dn_position, Lx, Ly);
+	load_gf(L, G_dn_position, N, Lx, Ly);
 	lua_pop(L, 1);
 
 
@@ -213,7 +212,7 @@ int main (int argc, char **argv) {
 	out.precision(12);
 	out << "G_up = {}\n";
 	out << "G_dn = {}\n\n";
-	for (int t=0;t<N;t++) {
+	for (int t=0;t<=N;t++) {
 		out << "G_up[" << t << "] = {";
 		for (int x=0;x<V;x++) {
 			out << " {";
