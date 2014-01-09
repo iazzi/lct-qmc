@@ -228,7 +228,7 @@ int main (int argc, char **argv) {
 	}
 
 	double dt = beta / N;
-	for (int t=0;t<N;t++) {
+	for (int t=0;t<=N;t++) {
 		double tau = dt*t;
 		cerr << "# " << t << "\n";
 		for (int x=0;x<V;x++) {
