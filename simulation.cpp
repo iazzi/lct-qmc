@@ -654,10 +654,10 @@ void Simulation::get_green_function (double s) {
 	double X = 1.0-A*A;
 	Matrix_d rho_up = Matrix_d::Identity(V, V) - svdA.inverse();
 	Matrix_d rho_dn = svdB.inverse();
-	SVDHelper help, flist[N], blist[N];
+	SVDHelper help, flist[N+1], blist[N+1];
 	// spin up
 	help.setIdentity(V);
-	for (size_t t=0;t<N;t++) {
+	for (size_t t=0;t<=N;t++) {
 		flist[t] = help;
 		help.U.applyOnTheLeft(freePropagator_open);
 		help.S *= std::exp(+dt*B*0.5+dt*mu);
@@ -665,21 +665,21 @@ void Simulation::get_green_function (double s) {
 		help.absorbU();
 	}
 	help.setIdentity(V);
-	for (size_t t=0;t<N;t++) {
+	for (size_t t=0;t<=N;t++) {
+		blist[t] = help;
 		help.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)-diagonal(t)).array()).matrix().asDiagonal());
 		help.S *= std::exp(-dt*B*0.5-dt*mu)/X;
 		help.U.applyOnTheLeft(freePropagator_inverse);
 		help.absorbU();
-		blist[t] = help;
 	}
-	for (size_t t=0;t<N;t++) {
-		help = blist[N-1-t];
+	for (size_t t=0;t<=N;t++) {
+		help = blist[N-t];
 		help.add_svd(flist[t]);
 		green_function_up[t].add(s*help.inverse());
 	}
 	// spin down
 	help.setIdentity(V);
-	for (size_t t=0;t<N;t++) {
+	for (size_t t=0;t<=N;t++) {
 		flist[t] = help;
 		help.U.applyOnTheLeft(freePropagator_open);
 		help.S *= std::exp(-dt*B*0.5+dt*mu);
@@ -687,15 +687,15 @@ void Simulation::get_green_function (double s) {
 		help.absorbU();
 	}
 	help.setIdentity(V);
-	for (size_t t=0;t<N;t++) {
+	for (size_t t=0;t<=N;t++) {
+		blist[t] = help;
 		help.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)-diagonal(t)).array()).matrix().asDiagonal());
 		help.S *= std::exp(+dt*B*0.5-dt*mu)/X;
 		help.U.applyOnTheLeft(freePropagator_inverse);
 		help.absorbU();
-		blist[t] = help;
 	}
-	for (size_t t=0;t<N;t++) {
-		help = blist[N-1-t];
+	for (size_t t=0;t<=N;t++) {
+		help = blist[N-t];
 		help.add_svd(flist[t]);
 		green_function_dn[t].add(s*help.inverse());
 	}
@@ -718,11 +718,11 @@ void Simulation::write_green_function () {
 	out << "G_dn = {}\n";
 	out << "DG_up = {}\n";
 	out << "DG_dn = {}\n\n";
-	for (size_t t=0;t<N;t++) {
+	for (size_t t=0;t<=N;t++) {
 		Matrix_d G = green_function_up[t].mean()/sign.mean();
 		out << "G_up[" << t << "] = " << G.format(HeavyFmt) << std::endl;
 	}
-	for (size_t t=0;t<N;t++) {
+	for (size_t t=0;t<=N;t++) {
 		Matrix_d G = green_function_dn[t].mean()/sign.mean();
 		out << "G_dn[" << t << "] = " << G.format(HeavyFmt) << std::endl;
 	}

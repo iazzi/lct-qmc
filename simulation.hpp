@@ -213,7 +213,7 @@ class Simulation {
 		for (int i=0;i<=Lx/2;i++) {
 			spincorrelation.push_back(mymeasurement<double>());
 		}
-		for (int i=0;i<N;i++) {
+		for (int i=0;i<=N;i++) {
 			error.push_back(mymeasurement<double>());
 			green_function_up.push_back(mymeasurement<Eigen::ArrayXXd>());
 			green_function_dn.push_back(mymeasurement<Eigen::ArrayXXd>());
