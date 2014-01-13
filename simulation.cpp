@@ -695,8 +695,8 @@ void Simulation::get_green_function (double s) {
 		help.absorbU();
 	}
 	for (size_t t=0;t<=N;t++) {
-		help = blist[N-t];
-		help.add_svd(flist[t]);
+		help = flist[N-t];
+		help.add_svd(blist[t]);
 		green_function_dn[t].add(s*help.inverse());
 	}
 }
@@ -719,12 +719,16 @@ void Simulation::write_green_function () {
 	out << "DG_up = {}\n";
 	out << "DG_dn = {}\n\n";
 	for (size_t t=0;t<=N;t++) {
-		Matrix_d G = green_function_up[t].mean()/sign.mean();
+		Eigen::ArrayXXd G = green_function_up[t].mean()/sign.mean();
+		Eigen::ArrayXXd DG = G.abs()*(green_function_up[t].error()/green_function_up[t].mean().abs() + sign.error()/fabs(sign.mean()));
 		out << "G_up[" << t << "] = " << G.format(HeavyFmt) << std::endl;
+		out << "DG_up[" << t << "] = " << DG.format(HeavyFmt) << std::endl;
 	}
 	for (size_t t=0;t<=N;t++) {
-		Matrix_d G = green_function_dn[t].mean()/sign.mean();
+		Eigen::ArrayXXd G = green_function_dn[t].mean()/sign.mean();
+		Eigen::ArrayXXd DG = G.abs()*(green_function_dn[t].error()/green_function_dn[t].mean().abs() + sign.error()/fabs(sign.mean()));
 		out << "G_dn[" << t << "] = " << G.format(HeavyFmt) << std::endl;
+		out << "DG_dn[" << t << "] = " << DG.format(HeavyFmt) << std::endl;
 	}
 }
 
