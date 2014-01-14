@@ -12,6 +12,8 @@ extern "C" {
 #include <lauxlib.h>
 }
 
+#include "akima.hpp"
+
 #define PI atan2(0.0, -1.0)
 
 using namespace std;
@@ -30,6 +32,7 @@ void load_gf (lua_State *L, fftw_complex *G, int N, int Lx, int Ly) {
 	for (int t=0;t<=N;t++) {
 		lua_rawgeti(L, -1, t);
 		for (int x=0;x<V;x++) {
+			//cerr << t << ' ' << x << ' ' << lua_gettop(L) << ' ' << luaL_typename(L, -1) << '\n';
 			lua_rawgeti(L, -1, x+1);
 			for (int y=0;y<V;y++) {
 				lua_rawgeti(L, -1, y+1);
@@ -50,7 +53,6 @@ void load_gf (lua_State *L, fftw_complex *G, int N, int Lx, int Ly) {
 			//cerr << '\n';
 			lua_pop(L, 1);
 		}
-		//cerr << '\n';
 		lua_pop(L, 1);
 	}
 }
@@ -189,21 +191,36 @@ int main (int argc, char **argv) {
 	load_gf(L, G_dn_position, N, Lx, Ly);
 	lua_pop(L, 1);
 
-
 	transl_symm(G_up_position, N, Lx, Ly);
 	symm(G_up_position, N, Lx, Ly);
 	fftw_execute(g_up_plan);
 	flip_row(G_up_momentum, N, Lx, Ly);
 	for (int x=0;x<V;x++) {
-		complex<double> v[N];
-		for (int n=0;n<N;n++) {
-			v[n] = 0.0;
-			complex<double> w = PI*(2*n+1)/beta;
-			double dt = beta / N;
-			for (int t=0;t<N;t++) {
-				complex<double> f(G_up_momentum[t*V*V+x*V+x][0], G_up_momentum[t*V*V+x*V+x][1]);
-				double tau = dt*t;
-				v[n] += dt * exp(w*tau) * f;
+		vector<complex<double>> v(N);
+		vector<double> points(N);
+		double dt = beta/N;
+		for (int t=0;t<N;t++) {
+			complex<double> f(G_up_momentum[t*V*V+x*V+x][0], G_up_momentum[t*V*V+x*V+x][1]);
+			v[t] = f;
+			double tau = dt*t;
+			points[t] = tau;
+		}
+		Akima<complex<double>> spline(points, v);
+		if (x==0) {
+			ofstream out("spline.dat");
+			const int M = 1000;
+			double h = beta/M;
+			for (int n=0;n<M;n++) {
+				double t = n*h;
+				try {
+				out << t << ' ' << spline(t).real() << ' ' << spline(t).imag() << endl;
+				} catch (const char *err) {
+					cerr << err << endl;
+				}
+			}
+			out << endl << endl;
+			for (int i=0;i<N;i++) {
+				out << points[i] << ' ' << v[i].real() << ' ' << v[i].imag() << endl;
 			}
 		}
 	}
@@ -230,19 +247,19 @@ int main (int argc, char **argv) {
 	double dt = beta / N;
 	for (int t=0;t<=N;t++) {
 		double tau = dt*t;
-		cerr << "# " << t << "\n";
+		//cerr << "# " << t << "\n";
 		for (int x=0;x<V;x++) {
 			double k_x = 2*PI*(x/Ly)/Lx;
 			double k_y = 2*PI*(x%Ly)/Ly;
 			if (k_x>PI) k_x -= 2.0*PI;
 			if (k_y>PI) k_y -= 2.0*PI;
 			double e = -2*(cos(k_x)+cos(k_y))-4;
-			cerr << k_x << " " << k_y << " "
-				<< G_up_momentum[t*V*V+x*V+x][0]/G_up_momentum[x*V+x][0] << " "
-				<< log(G_up_momentum[t*V*V+x*V+x][0]/G_up_momentum[x*V+x][0])/tau << " "
-				<< G_up_momentum[t*V*V+x*V+x][0] << ' ' << exp(-tau*e)/(1.0+exp(-beta*e)) << "\n";
+			//cerr << k_x << " " << k_y << " "
+				//<< G_up_momentum[t*V*V+x*V+x][0]/G_up_momentum[x*V+x][0] << " "
+				//<< log(G_up_momentum[t*V*V+x*V+x][0]/G_up_momentum[x*V+x][0])/tau << " "
+				//<< G_up_momentum[t*V*V+x*V+x][0] << ' ' << exp(-tau*e)/(1.0+exp(-beta*e)) << "\n";
 				//<< G_up_momentum[x*V+x][0] << ' ' << 1.0/(1.0+exp(-beta*e)) << "\n";
-			if ((x+1)%Ly==0) cerr << '\n';
+			//if ((x+1)%Ly==0) cerr << '\n';
 		}
 		//cerr << "\n";
 	}
