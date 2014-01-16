@@ -196,10 +196,10 @@ int main (int argc, char **argv) {
 	fftw_execute(g_up_plan);
 	flip_row(G_up_momentum, N, Lx, Ly);
 	for (int x=0;x<V;x++) {
-		vector<complex<double>> v(N);
-		vector<double> points(N);
+		vector<complex<double>> v(N+1);
+		vector<double> points(N+1);
 		double dt = beta/N;
-		for (int t=0;t<N;t++) {
+		for (int t=0;t<=N;t++) {
 			complex<double> f(G_up_momentum[t*V*V+x*V+x][0], G_up_momentum[t*V*V+x*V+x][1]);
 			v[t] = f;
 			double tau = dt*t;
@@ -207,7 +207,7 @@ int main (int argc, char **argv) {
 		}
 		Akima<complex<double>> spline(points, v);
 		if (x==0) {
-			ofstream out("spline.dat");
+			ofstream out(argc>3?argv[3]:"spline.dat");
 			const int M = 1000;
 			double h = beta/M;
 			for (int n=0;n<M;n++) {
@@ -219,9 +219,10 @@ int main (int argc, char **argv) {
 				}
 			}
 			out << endl << endl;
-			for (int i=0;i<N;i++) {
+			for (int i=0;i<=N;i++) {
 				out << points[i] << ' ' << v[i].real() << ' ' << v[i].imag() << endl;
 			}
+			out << endl << endl;
 		}
 	}
 	//invert(G_up_momentum, N, Lx, Ly);
