@@ -341,6 +341,10 @@ class Simulation {
 		cache.v_smart = v_x.real();
 	}
 
+	void flip (int x) {
+		for (int t=0;t<N;t++) diagonal(t)[x] = -diagonal(t)[x];
+	}
+
 	void flip (int t, int x) {
 		diagonal(t)[x] = -diagonal(t)[x];
 	}
@@ -417,7 +421,29 @@ class Simulation {
 		}
 		//time_shift = randomTime(generator);
 		//redo_all();
+		//try_site_flip();
 		shift_time();
+		measure_quick();
+	}
+
+	bool try_site_flip () {
+		int x = randomPosition(generator);
+		flip(x);
+		make_svd();
+		make_svd_inverse();
+		double np = svd_probability();
+		bool ret = -trialDistribution(generator)<np-plog;
+		if (ret) {
+			std::cerr << "accepted site flip at " << x << std::endl;
+			plog = np;
+			psign = svd_sign();
+		} else {
+			std::cerr << "rejected site flip at " << x << std::endl;
+			flip(x);
+			make_svd();
+			make_svd_inverse();
+		}
+		return ret;
 	}
 
 	void get_green_function (double s = 1.0, int t0 = 0);
