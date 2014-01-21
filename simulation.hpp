@@ -419,7 +419,7 @@ class Simulation {
 		shift_time();
 	}
 
-	void get_green_function (double s = 1.0);
+	void get_green_function (double s = 1.0, int t0 = 0);
 
 	bool collapse_updates () {
 		if (update_size>=max_update_size) {

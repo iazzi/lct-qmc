@@ -657,7 +657,7 @@ void Simulation::measure () {
 	get_green_function(s);
 }
 
-void Simulation::get_green_function (double s) {
+void Simulation::get_green_function (double s, int t0) {
 	double X = 1.0-A*A;
 	Matrix_d rho_up = Matrix_d::Identity(V, V) - svdA.inverse();
 	Matrix_d rho_dn = svdB.inverse();
@@ -668,13 +668,13 @@ void Simulation::get_green_function (double s) {
 		flist[t] = help;
 		help.U.applyOnTheLeft(freePropagator_open);
 		help.S *= std::exp(+dt*B*0.5+dt*mu);
-		help.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(t)).array()).matrix().asDiagonal());
+		help.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonals[(t+t0)%N]).array()).matrix().asDiagonal());
 		help.absorbU();
 	}
 	help.setIdentity(V);
 	for (size_t t=0;t<=N;t++) {
 		blist[t] = help;
-		help.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)-diagonal(t)).array()).matrix().asDiagonal());
+		help.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)-diagonals[(t+t0)%N]).array()).matrix().asDiagonal());
 		help.S *= std::exp(-dt*B*0.5-dt*mu)/X;
 		help.U.applyOnTheLeft(freePropagator_inverse);
 		help.absorbU();
@@ -690,13 +690,13 @@ void Simulation::get_green_function (double s) {
 		flist[t] = help;
 		help.U.applyOnTheLeft(freePropagator_open);
 		help.S *= std::exp(-dt*B*0.5+dt*mu);
-		help.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(t)).array()).matrix().asDiagonal());
+		help.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonals[(t+t0)%N]).array()).matrix().asDiagonal());
 		help.absorbU();
 	}
 	help.setIdentity(V);
 	for (size_t t=0;t<=N;t++) {
 		blist[t] = help;
-		help.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)-diagonal(t)).array()).matrix().asDiagonal());
+		help.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)-diagonals[(t+t0)%N]).array()).matrix().asDiagonal());
 		help.S *= std::exp(+dt*B*0.5-dt*mu)/X;
 		help.U.applyOnTheLeft(freePropagator_inverse);
 		help.absorbU();
@@ -721,6 +721,8 @@ void Simulation::write_green_function () {
 	out << "Ly = " << Ly << "\n";
 	out << "Lz = " << Lz << "\n";
 	out << "N = " << N << "\n";
+	out << "sign = " << sign.mean() << "\n";
+	out << "Dsign = " << sign.error() << "\n";
 	out << "G_up = {}\n";
 	out << "G_dn = {}\n";
 	out << "DG_up = {}\n";
