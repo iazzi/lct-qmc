@@ -232,16 +232,24 @@ void Simulation::load_checkpoint (lua_State *L) {
 	lua_get(L, chi_d);
 	lua_pop(L, 1);
 	lua_pop(L, 1);
+	lua_getfield(L, -1, "N");
+	int oldN = lua_tointeger(L, -1);
+	lua_pop(L, 1);
+	lua_getfield(L, -1, "V");
+	int oldV = lua_tointeger(L, -1);
+	lua_pop(L, 1);
 	lua_getfield(L, -1, "sigma");
 	for (int i=0;i<N;i++) {
+		int t = oldN<N?i%oldN:i;
 		for (int j=0;j<V;j++) {
-			lua_rawgeti(L, -1, i*V+j+1);
-			diagonals[i][j] = lua_tonumber(L, -1);
+			int x = j%oldV;
+			lua_rawgeti(L, -1, t*oldV+x+1);
+			diagonals[t][x] = lua_tonumber(L, -1)<0.0?-A:A;
 			lua_pop(L, 1);
-			//std::cerr << (diagonals[i][j]<0.0?'-':'+') << ' ';
+			std::cerr << (diagonals[t][x]<0.0?'-':'+') << ' ';
 		}
 	}
-	//std::cerr << std::endl;
+	std::cerr << std::endl;
 	lua_pop(L, 1);
 }
 
@@ -275,6 +283,10 @@ void Simulation::save_checkpoint (lua_State *L) {
 	L << chi_d;
 	lua_setfield(L, -2, "chi_d");
 	lua_setfield(L, -2, "results");
+	lua_pushinteger(L, N);
+	lua_setfield(L, -2, "N");
+	lua_pushinteger(L, V);
+	lua_setfield(L, -2, "V");
 	lua_newtable(L);
 	for (int i=0;i<N;i++) {
 		for (int j=0;j<V;j++) {
