@@ -296,13 +296,20 @@ std::pair<double, double> Simulation::rank1_probability (int x, int t) {
 	const int L = update_size;
 	update_U.col(L) = first_slice_inverse * cache.u_smart;
 	update_Vt.row(L) = cache.v_smart.transpose();
-	double d1, d2;
+	double d1, d2, e1, e2;
 	if (true) {
 		d1 = (update_Vt.topRows(L+1)*update_U.leftCols(L+1) - (update_Vt.topRows(L+1)*svd_inverse_up.U) * svd_inverse_up.S.asDiagonal() * (svd_inverse_up.Vt*update_U.leftCols(L+1)) + Matrix_d::Identity(L+1, L+1)).determinant();
 		d2 = (update_Vt.topRows(L+1)*update_U.leftCols(L+1) - (update_Vt.topRows(L+1)*svd_inverse_dn.U) * svd_inverse_dn.S.asDiagonal() * (svd_inverse_dn.Vt*update_U.leftCols(L+1)) + Matrix_d::Identity(L+1, L+1)).determinant();
 	} else {
-		d1 = ((update_Vt.topRows(L+1)*svd_inverse_up.U) * svd_inverse_up.S.asDiagonal() * (svd_inverse_up.Vt*update_U.leftCols(L+1)) + Matrix_d::Identity(L+1, L+1)).determinant();
-		d2 = ((update_Vt.topRows(L+1)*svd_inverse_dn.U) * svd_inverse_dn.S.asDiagonal() * (svd_inverse_dn.Vt*update_U.leftCols(L+1)) + Matrix_d::Identity(L+1, L+1)).determinant();
+		update_matrix_a.col(L).head(L+1) = update_Vt.topRows(L+1)*update_U.col(L) - (update_Vt.topRows(L+1)*svd_inverse_up.U) * svd_inverse_up.S.asDiagonal() * (svd_inverse_up.Vt*update_U.col(L));
+		update_matrix_a.row(L).head(L+1) = update_Vt.row(L)*update_U.leftCols(L+1) - (update_Vt.row(L)*svd_inverse_up.U) * svd_inverse_up.S.asDiagonal() * (svd_inverse_up.Vt*update_U.leftCols(L+1));
+		update_matrix_a(L, L) += 1.0;
+		update_matrix_b.col(L).head(L+1) = update_Vt.topRows(L+1)*update_U.col(L) - (update_Vt.topRows(L+1)*svd_inverse_dn.U) * svd_inverse_dn.S.asDiagonal() * (svd_inverse_dn.Vt*update_U.col(L));
+		update_matrix_b.row(L).head(L+1) = update_Vt.row(L)*update_U.leftCols(L+1) - (update_Vt.row(L)*svd_inverse_dn.U) * svd_inverse_dn.S.asDiagonal() * (svd_inverse_dn.Vt*update_U.leftCols(L+1));
+		update_matrix_b(L, L) += 1.0;
+		d1 = update_matrix_a.block(0, 0, L+1, L+1).determinant();
+		d2 = update_matrix_b.block(0, 0, L+1, L+1).determinant();
+		//std::cerr << d1-e1 << ' ' << d2-e2 << std::endl;
 	}
 	double s = 1.0;
 	if (d1 < 0) {

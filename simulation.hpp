@@ -105,6 +105,8 @@ class Simulation {
 	int update_size;
 	Matrix_d update_U;
 	Matrix_d update_Vt;
+	Matrix_d update_matrix_a;
+	Matrix_d update_matrix_b;
 
 	Matrix_d hamiltonian;
 
@@ -226,6 +228,8 @@ class Simulation {
 		update_size = 0.0;
 		update_U.setZero(V, max_update_size);
 		update_Vt.setZero(max_update_size, V);
+		update_matrix_a.setZero(max_update_size, max_update_size);
+		update_matrix_b.setZero(max_update_size, max_update_size);
 	}
 
 	void init ();
