@@ -28,8 +28,6 @@ for i, c in ipairs(t) do
 		else
 		end
 	end
-	f:write('    savefile = "'..dir..tostring(i)..'.save",\n')
-	f:write('    outfile = "'..dir..tostring(i)..'.out",\n')
 	f:write('  },\n')
 	f:write('}\n')
 	f:close()

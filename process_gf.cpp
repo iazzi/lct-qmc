@@ -208,7 +208,9 @@ int main (int argc, char **argv) {
 		Akima<complex<double>> spline(points, v);
 		if (x==0) {
 			ofstream out(argc>3?argv[3]:"spline.dat");
-			const int M = 1000;
+			const int M = 3000;
+			int l = 3;
+			complex<double> w(0.0, PI*(2*l+1)/beta);
 			double h = beta/M;
 			for (int n=0;n<M;n++) {
 				double t = n*h;
