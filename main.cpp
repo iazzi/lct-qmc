@@ -29,6 +29,8 @@ extern "C" {
 #include <Eigen/Eigenvalues>
 #include <Eigen/QR>
 
+#include <csignal>
+
 //#define fftw_execute (void)
 
 using namespace std;
@@ -36,7 +38,28 @@ using namespace std::chrono;
 
 typedef std::chrono::duration<double> seconds_type;
 
+std::string measurement_ratio (const measurement<double, false>& x, const measurement<double, false>& y) {
+	double a, b;
+	a = x.mean()/y.mean();
+	b = fabs(a)*(fabs(x.error()/x.mean())+fabs(y.error()/y.mean()));
+	std::ostringstream buf;
+	buf << x.name() << ": " << a << " +- " << b;
+	return buf.str();
+}
+
+sig_atomic_t signaled = 0;
+void signal_handler (int signum) {
+	    cout << "Interrupt signal (" << signum << ") received.\n";
+	    if (signum==SIGINT && signaled==0) {
+		    signaled = 1;
+	    } else {
+		    exit(signum);
+	    }
+}
+
+
 void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic<int> &current, std::atomic<int> &failed) {
+	signal(SIGINT, signal_handler);
 	steady_clock::time_point t0 = steady_clock::now();
 	steady_clock::time_point t1 = steady_clock::now();
 	steady_clock::time_point t2 = steady_clock::now();
@@ -68,6 +91,7 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 				simulation.load_checkpoint(L);
 				lua_pop(L, 1);
 			}
+			simulation.discard_measurements();
 			simulation.save_checkpoint(L);
 			lua_pushinteger(L, thermalization_sweeps);
 			lua_setfield(L, -2, "THERMALIZATION");
@@ -87,7 +111,8 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 			t0 = steady_clock::now();
 			t1 = steady_clock::now();
 			for (int i=0;i<thermalization_sweeps;i++) {
-				if (duration_cast<seconds_type>(steady_clock::now()-t2).count()>600 && !savefile.empty()) {
+				if (duration_cast<seconds_type>(steady_clock::now()-t2).count()>5 && !savefile.empty() && signaled>0) {
+					log << "saving checkpoint";
 					t2 = steady_clock::now();
 					lock.lock();
 					simulation.save_checkpoint(L);
@@ -103,10 +128,16 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 					lua_insert(L, -2);
 					lua_pcall(L, 2, 0, 0);
 					lock.unlock();
+					signaled = 0;
 				}
 				if (duration_cast<seconds_type>(steady_clock::now()-t1).count()>5) {
 					t1 = steady_clock::now();
-					log << "thread" << j << "thermalizing: " << i << '/' << thermalization_sweeps << "..." << (double(simulation.steps)/duration_cast<seconds_type>(t1-t0).count()) << "steps per second";
+					int N = simulation.timeSlices();
+					int V = simulation.volume();
+					log << "thread" << j << "thermalizing: " << i << '/' << thermalization_sweeps << "..." << (double(simulation.steps)/duration_cast<seconds_type>(t1-t0).count()) << "steps per second (" << N*V << "sites sweep in" << (duration_cast<seconds_type>(t1-t0).count()*N*V/simulation.steps) << "seconds)";
+					log << simulation.measured_sign;
+					log << measurement_ratio(simulation.density, simulation.measured_sign);
+					log << measurement_ratio(simulation.magnetization, simulation.measured_sign) << '\n';
 				}
 				simulation.update();
 			}
