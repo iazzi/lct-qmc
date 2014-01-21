@@ -156,7 +156,7 @@ class Simulation {
 	mymeasurement<double> kinetic;
 	mymeasurement<double> interaction;
 	mymeasurement<double> sign;
-	//mymeasurement<double> measured_sign;
+	mymeasurement<double> measured_sign;
 	//mymeasurement<double> sign_correlation;
 	mymeasurement<double> exact_sign;
 	std::vector<mymeasurement<double>> d_up;
@@ -413,6 +413,7 @@ class Simulation {
 		for (int i=0;i<flips_per_update;i++) {
 			collapse_updates();
 			acceptance.add(metropolis()?1.0:0.0);
+			measured_sign.add(psign*update_sign);
 		}
 		//time_shift = randomTime(generator);
 		//redo_all();
@@ -486,6 +487,7 @@ class Simulation {
 
 
 	void measure ();
+	void measure_quick ();
 	void measure_sign ();
 	int volume () { return V; }
 	int timeSlices () { return N; }
