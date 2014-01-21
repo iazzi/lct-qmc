@@ -567,6 +567,20 @@ class Simulation {
 	std::pair<double, double> recheck ();
 	void straighten_slices ();
 
+	void discard_measurements () {
+		acceptance.clear();
+		density.clear();
+		magnetization.clear();
+		order_parameter.clear();
+		chi_d.clear();
+		chi_af.clear();
+		kinetic.clear();
+		interaction.clear();
+		sign.clear();
+		measured_sign.clear();
+		exact_sign.clear();
+	}
+
 	protected:
 };
 
