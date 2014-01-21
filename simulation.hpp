@@ -489,8 +489,8 @@ class Simulation {
 	void measure ();
 	void measure_quick ();
 	void measure_sign ();
-	int volume () { return V; }
-	int timeSlices () { return N; }
+	int volume () const { return V; }
+	int timeSlices () const { return N; }
 
 	void write_wavefunction (std::ostream &out);
 
