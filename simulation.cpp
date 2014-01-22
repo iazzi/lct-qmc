@@ -314,6 +314,7 @@ std::pair<double, double> Simulation::rank1_probability (int x, int t) {
 		d1 = (update_Vt.topRows(L+1)*update_U.leftCols(L+1) - (update_Vt.topRows(L+1)*svd_inverse_up.U) * svd_inverse_up.S.asDiagonal() * (svd_inverse_up.Vt*update_U.leftCols(L+1)) + Matrix_d::Identity(L+1, L+1)).determinant();
 		d2 = (update_Vt.topRows(L+1)*update_U.leftCols(L+1) - (update_Vt.topRows(L+1)*svd_inverse_dn.U) * svd_inverse_dn.S.asDiagonal() * (svd_inverse_dn.Vt*update_U.leftCols(L+1)) + Matrix_d::Identity(L+1, L+1)).determinant();
 		new_update_size = update_size+1;
+		//std::cerr << update_Vt.topRows(L+1)*update_U.leftCols(L+1) << std::endl << std::endl;
 	} else {
 		update_U.col(j).swap(update_U.col(L-1));
 		update_Vt.row(j).swap(update_Vt.row(L-1));
@@ -640,7 +641,7 @@ void Simulation::get_green_function (double s, int t0) {
 	SVDHelper help, flist[N+1], blist[N+1];
 	// spin up
 	help.setIdentity(V);
-	for (size_t t=0;t<=N;t++) {
+	for (int t=0;t<=N;t++) {
 		flist[t] = help;
 		help.U.applyOnTheLeft(freePropagator_open);
 		help.S *= std::exp(+dt*B*0.5+dt*mu);
@@ -648,7 +649,7 @@ void Simulation::get_green_function (double s, int t0) {
 		help.absorbU();
 	}
 	help.setIdentity(V);
-	for (size_t t=0;t<=N;t++) {
+	for (int t=0;t<=N;t++) {
 		blist[t] = help;
 		help.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)-diagonals[(t+t0)%N]).array()).matrix().asDiagonal());
 		help.S *= std::exp(-dt*B*0.5-dt*mu)/X;
@@ -662,7 +663,7 @@ void Simulation::get_green_function (double s, int t0) {
 	}
 	// spin down
 	help.setIdentity(V);
-	for (size_t t=0;t<=N;t++) {
+	for (int t=0;t<=N;t++) {
 		flist[t] = help;
 		help.U.applyOnTheLeft(freePropagator_open);
 		help.S *= std::exp(-dt*B*0.5+dt*mu);
@@ -670,14 +671,14 @@ void Simulation::get_green_function (double s, int t0) {
 		help.absorbU();
 	}
 	help.setIdentity(V);
-	for (size_t t=0;t<=N;t++) {
+	for (int t=0;t<=N;t++) {
 		blist[t] = help;
 		help.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)-diagonals[(t+t0)%N]).array()).matrix().asDiagonal());
 		help.S *= std::exp(+dt*B*0.5-dt*mu)/X;
 		help.U.applyOnTheLeft(freePropagator_inverse);
 		help.absorbU();
 	}
-	for (size_t t=0;t<=N;t++) {
+	for (int t=0;t<=N;t++) {
 		help = flist[N-t];
 		help.add_svd(blist[t]);
 		green_function_dn[t].add(s*help.inverse());
