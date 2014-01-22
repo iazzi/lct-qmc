@@ -276,7 +276,7 @@ class Simulation {
 
 	void make_svd () {
 		svd.setIdentity(V);
-		for (size_t i=0;i<N;i++) {
+		for (int i=0;i<N;i++) {
 			svd.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(i)).array()).matrix().asDiagonal());
 			svd.U.applyOnTheLeft(freePropagator_open);
 			if (i%msvd==0 || i==N-1) svd.absorbU();

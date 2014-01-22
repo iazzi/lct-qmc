@@ -407,7 +407,7 @@ std::pair<double, double> Simulation::recheck () {
 	for (int i=0;i<N;i++) {
 		//A.applyOnTheLeft(freePropagator_open*((Vector_d::Constant(V, 1.0)+diagonal(i)).array()).matrix().asDiagonal());
 	}
-	for (size_t i=0;i<N;i++) {
+	for (int i=0;i<N;i++) {
 		A.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(i)).array()).matrix().asDiagonal());
 		A.applyOnTheLeft(freePropagator_open);
 	}
@@ -656,7 +656,7 @@ void Simulation::get_green_function (double s, int t0) {
 		help.U.applyOnTheLeft(freePropagator_inverse);
 		help.absorbU();
 	}
-	for (size_t t=0;t<=N;t++) {
+	for (int t=0;t<=N;t++) {
 		help = blist[N-t];
 		help.add_svd(flist[t]);
 		green_function_up[t].add(s*help.inverse());
@@ -704,13 +704,13 @@ void Simulation::write_green_function () {
 	out << "G_dn = {}\n";
 	out << "DG_up = {}\n";
 	out << "DG_dn = {}\n\n";
-	for (size_t t=0;t<=N;t++) {
+	for (int t=0;t<=N;t++) {
 		Eigen::ArrayXXd G = green_function_up[t].mean()/sign.mean();
 		Eigen::ArrayXXd DG = G.abs()*(green_function_up[t].error()/green_function_up[t].mean().abs() + sign.error()/fabs(sign.mean()));
 		out << "G_up[" << t << "] = " << G.format(HeavyFmt) << std::endl;
 		out << "DG_up[" << t << "] = " << DG.format(HeavyFmt) << std::endl;
 	}
-	for (size_t t=0;t<=N;t++) {
+	for (int t=0;t<=N;t++) {
 		Eigen::ArrayXXd G = green_function_dn[t].mean()/sign.mean();
 		Eigen::ArrayXXd DG = G.abs()*(green_function_dn[t].error()/green_function_dn[t].mean().abs() + sign.error()/fabs(sign.mean()));
 		out << "G_dn[" << t << "] = " << G.format(HeavyFmt) << std::endl;
