@@ -376,29 +376,6 @@ double Simulation::ising_energy (int x, int t) {
 	return diagonal(t)[x]<0?sum:-sum;
 }
 
-bool Simulation::metropolis_ising () {
-	//std::cerr << "start metropolis step " << svd.S.array().log().sum() << std::endl;
-	steps++;
-	bool ret = false;
-	int x = randomPosition(generator);
-	int t = randomStep(generator);
-	std::pair<double, double> r1 = rank1_probability(x, t);
-	double en = ising_energy(x, t);
-	ret = -trialDistribution(generator)<en;
-	if (ret && r1.second==update_sign) {
-		//std::cerr << "accepted" << std::endl;
-		diagonal(t)[x] = -diagonal(t)[x];
-		slices[t/mslices] += cache.u_smart*cache.v_smart.transpose();
-		update_size++;
-		update_prob = r1.first;
-		update_sign = r1.second;
-		std::cerr << "accepted ising metropolis step sign=" << r1.second << std::endl;
-	} else {
-		std::cerr << "rejected ising metropolis step sign=" << r1.second << std::endl;
-	}
-	return ret;
-}
-
 void Simulation::load_sigma (lua_State *L, const char *fn) {
 	luaL_dofile(L, fn);
 	lua_getfield(L, -1,  "sigma");
@@ -412,30 +389,6 @@ void Simulation::load_sigma (lua_State *L, const char *fn) {
 		lua_pop(L, 1);
 	}
 	lua_pop(L, 2);
-}
-
-bool Simulation::anneal_ising () {
-	bool ret = false;
-	for (int t=0;t<mslices;t++)
-		for (int x=0;x<V;x++) {
-			collapse_updates();
-			if (diagonal(t)[x]<=0) continue;
-			std::pair<double, double> r1 = rank1_probability(x, t);
-			double en = ising_energy(x, t);
-			ret = 0.0 < en;
-			if (r1.second==update_sign) {
-				//std::cerr << "accepted" << std::endl;
-				diagonal(t)[x] = -diagonal(t)[x];
-				slices[t/mslices] += cache.u_smart*cache.v_smart.transpose();
-				update_size++;
-				update_prob = r1.first;
-				update_sign = r1.second;
-				std::cerr << "accepted ising anneal step sign=" << r1.second << std::endl;
-			} else {
-				std::cerr << "rejected ising anneal step sign=" << r1.second << std::endl;
-			}
-		}
-	return ret;
 }
 
 void Simulation::write_wavefunction (std::ostream &out) {
@@ -453,8 +406,9 @@ std::pair<double, double> Simulation::recheck () {
 	for (int i=0;i<N;i++) {
 		//A.applyOnTheLeft(freePropagator_open*((Vector_d::Constant(V, 1.0)+diagonal(i)).array()).matrix().asDiagonal());
 	}
-	for (auto s:slices) {
-		A.applyOnTheLeft(s);
+	for (size_t i=0;i<N;i++) {
+		A.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(i)).array()).matrix().asDiagonal());
+		A.applyOnTheLeft(freePropagator_open);
 	}
 	A2 = A1 = W = A;
 	A1 *= std::exp(beta*B/2+beta*mu);
