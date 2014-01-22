@@ -109,6 +109,7 @@ class Simulation {
 	//std::vector<bool> update_flips;
 	Matrix_d update_U;
 	Matrix_d update_Vt;
+	std::vector<int> update_perm;
 	Matrix_d update_matrix_a;
 	Matrix_d update_matrix_b;
 
@@ -234,6 +235,8 @@ class Simulation {
 		update_prob = 0.0;
 		update_sign = 1.0;
 		update_size = 0.0;
+		update_perm.resize(max_update_size);
+		for (int i=0;i<max_update_size;i++) update_perm[i] = i;
 		//update_flips.resize(V);
 		//for (bool& b : update_flips) b = false;
 		update_U.setZero(V, max_update_size);

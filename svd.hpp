@@ -176,8 +176,8 @@ struct SVDHelper {
 	void add_identity (double lambda = 1.0) {
 		const int N = S.size();
 		int info = 0;
-		Matrix A = U;
-		Matrix B = Vt;
+		Matrix A = U; // FIXME
+		Matrix B = Vt; // FIXME
 		other = U.transpose() * Vt.transpose();
 		other.diagonal() += S * lambda;
 		reserve(6*N);
@@ -252,6 +252,15 @@ struct SVDHelper {
 		std::cerr << "S=" << S << std::endl << std::endl;
 		std::cerr << "V=" << Vt << std::endl << std::endl;
 		std::cerr << "B=" << matrix() << std::endl << std::endl;
+	}
+
+	const SVDHelper& operator= (const SVDHelper& svd) {
+		if (svd.work.size()>work.size()) work.resize(svd.work.size());
+		U = svd.U;
+		S = svd.S;
+		Vt = svd.Vt;
+		other.resize(svd.other.rows(), svd.other.cols());
+		return *this;
 	}
 };
 
