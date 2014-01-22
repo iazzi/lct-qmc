@@ -73,7 +73,7 @@ void Simulation::init () {
 	if (flips_per_update<1) flips_per_update = max_update_size;
 	randomPosition = std::uniform_int_distribution<int>(0, V-1);
 	randomTime = std::uniform_int_distribution<int>(0, N-1);
-	randomStep = std::uniform_int_distribution<int>(0, mslices-1);
+	randomStep = std::uniform_int_distribution<int>(0, 0);
 	dt = beta/N;
 	A = sqrt(exp(g*dt)-1.0);
 	diagonals.insert(diagonals.begin(), N, Vector_d::Zero(V));
@@ -300,19 +300,28 @@ void Simulation::save_checkpoint (lua_State *L) {
 }
 
 std::pair<double, double> Simulation::rank1_probability (int x, int t) {
-	compute_uv_f_short(x, t);
-	//diagonal(t)[x] = -diagonal(t)[x];
-	//accumulate_forward(0, mslices);
-	//diagonal(t)[x] = -diagonal(t)[x];
-	//std::cerr << (slices[0]+cache.u_smart*cache.v_smart.transpose()-positionSpace).norm() << std::endl;
-	const int L = update_size;
-	update_U.col(L) = first_slice_inverse * cache.u_smart;
-	update_Vt.row(L) = cache.v_smart.transpose();
-	double d1, d2, e1, e2;
-	if (true) {
+	int L = update_size;
+	int j;
+	double d1, d2;
+	for (j=0;j<L;j++) {
+		if (update_Vt.row(j)[x]!=0.0) break;
+	}
+	if (j==L) {
+		compute_uv_f_short(x, t);
+		update_U.col(L) = cache.u_smart;
+		update_Vt.row(L) = cache.v_smart.transpose();
 		d1 = (update_Vt.topRows(L+1)*update_U.leftCols(L+1) - (update_Vt.topRows(L+1)*svd_inverse_up.U) * svd_inverse_up.S.asDiagonal() * (svd_inverse_up.Vt*update_U.leftCols(L+1)) + Matrix_d::Identity(L+1, L+1)).determinant();
 		d2 = (update_Vt.topRows(L+1)*update_U.leftCols(L+1) - (update_Vt.topRows(L+1)*svd_inverse_dn.U) * svd_inverse_dn.S.asDiagonal() * (svd_inverse_dn.Vt*update_U.leftCols(L+1)) + Matrix_d::Identity(L+1, L+1)).determinant();
+		new_update_size = update_size+1;
 	} else {
+		//compute_uv_f_short(x, t);
+		update_U.col(j).swap(update_U.col(L-1));
+		update_Vt.row(j).swap(update_Vt.row(L-1));
+		d1 = (update_Vt.topRows(L-1)*update_U.leftCols(L-1) - (update_Vt.topRows(L-1)*svd_inverse_up.U) * svd_inverse_up.S.asDiagonal() * (svd_inverse_up.Vt*update_U.leftCols(L-1)) + Matrix_d::Identity(L-1, L-1)).determinant();
+		d2 = (update_Vt.topRows(L-1)*update_U.leftCols(L-1) - (update_Vt.topRows(L-1)*svd_inverse_dn.U) * svd_inverse_dn.S.asDiagonal() * (svd_inverse_dn.Vt*update_U.leftCols(L-1)) + Matrix_d::Identity(L-1, L-1)).determinant();
+		new_update_size = update_size-1;
+	}
+	if (false) {
 		update_matrix_a.col(L).head(L+1) = update_Vt.topRows(L+1)*update_U.col(L) - (update_Vt.topRows(L+1)*svd_inverse_up.U) * svd_inverse_up.S.asDiagonal() * (svd_inverse_up.Vt*update_U.col(L));
 		update_matrix_a.row(L).head(L+1) = update_Vt.row(L)*update_U.leftCols(L+1) - (update_Vt.row(L)*svd_inverse_up.U) * svd_inverse_up.S.asDiagonal() * (svd_inverse_up.Vt*update_U.leftCols(L+1));
 		update_matrix_a(L, L) += 1.0;
@@ -332,15 +341,6 @@ std::pair<double, double> Simulation::rank1_probability (int x, int t) {
 		s *= -1.0;
 		d2 *= -1.0;
 	}
-	//double d1 = ( (update_Vt.topRows(L+1)*svdA.Vt.transpose())*svdA.S.array().inverse().matrix().asDiagonal()*(svdA.U.transpose()*update_U.leftCols(L+1))*std::exp(+beta*B*0.5+beta*mu) + Eigen::MatrixXd::Identity(L+1, L+1) ).determinant();
-	//double d2 = ( (update_Vt.topRows(L+1)*svdB.Vt.transpose())*svdB.S.array().inverse().matrix().asDiagonal()*(svdB.U.transpose()*update_U.leftCols(L+1))*std::exp(-beta*B*0.5+beta*mu) + Eigen::MatrixXd::Identity(L+1, L+1) ).determinant();
-	//std::cerr << "rank 1 update  size " << L <<  " (" << x << ", " << t << ')' << ' ' << d2 << " [" << svd.S.array().log().sum() << ']' << std::endl;
-	//std::cerr << update_Vt.topRows(L+1) << std::endl << std::endl;
-	//std::cerr << svd.S.transpose() << std::endl;
-	//std::cerr << svd_inverse.S.transpose() << std::endl;
-	//std::cerr << svd_inverse_dn.S.transpose() << std::endl;
-	//std::cerr << ((update_Vt.topRows(L+1)*svd_inverse_dn.U) * svd_inverse_dn.S.asDiagonal() * (svd_inverse_dn.Vt*update_U.leftCols(L+1)) + Matrix_d::Identity(L+1, L+1)) << std::endl;
-	//std::cerr << "rank 1 finished" << std::endl;
 	return std::pair<double, double>(std::log(d1)+std::log(d2), s);
 }
 
@@ -353,10 +353,9 @@ bool Simulation::metropolis () {
 	std::pair<double, double> r1 = rank1_probability(x, t);
 	ret = -trialDistribution(generator)<r1.first-update_prob;
 	if (ret) {
-		//std::cerr << "accepted" << std::endl;
+		//std::cerr << "accepted " << x << ' ' << update_size << std::endl;
 		diagonal(t)[x] = -diagonal(t)[x];
-		slices[t/mslices] += cache.u_smart*cache.v_smart.transpose();
-		update_size++;
+		update_size = new_update_size;
 		update_prob = r1.first;
 		update_sign = r1.second;
 		//std::cerr << "accepted metropolis step" << std::endl;

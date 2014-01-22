@@ -12,6 +12,8 @@
 #include <iostream>
 
 extern "C" {
+#include <fftw3.h>
+
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
@@ -103,6 +105,8 @@ class Simulation {
 	double update_prob;
 	double update_sign;
 	int update_size;
+	int new_update_size;
+	//std::vector<bool> update_flips;
 	Matrix_d update_U;
 	Matrix_d update_Vt;
 	Matrix_d update_matrix_a;
@@ -122,6 +126,11 @@ class Simulation {
 
 	Vector_cd v_x;
 	Vector_cd v_p;
+
+	fftw_plan x2p_col;
+	fftw_plan p2x_col;
+	fftw_plan x2p_row;
+	fftw_plan p2x_row;
 
 	double plog;
 	double psign;
@@ -226,6 +235,8 @@ class Simulation {
 		update_prob = 0.0;
 		update_sign = 1.0;
 		update_size = 0.0;
+		//update_flips.resize(V);
+		//for (bool& b : update_flips) b = false;
 		update_U.setZero(V, max_update_size);
 		update_Vt.setZero(max_update_size, V);
 		update_matrix_a.setZero(max_update_size, max_update_size);
@@ -321,24 +332,11 @@ class Simulation {
 	}
 
 	void compute_uv_f_short (int x, int t) {
-		int start = mslices*(t/mslices);
-		int end = mslices*(1+t/mslices);
-		if (end>N) end = N;
-		v_x = Vector_cd::Zero(V);
-		v_x[x] = 1.0;
-		for (int i=t+1;i<end;i++) {
-			apply_propagator_vector();
-			v_x = v_x.array() * (Vector_d::Constant(V, 1.0)+diagonal(i)).array();
-		}
-		apply_propagator_vector();
-		cache.u_smart = (-2*diagonal(t)[x]*v_x).real();
-		v_x = Vector_cd::Zero(V);
-		v_x[x] = 1.0;
-		for (int i=t-1;i>=start;i--) {
-			apply_propagator_vector();
-			v_x = v_x.array() * (Vector_d::Constant(V, 1.0)+diagonal(i)).array();
-		}
-		cache.v_smart = v_x.real();
+		//std::cerr << cache.u_smart[0] << ' ' << cache.u_smart[x] << ' ' << -2*diagonal(t)[x]/(1.0+diagonal(t)[x]) << std::endl;
+		cache.u_smart.setZero(V);
+		cache.u_smart[x] = -2*diagonal(t)[x]/(1.0+diagonal(t)[x]);
+		cache.v_smart.setZero(V);
+		cache.v_smart[x] = 1.0;
 	}
 
 	void flip (int x) {
@@ -395,7 +393,7 @@ class Simulation {
 
 	void set_time_shift (int t) { time_shift = t%N; redo_all(); }
 	bool shift_time () { 
-		time_shift += 1*mslices;
+		time_shift += 1;
 		bool ret = time_shift>=N;
 		if (ret) time_shift -= N;
 		redo_all();
