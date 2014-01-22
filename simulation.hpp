@@ -279,12 +279,8 @@ class Simulation {
 		for (size_t i=0;i<N;i++) {
 			svd.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(i)).array()).matrix().asDiagonal());
 			svd.U.applyOnTheLeft(freePropagator_open);
-			if (i%msvd==0 || i==slices.size()-1) svd.absorbU();
+			if (i%msvd==0 || i==N-1) svd.absorbU();
 		}
-		//std::cerr << svd.S.array().log().sum() << ' ' << logDetU_s() << std::endl;
-		//std::cerr << svd.S.transpose() << std::endl;
-		//std::cerr << svd.U << std::endl << std::endl;
-		//std::cerr << svd.Vt << std::endl << std::endl;
 	}
 
 	void make_density_matrices () {
@@ -353,7 +349,7 @@ class Simulation {
 	}
 
 	void redo_all () {
-		make_slices();
+		//make_slices();
 		make_svd();
 		make_svd_inverse();
 		//make_density_matrices(); // already called in make_svd_inverse
@@ -370,7 +366,7 @@ class Simulation {
 		if (isnan(plog)) {
 			std::cerr << "NaN found: restoring" << std::endl;
 			diagonals = diagonals_saved;
-			make_slices();
+			//make_slices();
 			make_svd();
 			make_svd_inverse();
 			//make_density_matrices() // already called in make_svd_inverse;

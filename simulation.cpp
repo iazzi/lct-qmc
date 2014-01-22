@@ -96,7 +96,7 @@ void Simulation::init () {
 	prepare_propagators();
 	prepare_open_boundaries();
 
-	make_slices();
+	//make_slices();
 	make_svd();
 	make_svd_inverse();
 	make_density_matrices();
