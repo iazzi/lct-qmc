@@ -122,7 +122,6 @@ class Simulation {
 	SVDHelper svd_inverse;
 	SVDHelper svd_inverse_up;
 	SVDHelper svd_inverse_dn;
-	Matrix_d first_slice_inverse;
 
 	Vector_cd v_x;
 	Vector_cd v_p;
@@ -277,8 +276,9 @@ class Simulation {
 
 	void make_svd () {
 		svd.setIdentity(V);
-		for (size_t i=0;i<slices.size();i++) {
-			svd.U.applyOnTheLeft(slices[i]);
+		for (size_t i=0;i<N;i++) {
+			svd.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(i)).array()).matrix().asDiagonal());
+			svd.U.applyOnTheLeft(freePropagator_open);
 			if (i%msvd==0 || i==slices.size()-1) svd.absorbU();
 		}
 		//std::cerr << svd.S.array().log().sum() << ' ' << logDetU_s() << std::endl;
@@ -295,7 +295,6 @@ class Simulation {
 	}
 
 	void make_svd_inverse () {
-		first_slice_inverse = slices[0].inverse();
 		make_density_matrices();
 		svd_inverse_up = svdA;
 		svd_inverse_up.invertInPlace();
