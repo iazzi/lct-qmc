@@ -112,6 +112,7 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 			t1 = steady_clock::now();
 			for (int i=0;i<thermalization_sweeps;i++) {
 				if (duration_cast<seconds_type>(steady_clock::now()-t2).count()>5 && !savefile.empty() && signaled>0) {
+					signaled = 0;
 					log << "saving checkpoint";
 					t2 = steady_clock::now();
 					lock.lock();
@@ -128,7 +129,6 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 					lua_insert(L, -2);
 					lua_pcall(L, 2, 0, 0);
 					lock.unlock();
-					signaled = 0;
 				}
 				if (duration_cast<seconds_type>(steady_clock::now()-t1).count()>5) {
 					t1 = steady_clock::now();
