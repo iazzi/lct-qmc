@@ -275,10 +275,19 @@ class Simulation {
 	}
 
 	void make_svd () {
+		//Matrix_d T;
 		svd.setIdentity(V);
 		for (int i=0;i<N;i++) {
 			svd.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(i)).array()).matrix().asDiagonal());
-			svd.U.applyOnTheLeft(freePropagator_open);
+			//T = freePropagator_open * svd.U;
+			if (false) {
+				svd.U.applyOnTheLeft(freePropagator_open);
+			} else {
+				fftw_execute_dft_r2c(x2p_col, svd.U.data(), reinterpret_cast<fftw_complex*>(momentumSpace.data()));
+				momentumSpace.applyOnTheLeft((freePropagator/double(V)).asDiagonal());
+				fftw_execute_dft_c2r(p2x_col, reinterpret_cast<fftw_complex*>(momentumSpace.data()), svd.U.data());
+			}
+			//std::cerr << (T-svd.U).norm() << std::endl;
 			if (i%msvd==0 || i==N-1) svd.absorbU();
 		}
 	}

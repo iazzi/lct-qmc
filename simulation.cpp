@@ -24,6 +24,13 @@ void Simulation::prepare_open_boundaries () {
 	solver.compute(H);
 	freePropagator_open = solver.eigenvectors() * (-dt*solver.eigenvalues().array()).exp().matrix().asDiagonal() * solver.eigenvectors().transpose();
 	freePropagator_inverse = solver.eigenvectors() * (+dt*solver.eigenvalues().array()).exp().matrix().asDiagonal() * solver.eigenvectors().transpose();
+	positionSpace.setIdentity(V, V);
+	momentumSpace.setZero(V, V);
+	fftw_execute(x2p_col);
+	//std::cerr << "k-space\n" << momentumSpace << std::endl << std::endl;
+	momentumSpace.applyOnTheLeft(freePropagator.asDiagonal());
+	fftw_execute(p2x_col);
+	std::cerr << "propagator difference = " << (freePropagator_open-positionSpace/V).norm() << std::endl;
 	//std::cerr << "() " << solver.eigenvalues().array().sum() << std::endl;
 	//std::cout << H << std::endl << std::endl;
 	//v_x.setRandom();
