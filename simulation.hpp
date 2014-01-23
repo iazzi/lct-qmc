@@ -110,8 +110,8 @@ class Simulation {
 	Matrix_d update_U;
 	Matrix_d update_Vt;
 	std::vector<int> update_perm;
-	Matrix_d update_matrix_a;
-	Matrix_d update_matrix_b;
+	Matrix_d update_matrix_up;
+	Matrix_d update_matrix_dn;
 
 	Matrix_d hamiltonian;
 
@@ -241,8 +241,6 @@ class Simulation {
 		//for (bool& b : update_flips) b = false;
 		update_U.setZero(V, max_update_size);
 		update_Vt.setZero(max_update_size, V);
-		update_matrix_a.setZero(max_update_size, max_update_size);
-		update_matrix_b.setZero(max_update_size, max_update_size);
 	}
 
 	void init ();
@@ -299,6 +297,14 @@ class Simulation {
 		svd_inverse_up.invertInPlace();
 		svd_inverse_dn = svdB;
 		svd_inverse_dn.invertInPlace();
+		update_matrix_up = -svd_inverse_up.matrix();
+		update_matrix_up.diagonal() += Vector_d::Ones(V);
+		update_matrix_up.applyOnTheLeft(-2.0*(diagonal(0).array().inverse()+1.0).inverse().matrix().asDiagonal());
+		update_matrix_up.diagonal() += Vector_d::Ones(V);
+		update_matrix_dn = -svd_inverse_dn.matrix();
+		update_matrix_dn.diagonal() += Vector_d::Ones(V);
+		update_matrix_dn.applyOnTheLeft(-2.0*(diagonal(0).array().inverse()+1.0).inverse().matrix().asDiagonal());
+		update_matrix_dn.diagonal() += Vector_d::Ones(V);
 	}
 
 	double svd_probability () {
