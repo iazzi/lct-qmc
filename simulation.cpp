@@ -303,10 +303,11 @@ std::pair<double, double> Simulation::rank1_probability (int x, int t) {
 	int L = update_size;
 	int j;
 	double d1, d2;
-	for (j=0;j<L;j++) {
-		if (update_Vt.row(j)[x]!=0.0) break;
+	for (j=0;j<V;j++) {
+		if (update_perm[j]==x) break;
 	}
-	if (j==L) {
+	if (j>=L) {
+		std::swap(update_perm[j], update_perm[L]);
 		update_U.col(L).setZero();
 		update_U.col(L)[x] = -2*diagonal(t)[x]/(1.0+diagonal(t)[x]);
 		update_Vt.row(L).setZero();
@@ -316,6 +317,7 @@ std::pair<double, double> Simulation::rank1_probability (int x, int t) {
 		new_update_size = update_size+1;
 		//std::cerr << update_Vt.topRows(L+1)*update_U.leftCols(L+1) << std::endl << std::endl;
 	} else {
+		std::swap(update_perm[j], update_perm[L-1]);
 		update_U.col(j).swap(update_U.col(L-1));
 		update_Vt.row(j).swap(update_Vt.row(L-1));
 		d1 = (update_Vt.topRows(L-1)*update_U.leftCols(L-1) - (update_Vt.topRows(L-1)*svd_inverse_up.U) * svd_inverse_up.S.asDiagonal() * (svd_inverse_up.Vt*update_U.leftCols(L-1)) + Matrix_d::Identity(L-1, L-1)).determinant();
