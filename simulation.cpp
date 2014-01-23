@@ -242,10 +242,10 @@ void Simulation::load_checkpoint (lua_State *L) {
 			lua_rawgeti(L, -1, t*oldV+x+1);
 			diagonals[t][x] = lua_tonumber(L, -1)<0.0?-A:A;
 			lua_pop(L, 1);
-			std::cerr << (diagonals[t][x]<0.0?'-':'+') << ' ';
+			//std::cerr << (diagonals[t][x]<0.0?'-':'+') << ' ';
 		}
 	}
-	std::cerr << std::endl;
+	//std::cerr << std::endl;
 	lua_pop(L, 1);
 }
 
