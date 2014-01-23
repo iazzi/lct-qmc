@@ -73,7 +73,6 @@ void Simulation::init () {
 	if (flips_per_update<1) flips_per_update = max_update_size;
 	randomPosition = std::uniform_int_distribution<int>(0, V-1);
 	randomTime = std::uniform_int_distribution<int>(0, N-1);
-	randomStep = std::uniform_int_distribution<int>(0, 0);
 	dt = beta/N;
 	A = sqrt(exp(g*dt)-1.0);
 	diagonals.insert(diagonals.begin(), N, Vector_d::Zero(V));
@@ -299,7 +298,7 @@ void Simulation::save_checkpoint (lua_State *L) {
 	lua_setfield(L, -2, "sigma");
 }
 
-std::pair<double, double> Simulation::rank1_probability (int x, int t) {
+std::pair<double, double> Simulation::rank1_probability (int x) {
 	int L = update_size;
 	int j;
 	double d1, d2;
@@ -348,16 +347,14 @@ std::pair<double, double> Simulation::rank1_probability (int x, int t) {
 }
 
 bool Simulation::metropolis () {
-	//std::cerr << "start metropolis step " << svd.S.array().log().sum() << std::endl;
 	steps++;
 	bool ret = false;
 	int x = randomPosition(generator);
-	int t = randomStep(generator);
-	std::pair<double, double> r1 = rank1_probability(x, t);
+	std::pair<double, double> r1 = rank1_probability(x);
 	ret = -trialDistribution(generator)<r1.first-update_prob;
 	if (ret) {
 		//std::cerr << "accepted " << x << ' ' << update_size << std::endl;
-		diagonal(t)[x] = -diagonal(t)[x];
+		diagonal(0)[x] = -diagonal(0)[x];
 		update_size = new_update_size;
 		update_prob = r1.first;
 		update_sign = r1.second;
@@ -366,17 +363,6 @@ bool Simulation::metropolis () {
 		//std::cerr << "rejected metropolis step" << std::endl;
 	}
 	return ret;
-}
-
-double Simulation::ising_energy (int x, int t) {
-	double sum = 0.0;
-	sum += diagonal((t+1)%N)[x]<0?-1.0:1.0;
-	sum += diagonal((t+N-1)%N)[x]<0?-1.0:1.0;
-	sum += diagonal(t)[shift_x(x, +1)]<0?-1.0:1.0;
-	sum += diagonal(t)[shift_x(x, -1)]<0?-1.0:1.0;
-	sum += diagonal(t)[shift_y(x, +1)]<0?-1.0:1.0;
-	sum += diagonal(t)[shift_y(x, -1)]<0?-1.0:1.0;
-	return diagonal(t)[x]<0?sum:-sum;
 }
 
 void Simulation::load_sigma (lua_State *L, const char *fn) {

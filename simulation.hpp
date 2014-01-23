@@ -85,7 +85,6 @@ class Simulation {
 	std::bernoulli_distribution distribution;
 	std::uniform_int_distribution<int> randomPosition;
 	std::uniform_int_distribution<int> randomTime;
-	std::uniform_int_distribution<int> randomStep;
 	std::exponential_distribution<double> trialDistribution;
 
 	Vector_d energies;
@@ -388,11 +387,8 @@ class Simulation {
 		reset_updates();
 	}
 
-	std::pair<double, double> rank1_probability (int x, int t);
+	std::pair<double, double> rank1_probability (int x);
 
-	double ising_energy (int x, int t);
-	bool anneal_ising ();
-	bool metropolis_ising ();
 	bool metropolis ();
 
 	void set_time_shift (int t) { time_shift = t%N; redo_all(); }
@@ -468,15 +464,6 @@ class Simulation {
 		} else {
 			return false;
 		}
-	}
-
-	void update_ising () {
-		for (int i=0;i<flips_per_update;i++) {
-			collapse_updates();
-			metropolis_ising();
-		}
-		time_shift = randomTime(generator);
-		redo_all();
 	}
 
 	double get_kinetic_energy (const Matrix_d &M) {
