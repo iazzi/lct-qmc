@@ -69,8 +69,7 @@ void Simulation::init () {
 	mslices = mslices>0?mslices:N;
 	mslices = mslices<N?mslices:N;
 	time_shift = 0 * mslices;
-	if (max_update_size<1) max_update_size = 1;
-	if (flips_per_update<1) flips_per_update = max_update_size;
+	if (flips_per_update<1) flips_per_update = V;
 	randomPosition = std::uniform_int_distribution<int>(0, V-1);
 	randomTime = std::uniform_int_distribution<int>(0, N-1);
 	dt = beta/N;
@@ -137,7 +136,6 @@ void Simulation::load (lua_State *L, int index) {
 	lua_getfield(L, index, "gf_file"); gf_name = lua_tostring(L, -1);            lua_pop(L, 1);
 	lua_getfield(L, index, "SLICES");  mslices = lua_tointeger(L, -1);         lua_pop(L, 1);
 	lua_getfield(L, index, "SVD");     msvd = lua_tointeger(L, -1);            lua_pop(L, 1);
-	lua_getfield(L, index, "max_update_size");     max_update_size = lua_tointeger(L, -1);            lua_pop(L, 1);
 	lua_getfield(L, index, "flips_per_update");     flips_per_update = lua_tointeger(L, -1);            lua_pop(L, 1);
 	lua_getfield(L, index, "open_boundary");     open_boundary = lua_toboolean(L, -1);            lua_pop(L, 1);
 	//lua_getfield(L, index, "LOGFILE");  logfile.open(lua_tostring(L, -1));     lua_pop(L, 1);
@@ -167,7 +165,6 @@ void Simulation::save (lua_State *L, int index) {
 	//lua_pushnumber(L, staggered_field); lua_setfield(L, index, "h");
 	lua_pushinteger(L, mslices); lua_setfield(L, index, "SLICES");
 	lua_pushinteger(L, msvd); lua_setfield(L, index, "SVD");
-	lua_pushinteger(L, max_update_size); lua_setfield(L, index, "max_update_size");
 	lua_pushinteger(L, flips_per_update); lua_setfield(L, index, "flips_per_update");
 	lua_pushboolean(L, open_boundary?1:0); lua_setfield(L, index, "open_boundary");
 	lua_newtable(L);

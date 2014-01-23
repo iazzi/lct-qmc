@@ -77,7 +77,6 @@ class Simulation {
 	int mslices;
 	int msvd;
 	int flips_per_update;
-	int max_update_size;
 	bool open_boundary;
 
 
@@ -234,12 +233,12 @@ class Simulation {
 		update_prob = 0.0;
 		update_sign = 1.0;
 		update_size = 0.0;
-		update_perm.resize(max_update_size);
-		for (int i=0;i<max_update_size;i++) update_perm[i] = i;
+		update_perm.resize(V);
+		for (int i=0;i<V;i++) update_perm[i] = i;
 		//update_flips.resize(V);
 		//for (bool& b : update_flips) b = false;
-		update_U.setZero(V, max_update_size);
-		update_Vt.setZero(max_update_size, V);
+		update_U.setZero(V, V);
+		update_Vt.setZero(V, V);
 	}
 
 	void init ();
@@ -447,7 +446,7 @@ class Simulation {
 	void get_green_function (double s = 1.0, int t0 = 0);
 
 	bool collapse_updates () {
-		if (update_size>=max_update_size) {
+		if (update_size>=V) {
 			plog += update_prob;
 			psign *= update_sign;
 			make_svd();
