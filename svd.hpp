@@ -35,6 +35,9 @@ struct SVDHelper {
 	Matrix Vt;
 	Matrix other;
 
+	Matrix A;
+	Matrix B;
+
 	void setSize (int outer, int inner) {
 		U.resize(outer, inner);
 		S.resize(inner);
@@ -171,13 +174,12 @@ struct SVDHelper {
 		Vt.applyOnTheRight(B);
 	}
 
-
 	// TODO size constraints!
 	void add_identity (double lambda = 1.0) {
 		const int N = S.size();
 		int info = 0;
-		Matrix A = U; // FIXME
-		Matrix B = Vt; // FIXME
+		A = U; // FIXME: allocation -> is this cache friendly?
+		B = Vt; // FIXME: allocation -> is this cache friendly?
 		other = U.transpose() * Vt.transpose();
 		other.diagonal() += S * lambda;
 		reserve(6*N);
