@@ -97,6 +97,7 @@ class Simulation {
 	Array_d staggering;
 
 	Matrix_d positionSpace; // current matrix in position space
+	Matrix_cd momentumSpace; // current matrix in momentum space
 
 	std::vector<Matrix_d> slices;
 
@@ -127,8 +128,8 @@ class Simulation {
 
 	fftw_plan x2p_col;
 	fftw_plan p2x_col;
-	fftw_plan x2p_row;
-	fftw_plan p2x_row;
+	//fftw_plan x2p_row;
+	//fftw_plan p2x_row;
 
 	double plog;
 	double psign;
@@ -576,6 +577,8 @@ class Simulation {
 	}
 
 	~Simulation () {
+		fftw_destroy_plan(x2p_col);
+		fftw_destroy_plan(p2x_col);
 	}
 
 	std::pair<double, double> recheck ();

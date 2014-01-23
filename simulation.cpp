@@ -13,9 +13,9 @@ void Simulation::prepare_open_boundaries () {
 				int b = ((x+1)%Lx)*Ly*Lz + y*Lz + z;
 				int c = x*Ly*Lz + ((y+1)%Ly)*Lz + z;
 				int d = x*Ly*Lz + y*Lz + (z+1)%Lz;
-				if (Lx>1 && x!=Lx-0) H(a, b) = H(b, a) = tx;
-				if (Ly>1 && y!=Ly-0) H(a, c) = H(c, a) = ty;
-				if (Lz>1 && z!=Lz-0) H(a, d) = H(d, a) = tz;
+				if (Lx>1 && x!=Lx-0) H(a, b) = H(b, a) = -tx;
+				if (Ly>1 && y!=Ly-0) H(a, c) = H(c, a) = -ty;
+				if (Lz>1 && z!=Lz-0) H(a, d) = H(d, a) = -tz;
 			}
 		}
 	}
@@ -31,7 +31,13 @@ void Simulation::prepare_open_boundaries () {
 	//apply_propagator_vector();
 	//std::cout << v_x.transpose() << std::endl;
 	//throw 1;
-	hamiltonian = H;
+	//std::cerr << "propagator\n" << freePropagator_open << std::endl << std::endl;
+	//std::cerr << "eigenvalues: " << solver.eigenvalues().transpose() << std::endl << std::endl;
+	//hamiltonian = H;
+	//positionSpace = hamiltonian;
+	//fftw_execute(x2p_col);
+	//std::cerr << "hamiltonian\n" << H << std::endl << std::endl;
+	//std::cerr << "k-space hamiltonian\n" << momentumSpace << std::endl << std::endl;
 }
 
 
@@ -51,7 +57,9 @@ void Simulation::prepare_propagators () {
 		int kx = (i/Kz/Ky)%Kx;
 		int ky = (i/Kz)%Ky;
 		int kz = i%Kz;
-		energies[i] += -2.0 * ( tx * cos(2.0*kx*pi/Kx) + ty * cos(2.0*ky*pi/Ky) + tz * cos(2.0*kz*pi/Kz) );
+		if (Kx>1) energies[i] += (Kx>2?-2.0:-1.0) * tx * cos(2.0*kx*pi/Kx);
+		if (Ky>1) energies[i] += (Ky>2?-2.0:-1.0) * ty * cos(2.0*ky*pi/Ky);
+		if (Kz>1) energies[i] += (Kz>2?-2.0:-1.0) * tz * cos(2.0*kz*pi/Kz);
 		freePropagator[i] = exp(-dt*energies[i]);
 		freePropagator_b[i] = exp(dt*energies[i]);
 		//potential[i] = (x+y+z)%2?-staggered_field:staggered_field;
@@ -59,6 +67,28 @@ void Simulation::prepare_propagators () {
 		//freePropagator_x_b[i] = exp(dt*potential[i]);
 		staggering[i] = (x+y+z)%2?-1.0:1.0;
 	}
+
+	int E = 3;
+	if (Lz<2) E=2;
+	if (Lz<2 && Ly<2) E=1;
+	const int size[] = { Lx, Ly, Lz, };
+	x2p_col = fftw_plan_many_dft_r2c(E, size, V, positionSpace.data(),
+			size, 1, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()), size, 1, V, FFTW_PATIENT);
+	p2x_col = fftw_plan_many_dft_c2r(E, size, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()),
+			size, 1, V, positionSpace.data(), size, 1, V, FFTW_PATIENT);
+	positionSpace.setIdentity(V, V);
+	momentumSpace.setZero(V, V);
+	//fftw_execute(x2p_col);
+	//std::cerr << "k-space\n" << momentumSpace << std::endl << std::endl;
+	//momentumSpace.applyOnTheLeft(freePropagator.asDiagonal());
+	//fftw_execute(p2x_col);
+	//std::cerr << "x-space\n" << positionSpace/V << std::endl << std::endl;
+	//std::cerr << "energies: " << energies.transpose() << std::endl << std::endl;
+	//x2p_row = fftw_plan_many_dft_r2c(D, size, V, positionSpace.data(),
+			//NULL, V, 1, reinterpret_cast<fftw_complex*>(momentumSpace.data()), NULL, V, 1, FFTW_PATIENT);
+	//p2x_row = fftw_plan_many_dft_c2r(D, size, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()),
+			//NULL, V, 1, positionSpace.data(), NULL, V, 1, FFTW_PATIENT);
+
 }
 
 void Simulation::init () {
@@ -90,6 +120,7 @@ void Simulation::init () {
 	v_p.setZero(V);
 
 	positionSpace.setIdentity(V, V);
+	momentumSpace.setIdentity(V, V);
 
 	prepare_propagators();
 	prepare_open_boundaries();
