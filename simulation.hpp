@@ -315,7 +315,7 @@ class Simulation {
 			} else {
 				svdB.U.applyOnTheLeft(freePropagator_x.array().inverse().matrix().asDiagonal());
 				fftw_execute_dft_r2c(x2p_col, svdB.U.data(), reinterpret_cast<fftw_complex*>(momentumSpace.data()));
-				momentumSpace.applyOnTheLeft((freePropagator/double(V)).asDiagonal());
+				momentumSpace.applyOnTheLeft((freePropagator.array().inverse().matrix()/double(V)).asDiagonal());
 				fftw_execute_dft_c2r(p2x_col, reinterpret_cast<fftw_complex*>(momentumSpace.data()), svdB.U.data());
 			}
 			if (i%msvd==0 || i==N-1) svdB.absorbU();
