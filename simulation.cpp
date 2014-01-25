@@ -16,6 +16,10 @@ void Simulation::prepare_open_boundaries () {
 				if (Lx>1 && x!=Lx-0) H(a, b) = H(b, a) = -tx;
 				if (Ly>1 && y!=Ly-0) H(a, c) = H(c, a) = -ty;
 				if (Lz>1 && z!=Lz-0) H(a, d) = H(d, a) = -tz;
+				double pos_x = (x-Lx/2.0+0.5);
+				double pos_y = (y-Ly/2.0+0.5);
+				double pos_z = (z-Lz/2.0+0.5);
+				H(a, a) = 0.5*(w_x*pos_x*pos_x + w_y*pos_y*pos_y + w_z*pos_z*pos_z);
 			}
 		}
 	}
@@ -52,8 +56,8 @@ void Simulation::prepare_propagators () {
 	energies = Vector_d::Zero(V);
 	freePropagator = Vector_d::Zero(V);
 	freePropagator_b = Vector_d::Zero(V);
-	//potential = Vector_d::Zero(V);
-	//freePropagator_x = Vector_d::Zero(V);
+	potential = Vector_d::Zero(V);
+	freePropagator_x = Vector_d::Zero(V);
 	//freePropagator_x_b = Vector_d::Zero(V);
 	staggering = Array_d::Zero(V);
 	for (int i=0;i<V;i++) {
@@ -69,8 +73,9 @@ void Simulation::prepare_propagators () {
 		if (Kz>1) energies[i] += (Kz>2?-2.0:-1.0) * tz * cos(2.0*kz*pi/Kz);
 		freePropagator[i] = exp(-dt*energies[i]);
 		freePropagator_b[i] = exp(dt*energies[i]);
-		//potential[i] = (x+y+z)%2?-staggered_field:staggered_field;
-		//freePropagator_x[i] = exp(-dt*potential[i]);
+		double pos_x = (x-Lx/2.0+0.5);
+		potential[i] = 0.5*w_x*pos_x*pos_x;
+		freePropagator_x[i] = exp(-dt*potential[i]);
 		//freePropagator_x_b[i] = exp(dt*potential[i]);
 		staggering[i] = (x+y+z)%2?-1.0:1.0;
 	}
@@ -167,6 +172,9 @@ void Simulation::load (lua_State *L, int index) {
 		in >> generator;
 	}
 	lua_pop(L, 1);
+	lua_getfield(L, index, "w_x");     w_x = lua_tonumber(L, -1);            lua_pop(L, 1);
+	lua_getfield(L, index, "w_y");     w_y = lua_tonumber(L, -1);            lua_pop(L, 1);
+	lua_getfield(L, index, "w_z");     w_z = lua_tonumber(L, -1);            lua_pop(L, 1);
 	//lua_getfield(L, index, "h");    staggered_field = lua_tonumber(L, -1);     lua_pop(L, 1);
 	lua_getfield(L, index, "RESET");  reset = lua_toboolean(L, -1);            lua_pop(L, 1);
 	//lua_getfield(L, index, "REWEIGHT");  reweight = lua_tointeger(L, -1);      lua_pop(L, 1);

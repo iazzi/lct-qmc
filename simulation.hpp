@@ -91,8 +91,9 @@ class Simulation {
 	Vector_d freePropagator_b;
 	Matrix_d freePropagator_open;
 	Matrix_d freePropagator_inverse;
-	//Vector_d potential;
-	//Vector_d freePropagator_x;
+	double w_x, w_y, w_z;
+	Vector_d potential;
+	Vector_d freePropagator_x;
 	//Vector_d freePropagator_x_b;
 	Array_d staggering;
 
@@ -292,6 +293,37 @@ class Simulation {
 		}
 	}
 
+	void make_svd_double () {
+		svdA.setIdentity(V);
+		for (int i=0;i<N;i++) {
+			svdA.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(i)).array()).matrix().asDiagonal());
+			if (false) {
+				svdA.U.applyOnTheLeft(freePropagator_open);
+			} else {
+				svdA.U.applyOnTheLeft(freePropagator_x.asDiagonal());
+				fftw_execute_dft_r2c(x2p_col, svdA.U.data(), reinterpret_cast<fftw_complex*>(momentumSpace.data()));
+				momentumSpace.applyOnTheLeft((freePropagator/double(V)).asDiagonal());
+				fftw_execute_dft_c2r(p2x_col, reinterpret_cast<fftw_complex*>(momentumSpace.data()), svdA.U.data());
+			}
+			if (i%msvd==0 || i==N-1) svdA.absorbU();
+		}
+		svdB.setIdentity(V);
+		for (int i=0;i<N;i++) {
+			svdB.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(i)).array()).matrix().asDiagonal());
+			if (false) {
+				svdB.U.applyOnTheLeft(freePropagator_open);
+			} else {
+				svdB.U.applyOnTheLeft(freePropagator_x.array().inverse().matrix().asDiagonal());
+				fftw_execute_dft_r2c(x2p_col, svdB.U.data(), reinterpret_cast<fftw_complex*>(momentumSpace.data()));
+				momentumSpace.applyOnTheLeft((freePropagator/double(V)).asDiagonal());
+				fftw_execute_dft_c2r(p2x_col, reinterpret_cast<fftw_complex*>(momentumSpace.data()), svdB.U.data());
+			}
+			if (i%msvd==0 || i==N-1) svdB.absorbU();
+		}
+		svdA.add_identity(std::exp(+beta*B*0.5+beta*mu));
+		svdB.add_identity(std::exp(-beta*B*0.5+beta*mu));
+	}
+
 	void make_density_matrices () {
 		svdA = svd;
 		svdA.add_identity(std::exp(+beta*B*0.5+beta*mu));
@@ -300,7 +332,7 @@ class Simulation {
 	}
 
 	void make_svd_inverse () {
-		make_density_matrices();
+		make_svd_double();
 		svd_inverse_up = svdA;
 		svd_inverse_up.invertInPlace();
 		svd_inverse_dn = svdB;
@@ -366,8 +398,7 @@ class Simulation {
 	}
 
 	void redo_all () {
-		//make_slices();
-		make_svd();
+		//make_svd();
 		make_svd_inverse();
 		//make_density_matrices(); // already called in make_svd_inverse
 		double np = svd_probability();
@@ -383,8 +414,7 @@ class Simulation {
 		if (isnan(plog)) {
 			std::cerr << "NaN found: restoring" << std::endl;
 			diagonals = diagonals_saved;
-			//make_slices();
-			make_svd();
+			//make_svd();
 			make_svd_inverse();
 			//make_density_matrices() // already called in make_svd_inverse;
 			plog = svd_probability();
@@ -402,7 +432,7 @@ class Simulation {
 
 	void set_time_shift (int t) { time_shift = t%N; redo_all(); }
 	bool shift_time () { 
-		time_shift += 1;
+		time_shift = randomTime(generator);
 		bool ret = time_shift>=N;
 		if (ret) time_shift -= N;
 		redo_all();
@@ -430,13 +460,12 @@ class Simulation {
 		//redo_all();
 		//try_site_flip();
 		shift_time();
-		measure_quick();
 	}
 
 	bool try_site_flip () {
 		int x = randomPosition(generator);
 		flip(x);
-		make_svd();
+		//make_svd();
 		make_svd_inverse();
 		double np = svd_probability();
 		bool ret = -trialDistribution(generator)<np-plog;
@@ -447,7 +476,7 @@ class Simulation {
 		} else {
 			std::cerr << "rejected site flip at " << x << std::endl;
 			flip(x);
-			make_svd();
+			//make_svd();
 			make_svd_inverse();
 		}
 		return ret;
@@ -459,7 +488,7 @@ class Simulation {
 		if (update_size>=V) {
 			plog += update_prob;
 			psign *= update_sign;
-			make_svd();
+			//make_svd();
 			make_svd_inverse();
 			double np = svd_probability();
 			double ns = svd_sign();
