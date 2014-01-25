@@ -325,6 +325,7 @@ class Simulation {
 	}
 
 	void make_density_matrices () {
+		make_svd();
 		svdA = svd;
 		svdA.add_identity(std::exp(+beta*B*0.5+beta*mu));
 		svdB = svd;
