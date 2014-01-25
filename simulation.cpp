@@ -617,6 +617,19 @@ void Simulation::measure_quick () {
 	sign.add(psign*update_sign);
 	density.add(s*(n_up+n_dn)/V);
 	magnetization.add(s*(n_up-n_dn)/2.0/V);
+	for (int i=0;i<V;i++) {
+		d_up[i].add(s*rho_up(i, i));
+		d_dn[i].add(s*rho_dn(i, i));
+	}
+	for (int j=0;j<V;j++) {
+		double ssz = 0.0;
+		int x = j;
+		int y = shift_x(j, 1);
+		ssz += rho_up(x, x)*rho_up(y, y) + rho_dn(x, x)*rho_dn(y, y);
+		ssz -= rho_up(x, x)*rho_dn(y, y) + rho_dn(x, x)*rho_up(y, y);
+		ssz -= rho_up(x, y)*rho_up(y, x) + rho_dn(x, y)*rho_dn(y, x);
+		spincorrelation[j].add(s*0.25*ssz);
+	}
 }
 
 void Simulation::measure () {

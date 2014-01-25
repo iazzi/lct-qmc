@@ -138,11 +138,21 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 					log << simulation.measured_sign;
 					log << measurement_ratio(simulation.density, simulation.measured_sign);
 					log << measurement_ratio(simulation.magnetization, simulation.measured_sign) << '\n';
+					ofstream dens("density.dat");
+					for (int i=0;i<V;i++) {
+						dens << i << ' ';
+						dens << simulation.d_up[i].mean() << ' ' << simulation.d_up[i].error() << ' ';
+						dens << simulation.d_dn[i].mean() << ' ' << simulation.d_dn[i].error() << ' ';
+						dens << simulation.spincorrelation[i].mean() << ' ' << simulation.spincorrelation[i].error() << ' ';
+						dens << endl;
+					}
 				}
 				simulation.update();
+				simulation.measure_quick();
 			}
 			log << "thread" << j << "thermalized";
 			simulation.steps = 0;
+			simulation.discard_measurements();
 			t0 = steady_clock::now();
 			for (int i=0;i<total_sweeps;i++) {
 				if (duration_cast<seconds_type>(steady_clock::now()-t2).count()>600 && !savefile.empty()) {
@@ -167,7 +177,7 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 					log << "thread" << j << "running: " << i << '/' << total_sweeps << "..." << (double(simulation.steps)/duration_cast<seconds_type>(t1-t0).count()) << "steps per second";
 				}
 				simulation.update();
-				simulation.measure();
+				simulation.measure_quick();
 				//simulation.measure_sign();
 			}
 			double seconds = duration_cast<seconds_type>(steady_clock::now()-t_start).count();

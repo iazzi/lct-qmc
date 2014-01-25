@@ -221,7 +221,7 @@ class Simulation {
 			d_up.push_back(mymeasurement<double>());
 			d_dn.push_back(mymeasurement<double>());
 		}
-		for (int i=0;i<=Lx/2;i++) {
+		for (int i=0;i<V;i++) {
 			spincorrelation.push_back(mymeasurement<double>());
 		}
 		for (int i=0;i<=N;i++) {
@@ -634,6 +634,11 @@ class Simulation {
 		sign.clear();
 		measured_sign.clear();
 		exact_sign.clear();
+		for (int i=0;i<V;i++) {
+			d_up[i].clear();
+			d_dn[i].clear();
+			spincorrelation[i].clear();
+		}
 	}
 
 	protected:
