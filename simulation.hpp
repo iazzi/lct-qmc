@@ -309,7 +309,7 @@ class Simulation {
 		svdA.setIdentity(V);
 		for (int i=0;i<N;) {
 			svdA.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(i)).array()).matrix().asDiagonal());
-			if (false) {
+			if (true) {
 				svdA.U.applyOnTheLeft(freePropagator_open);
 			} else {
 				svdA.U.applyOnTheLeft(freePropagator_x.asDiagonal());
@@ -323,8 +323,8 @@ class Simulation {
 		svdB.setIdentity(V);
 		for (int i=0;i<N;) {
 			svdB.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(i)).array()).matrix().asDiagonal());
-			if (false) {
-				svdB.U.applyOnTheLeft(freePropagator_open);
+			if (true) {
+				svdB.U.applyOnTheLeft(freePropagator_inverse);
 			} else {
 				svdB.U.applyOnTheLeft(freePropagator_x.array().inverse().matrix().asDiagonal());
 				fftw_execute_dft_r2c(x2p_col, svdB.U.data(), reinterpret_cast<fftw_complex*>(momentumSpace.data()));
