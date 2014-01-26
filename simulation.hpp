@@ -308,7 +308,7 @@ class Simulation {
 				momentumSpace.applyOnTheLeft((freePropagator/double(V)).asDiagonal());
 				fftw_execute_dft_c2r(p2x_col, reinterpret_cast<fftw_complex*>(momentumSpace.data()), svdA.U.data());
 			}
-			if (i%msvd==0 || i==N-1) svdA.absorbU();
+			if ((i+1)%msvd==0 || i==N-1) svdA.absorbU();
 		}
 		svdB.setIdentity(V);
 		for (int i=0;i<N;i++) {
@@ -321,7 +321,7 @@ class Simulation {
 				momentumSpace.applyOnTheLeft((freePropagator.array().inverse().matrix()/double(V)).asDiagonal());
 				fftw_execute_dft_c2r(p2x_col, reinterpret_cast<fftw_complex*>(momentumSpace.data()), svdB.U.data());
 			}
-			if (i%msvd==0 || i==N-1) svdB.absorbU();
+			if ((i+1)%msvd==0 || i==N-1) svdB.absorbU();
 		}
 		svdA.add_identity(std::exp(+beta*B*0.5+beta*mu));
 		svdB.add_identity(std::exp(-beta*B*0.5+beta*mu));
