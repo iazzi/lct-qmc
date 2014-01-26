@@ -108,9 +108,8 @@ void Simulation::init () {
 	if (Ly<2) { Ly = 1; ty = 0.0; }
 	if (Lz<2) { Lz = 1; tz = 0.0; }
 	V = Lx * Ly * Lz;
-	mslices = mslices>0?mslices:N;
-	mslices = mslices<N?mslices:N;
-	time_shift = 0 * mslices;
+	mslices = msvd;
+	time_shift = 0;
 	if (flips_per_update<1) flips_per_update = V;
 	randomPosition = std::uniform_int_distribution<int>(0, V-1);
 	randomTime = std::uniform_int_distribution<int>(0, N-1);
@@ -137,7 +136,9 @@ void Simulation::init () {
 	prepare_propagators();
 	prepare_open_boundaries();
 
-	//make_slices();
+	valid_slices.clear();
+	valid_slices.insert(valid_slices.begin(), nslices(), false);
+	make_slices();
 	make_svd();
 	make_svd_inverse();
 	make_density_matrices();
