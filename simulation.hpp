@@ -139,16 +139,8 @@ class Simulation {
 	Matrix_d rho_dn;
 
 	struct {
-		double a;
-		double b;
-		//double c;
-		Vector_d u;
-		Vector_d v;
 		Vector_d u_smart;
 		Vector_d v_smart;
-		Matrix_d A;
-		Matrix_d B;
-		//Matrix_d C;
 	} cache;
 
 	public:
