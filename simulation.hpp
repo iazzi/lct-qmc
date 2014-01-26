@@ -263,6 +263,16 @@ class Simulation {
 
 	int nslices () const { return N/mslices + ((N%mslices>0)?1:0); }
 
+	void make_slice (int i) {
+		if (!valid_slices[i/mslices]) {
+			//std::cerr << "remaking slice " << i << " (" << i/mslices << ')' << std::endl;
+			slices_up[i/mslices].setIdentity(V, V);
+			slices_dn[i/mslices].setIdentity(V, V);
+			accumulate_forward(i, i+mslices, slices_up[i/mslices], slices_dn[i/mslices]);
+			valid_slices[i/mslices] = true;
+		}
+	}
+
 	void make_slices () {
 		slices_up.resize(N/mslices + ((N%mslices>0)?1:0));
 		slices_dn.resize(N/mslices + ((N%mslices>0)?1:0));
@@ -273,15 +283,13 @@ class Simulation {
 				accumulate_forward(i, i+mslices, slices_up[i/mslices], slices_dn[i/mslices]);
 				valid_slices[i/mslices] = true;
 			}
-			//slices_up[i/mslices] = positionSpace;
-			//slices_dn[i/mslices] = positionSpace;
 		}
 	}
 
 	void make_svd () {
 		//Matrix_d T;
 		svd.setIdentity(V);
-		for (int i=0;i<N;i++) {
+		for (int i=0;i<N;) {
 			svd.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(i)).array()).matrix().asDiagonal());
 			//T = freePropagator_open * svd.U;
 			if (false) {
@@ -292,13 +300,14 @@ class Simulation {
 				fftw_execute_dft_c2r(p2x_col, reinterpret_cast<fftw_complex*>(momentumSpace.data()), svd.U.data());
 			}
 			//std::cerr << (T-svd.U).norm() << std::endl;
+			i++;
 			if (i%msvd==0 || i==N-1) svd.absorbU();
 		}
 	}
 
 	void make_svd_double () {
 		svdA.setIdentity(V);
-		for (int i=0;i<N;i++) {
+		for (int i=0;i<N;) {
 			svdA.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(i)).array()).matrix().asDiagonal());
 			if (false) {
 				svdA.U.applyOnTheLeft(freePropagator_open);
@@ -308,10 +317,11 @@ class Simulation {
 				momentumSpace.applyOnTheLeft((freePropagator/double(V)).asDiagonal());
 				fftw_execute_dft_c2r(p2x_col, reinterpret_cast<fftw_complex*>(momentumSpace.data()), svdA.U.data());
 			}
-			if ((i+1)%msvd==0 || i==N-1) svdA.absorbU();
+			i++;
+			if (i%msvd==0 || i==N) svdA.absorbU();
 		}
 		svdB.setIdentity(V);
-		for (int i=0;i<N;i++) {
+		for (int i=0;i<N;) {
 			svdB.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(i)).array()).matrix().asDiagonal());
 			if (false) {
 				svdB.U.applyOnTheLeft(freePropagator_open);
@@ -321,7 +331,8 @@ class Simulation {
 				momentumSpace.applyOnTheLeft((freePropagator.array().inverse().matrix()/double(V)).asDiagonal());
 				fftw_execute_dft_c2r(p2x_col, reinterpret_cast<fftw_complex*>(momentumSpace.data()), svdB.U.data());
 			}
-			if ((i+1)%msvd==0 || i==N-1) svdB.absorbU();
+			i++;
+			if (i%msvd==0 || i==N) svdB.absorbU();
 		}
 		svdA.add_identity(std::exp(+beta*B*0.5+beta*mu));
 		svdB.add_identity(std::exp(-beta*B*0.5+beta*mu));
@@ -444,7 +455,7 @@ class Simulation {
 
 	void set_time_shift (int t) { time_shift = t%N; redo_all(); }
 	bool shift_time () { 
-		time_shift = randomTime(generator);
+		time_shift++;
 		bool ret = time_shift>=N;
 		if (ret) time_shift -= N;
 		redo_all();
@@ -463,6 +474,7 @@ class Simulation {
 	}
 
 	void update () {
+		valid_slices[time_shift/mslices] = false;
 		for (int i=0;i<flips_per_update;i++) {
 			collapse_updates();
 			acceptance.add(metropolis()?1.0:0.0);

@@ -108,7 +108,6 @@ void Simulation::init () {
 	if (Ly<2) { Ly = 1; ty = 0.0; }
 	if (Lz<2) { Lz = 1; tz = 0.0; }
 	V = Lx * Ly * Lz;
-	mslices = msvd;
 	time_shift = 0;
 	if (flips_per_update<1) flips_per_update = V;
 	randomPosition = std::uniform_int_distribution<int>(0, V-1);
