@@ -161,7 +161,7 @@ void Simulation::load (lua_State *L, int index) {
 	tx = config.tx;
 	ty = config.ty;
 	tz = config.tz;
-	g = -config.U;
+	g = fabs(config.U);
 	mu = config.mu;
 	B = config.B;
 	lua_getfield(L, index, "SEED");
