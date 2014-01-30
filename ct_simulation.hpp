@@ -10,6 +10,8 @@
 #include <fstream>
 #include <random>
 #include <iostream>
+#include <vector>
+#include <map>
 
 extern "C" {
 #include <fftw3.h>
@@ -67,7 +69,6 @@ class Simulation {
 
 	//state
 	std::vector<Vector_d> diagonals;
-	std::vector<Vector_d> diagonals_saved;
 
 	// Monte Carlo scheme settings
 	std::mt19937_64 generator;
@@ -288,52 +289,32 @@ class Simulation {
 	}
 
 	void make_svd () {
-		//Matrix_d T;
-		svd.setIdentity(V);
-		for (int i=0;i<N;) {
-			svd.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(i)).array()).matrix().asDiagonal());
-			//T = freePropagator_open * svd.U;
-			if (false) {
-				svd.U.applyOnTheLeft(freePropagator_open);
-			} else {
-				fftw_execute_dft_r2c(x2p_col, svd.U.data(), reinterpret_cast<fftw_complex*>(momentumSpace.data()));
-				momentumSpace.applyOnTheLeft((freePropagator/double(V)).asDiagonal());
-				fftw_execute_dft_c2r(p2x_col, reinterpret_cast<fftw_complex*>(momentumSpace.data()), svd.U.data());
-			}
-			//std::cerr << (T-svd.U).norm() << std::endl;
-			i++;
-			if (i%msvd==0 || i==N-1) svd.absorbU();
-		}
 	}
 
 	void make_svd_double () {
 		svdA.setIdentity(V);
+		svdB.setIdentity(V);
 		for (int i=0;i<N;) {
 			svdA.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(i)).array()).matrix().asDiagonal());
+			svdB.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(i)).array()).matrix().asDiagonal());
 			if (true) {
 				svdA.U.applyOnTheLeft(freePropagator_open);
+				svdB.U.applyOnTheLeft(freePropagator_inverse);
 			} else {
 				svdA.U.applyOnTheLeft(freePropagator_x.asDiagonal());
 				fftw_execute_dft_r2c(x2p_col, svdA.U.data(), reinterpret_cast<fftw_complex*>(momentumSpace.data()));
 				momentumSpace.applyOnTheLeft((freePropagator/double(V)).asDiagonal());
 				fftw_execute_dft_c2r(p2x_col, reinterpret_cast<fftw_complex*>(momentumSpace.data()), svdA.U.data());
-			}
-			i++;
-			if (i%msvd==0 || i==N) svdA.absorbU();
-		}
-		svdB.setIdentity(V);
-		for (int i=0;i<N;) {
-			svdB.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(i)).array()).matrix().asDiagonal());
-			if (true) {
-				svdB.U.applyOnTheLeft(freePropagator_inverse);
-			} else {
 				svdB.U.applyOnTheLeft(freePropagator_x.array().inverse().matrix().asDiagonal());
 				fftw_execute_dft_r2c(x2p_col, svdB.U.data(), reinterpret_cast<fftw_complex*>(momentumSpace.data()));
 				momentumSpace.applyOnTheLeft((freePropagator.array().inverse().matrix()/double(V)).asDiagonal());
 				fftw_execute_dft_c2r(p2x_col, reinterpret_cast<fftw_complex*>(momentumSpace.data()), svdB.U.data());
 			}
 			i++;
-			if (i%msvd==0 || i==N) svdB.absorbU();
+			if (i%msvd==0 || i==N) {
+				svdA.absorbU();
+				svdB.absorbU();
+			}
 		}
 		svdA.add_identity(std::exp(+beta*B*0.5+beta*mu));
 		svdB.add_identity(std::exp(-beta*B*0.5+beta*mu));
@@ -437,14 +418,12 @@ class Simulation {
 		psign = ns;
 		if (isnan(plog)) {
 			std::cerr << "NaN found: restoring" << std::endl;
-			diagonals = diagonals_saved;
 			//make_svd();
 			make_svd_inverse();
 			//make_density_matrices() // already called in make_svd_inverse;
 			plog = svd_probability();
 			psign = svd_sign();
 		} else {
-			diagonals_saved = diagonals;
 		}
 		//recheck();
 		reset_updates();
