@@ -35,22 +35,9 @@ void Simulation::prepare_open_boundaries () {
 	momentumSpace.applyOnTheLeft(freePropagator.asDiagonal());
 	fftw_execute(p2x_col);
 	std::cerr << "propagator difference = " << (freePropagator_open-positionSpace/V).norm() << std::endl;
-	//std::cerr << "() " << solver.eigenvalues().array().sum() << std::endl;
-	//std::cout << H << std::endl << std::endl;
-	//v_x.setRandom();
-	//std::cout << (freePropagator_open*v_x).transpose() << std::endl;
-	//apply_propagator_vector();
-	//std::cout << v_x.transpose() << std::endl;
-	//throw 1;
-	//std::cerr << "propagator\n" << freePropagator_open << std::endl << std::endl;
-	//std::cerr << "eigenvalues: " << solver.eigenvalues().transpose() << std::endl << std::endl;
 	hamiltonian = H;
 	eigenvectors = solver.eigenvectors();
 	energies = solver.eigenvalues();
-	//positionSpace = hamiltonian;
-	//fftw_execute(x2p_col);
-	//std::cerr << "hamiltonian\n" << H << std::endl << std::endl;
-	//std::cerr << "k-space hamiltonian\n" << momentumSpace << std::endl << std::endl;
 }
 
 
@@ -92,16 +79,6 @@ void Simulation::prepare_propagators () {
 			size, 1, V, positionSpace.data(), size, 1, V, FFTW_PATIENT);
 	positionSpace.setIdentity(V, V);
 	momentumSpace.setZero(V, V);
-	//fftw_execute(x2p_col);
-	//std::cerr << "k-space\n" << momentumSpace << std::endl << std::endl;
-	//momentumSpace.applyOnTheLeft(freePropagator.asDiagonal());
-	//fftw_execute(p2x_col);
-	//std::cerr << "x-space\n" << positionSpace/V << std::endl << std::endl;
-	//std::cerr << "energies: " << energies.transpose() << std::endl << std::endl;
-	//x2p_row = fftw_plan_many_dft_r2c(D, size, V, positionSpace.data(),
-			//NULL, V, 1, reinterpret_cast<fftw_complex*>(momentumSpace.data()), NULL, V, 1, FFTW_PATIENT);
-	//p2x_row = fftw_plan_many_dft_c2r(D, size, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()),
-			//NULL, V, 1, positionSpace.data(), NULL, V, 1, FFTW_PATIENT);
 
 }
 
@@ -122,10 +99,6 @@ void Simulation::init () {
 		diagonals[i] = Array_d::Constant(V, distribution(generator)?A:-A);
 		for (int j=0;j<V;j++) {
 			diagonals[i][j] = distribution(generator)?A:-A;
-			//diagonals[i][j] = A;
-			//diagonals[i][j] = i<N/4.7?-A:A;
-			//diagonals[i][j] = A;
-			//if ((i*3+j)%7==1) diagonals[i][j] *= -1.0;
 		}
 	}
 	v_x.setZero(V);
