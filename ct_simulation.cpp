@@ -93,7 +93,7 @@ void Simulation::init () {
 	randomTime = std::uniform_real_distribution<double>(0, beta);
 	dt = beta/N;
 	A = sqrt(exp(g*dt)-1.0);
-	distribution = std::bernoulli_distribution(0.5);
+	coin_flip = std::bernoulli_distribution(0.5);
 	v_x.setZero(V);
 	v_p.setZero(V);
 
@@ -106,6 +106,28 @@ void Simulation::init () {
 	make_svd_inverse(0.0);
 	plog = svd_probability();
 	psign = svd_sign();
+
+	std::cerr << "testing make_svd_double\n";
+	for (int l=0;l<10;l++) {
+		double s = randomTime(generator);
+		std::cerr << "inserting random slice at " << s << std::endl;
+		diagonals[s] = Vector_d::Random(V);
+	}
+	make_svd_double(0.0);
+	svdA.add_identity(1.0);
+	svdB.add_identity(1.0);
+	std::cerr << 0.0 << ' ' << svd_probability() << ' ' << svd_sign() << std::endl;
+	make_svd_double(0.5);
+	svdA.add_identity(1.0);
+	svdB.add_identity(1.0);
+	std::cerr << 0.5 << ' ' << svd_probability() << ' ' << svd_sign() << std::endl;
+	for (int l=0;l<20;l++) {
+		double s = randomTime(generator);
+		make_svd_double(s);
+		svdA.add_identity(1.0);
+		svdB.add_identity(1.0);
+		std::cerr << s << ' ' << svd_probability() << ' ' << svd_sign() << std::endl;
+	}
 
 	init_measurements();
 	reset_updates();
@@ -347,13 +369,13 @@ bool Simulation::metropolis_add () {
 	if (diagonals.find(t)!=diagonals.end()) return false;
 	make_svd_double(t);
 	Vector_d new_diag(V);
-	for (int x=0;x<V;x++) new_diag[x] = distribution(generator)?A:-A;
+	for (int x=0;x<V;x++) new_diag[x] = coin_flip(generator)?A:-A;
 	svdA.U.applyOnTheLeft((Vector_d::Constant(V, 1.0)+new_diag).asDiagonal());
 	svdB.U.applyOnTheLeft((Vector_d::Constant(V, 1.0)+new_diag).asDiagonal());
 	svdA.add_identity(1.0);
 	svdB.add_identity(1.0);
 	double np = svd_probability();
-	bool ret = -trialDistribution(generator)<np-plog;
+	bool ret = -trialDistribution(generator)<np-plog+log(beta)-log(diagonals.size()+1);
 	if (ret) {
 		diagonals[t] = new_diag;
 		plog = np;
@@ -374,7 +396,7 @@ bool Simulation::metropolis_del () {
 	svdA.add_identity(1.0);
 	svdB.add_identity(1.0);
 	double np = svd_probability();
-	bool ret = -trialDistribution(generator)<np-plog;
+	bool ret = -trialDistribution(generator)<np-plog+log(diagonals.size())-log(beta);
 	if (ret) {
 		diagonals.erase(d->first);
 		plog = np;
