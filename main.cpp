@@ -92,10 +92,15 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 				lua_pop(L, 1);
 			}
 			simulation.discard_measurements();
+		}
+		//simulation.load_sigma(L, "nice.lua");
+		lock.unlock();
+		auto save_checkpoint = [&] (int thermalization, int sweeps) {
+			lock.lock();
 			simulation.save_checkpoint(L);
-			lua_pushinteger(L, thermalization_sweeps);
+			lua_pushinteger(L, thermalization);
 			lua_setfield(L, -2, "THERMALIZATION");
-			lua_pushinteger(L, total_sweeps);
+			lua_pushinteger(L, sweeps);
 			lua_setfield(L, -2, "SWEEPS");
 			lua_pushstring(L, getenv("LSB_JOBID"));
 			lua_setfield(L, -2, "JOBID");
@@ -104,10 +109,10 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 			lua_pushstring(L, savefile.c_str());
 			lua_insert(L, -2);
 			lua_pcall(L, 2, 0, 0);
-		}
-		//simulation.load_sigma(L, "nice.lua");
-		lock.unlock();
-		try {
+			lock.unlock();
+		};
+		save_checkpoint(thermalization_sweeps, total_sweeps);
+		{
 			t0 = steady_clock::now();
 			t1 = steady_clock::now();
 			for (int i=0;i<thermalization_sweeps;i++) {
@@ -115,20 +120,7 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 					signaled = 0;
 					log << "saving checkpoint";
 					t2 = steady_clock::now();
-					lock.lock();
-					simulation.save_checkpoint(L);
-					lua_pushinteger(L, thermalization_sweeps-i);
-					lua_setfield(L, -2, "THERMALIZATION");
-					lua_pushinteger(L, total_sweeps);
-					lua_setfield(L, -2, "SWEEPS");
-					lua_pushstring(L, getenv("LSB_JOBID"));
-					lua_setfield(L, -2, "JOBID");
-					lua_getglobal(L, "serialize");
-					lua_insert(L, -2);
-					lua_pushstring(L, savefile.c_str());
-					lua_insert(L, -2);
-					lua_pcall(L, 2, 0, 0);
-					lock.unlock();
+					save_checkpoint(thermalization_sweeps-i, total_sweeps);
 				}
 				if (duration_cast<seconds_type>(steady_clock::now()-t1).count()>5) {
 					t1 = steady_clock::now();
@@ -157,20 +149,7 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 			for (int i=0;i<total_sweeps;i++) {
 				if (duration_cast<seconds_type>(steady_clock::now()-t2).count()>600 && !savefile.empty()) {
 					t2 = steady_clock::now();
-					lock.lock();
-					simulation.save_checkpoint(L);
-					lua_pushinteger(L, 0);
-					lua_setfield(L, -2, "THERMALIZATION");
-					lua_pushinteger(L, total_sweeps-i);
-					lua_setfield(L, -2, "SWEEPS");
-					lua_pushstring(L, getenv("LSB_JOBID"));
-					lua_setfield(L, -2, "JOBID");
-					lua_getglobal(L, "serialize");
-					lua_insert(L, -2);
-					lua_pushstring(L, savefile.c_str());
-					lua_insert(L, -2);
-					lua_pcall(L, 2, 0, 0);
-					lock.unlock();
+					save_checkpoint(0, total_sweeps-i);
 				}
 				if (duration_cast<seconds_type>(steady_clock::now()-t1).count()>5) {
 					t1 = steady_clock::now();
@@ -195,9 +174,6 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 			lua_insert(L, -2);
 			lua_pcall(L, 2, 0, 0);
 			lock.unlock();
-		} catch (...) {
-			failed++;
-			log << "thread" << j << "caught exception in simulation" << job << " with params " << simulation.params();
 		}
 	}
 }
