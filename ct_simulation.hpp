@@ -250,42 +250,12 @@ class Simulation {
 		load(L, index);
 	}
 
-	double logDetU_s (int x = -1, int t = -1) {
-		int nspinup = 0;
-		for (int i=0;i<N;i++) {
-			for (int j=0;j<V;j++) {
-				if (diagonals[i][j]>0.0) nspinup++;
-			}
-		}
-		if (x>=0 && t>=0) {
-			nspinup += diagonals[t][x]>0.0?-1:+1;
-		}
-		return nspinup*std::log(1.0+A) + (N*V-nspinup)*std::log(1.0-A);
-	}
-
 	int nslices () const { return N/mslices + ((N%mslices>0)?1:0); }
 
 	void make_slice (int i) {
-		if (!valid_slices[i/mslices]) {
-			//std::cerr << "remaking slice " << i << " (" << i/mslices << ')' << std::endl;
-			slices_up[i/mslices].setIdentity(V, V);
-			slices_dn[i/mslices].setIdentity(V, V);
-			accumulate_forward(i, i+mslices, slices_up[i/mslices], slices_dn[i/mslices]);
-			valid_slices[i/mslices] = true;
-		}
 	}
 
 	void make_slices () {
-		slices_up.resize(N/mslices + ((N%mslices>0)?1:0));
-		slices_dn.resize(N/mslices + ((N%mslices>0)?1:0));
-		for (int i=0;i<N;i+=mslices) {
-			if (!valid_slices[i/mslices]) {
-				slices_up[i/mslices].setIdentity(V, V);
-				slices_dn[i/mslices].setIdentity(V, V);
-				accumulate_forward(i, i+mslices, slices_up[i/mslices], slices_dn[i/mslices]);
-				valid_slices[i/mslices] = true;
-			}
-		}
 	}
 
 	void make_svd () {
@@ -352,32 +322,6 @@ class Simulation {
 
 	double svd_sign () {
 		return (svdA.U*svdA.Vt*svdB.U*svdB.Vt).determinant()>0.0?1.0:-1.0;
-	}
-
-	void accumulate_forward (int start, int end, Matrix_d &G_up, Matrix_d &G_dn) {
-		while (end>N) end -= N;
-		for (int i=start;i<end;i++) {
-			G_up.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonals[i]).array()).matrix().asDiagonal());
-			if (false) {
-				svdA.U.applyOnTheLeft(freePropagator_open);
-			} else {
-				G_up.applyOnTheLeft(freePropagator_x.asDiagonal());
-				fftw_execute_dft_r2c(x2p_col, G_up.data(), reinterpret_cast<fftw_complex*>(momentumSpace.data()));
-				momentumSpace.applyOnTheLeft((freePropagator/double(V)).asDiagonal());
-				fftw_execute_dft_c2r(p2x_col, reinterpret_cast<fftw_complex*>(momentumSpace.data()), G_up.data());
-			}
-		}
-		for (int i=start;i<end;i++) {
-			G_dn.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonals[i]).array()).matrix().asDiagonal());
-			if (false) {
-				G_dn.applyOnTheLeft(freePropagator_open);
-			} else {
-				G_dn.applyOnTheLeft(freePropagator_x.array().inverse().matrix().asDiagonal());
-				fftw_execute_dft_r2c(x2p_col, G_dn.data(), reinterpret_cast<fftw_complex*>(momentumSpace.data()));
-				momentumSpace.applyOnTheLeft((freePropagator.array().inverse().matrix()/double(V)).asDiagonal());
-				fftw_execute_dft_c2r(p2x_col, reinterpret_cast<fftw_complex*>(momentumSpace.data()), G_dn.data());
-			}
-		}
 	}
 
 	void compute_uv_f_short (int x, int t) {
