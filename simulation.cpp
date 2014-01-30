@@ -325,12 +325,6 @@ std::pair<double, double> Simulation::rank1_probability (int x) {
 	}
 	if (j>=L) {
 		std::swap(update_perm[j], update_perm[L]);
-		//update_U.col(L).setZero();
-		//update_U.col(L)[x] = -2*diagonal(t)[x]/(1.0+diagonal(t)[x]);
-		//update_Vt.row(L).setZero();
-		//update_Vt.row(L)[x] = 1.0;
-		//d1 = (update_Vt.topRows(L+1)*update_U.leftCols(L+1) - (update_Vt.topRows(L+1)*svd_inverse_up.U) * svd_inverse_up.S.asDiagonal() * (svd_inverse_up.Vt*update_U.leftCols(L+1)) + Matrix_d::Identity(L+1, L+1)).determinant();
-		//d2 = (update_Vt.topRows(L+1)*update_U.leftCols(L+1) - (update_Vt.topRows(L+1)*svd_inverse_dn.U) * svd_inverse_dn.S.asDiagonal() * (svd_inverse_dn.Vt*update_U.leftCols(L+1)) + Matrix_d::Identity(L+1, L+1)).determinant();
 		new_update_size = update_size+1;
 		update_matrix_up.col(j).swap(update_matrix_up.col(L));
 		update_matrix_up.row(j).swap(update_matrix_up.row(L));
@@ -340,10 +334,6 @@ std::pair<double, double> Simulation::rank1_probability (int x) {
 		d2 = update_matrix_dn.topLeftCorner(L+1, L+1).determinant();
 	} else {
 		std::swap(update_perm[j], update_perm[L-1]);
-		//update_U.col(j).swap(update_U.col(L-1));
-		//update_Vt.row(j).swap(update_Vt.row(L-1));
-		//d1 = (update_Vt.topRows(L-1)*update_U.leftCols(L-1) - (update_Vt.topRows(L-1)*svd_inverse_up.U) * svd_inverse_up.S.asDiagonal() * (svd_inverse_up.Vt*update_U.leftCols(L-1)) + Matrix_d::Identity(L-1, L-1)).determinant();
-		//d2 = (update_Vt.topRows(L-1)*update_U.leftCols(L-1) - (update_Vt.topRows(L-1)*svd_inverse_dn.U) * svd_inverse_dn.S.asDiagonal() * (svd_inverse_dn.Vt*update_U.leftCols(L-1)) + Matrix_d::Identity(L-1, L-1)).determinant();
 		new_update_size = update_size-1;
 		update_matrix_up.col(j).swap(update_matrix_up.col(L-1));
 		update_matrix_up.row(j).swap(update_matrix_up.row(L-1));

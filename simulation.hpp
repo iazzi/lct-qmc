@@ -123,9 +123,6 @@ class Simulation {
 	SVDHelper svd;
 	SVDHelper svdA;
 	SVDHelper svdB;
-	SVDHelper svd_inverse;
-	SVDHelper svd_inverse_up;
-	SVDHelper svd_inverse_dn;
 
 	Vector_cd v_x;
 	Vector_cd v_p;
@@ -349,15 +346,11 @@ class Simulation {
 
 	void make_svd_inverse () {
 		make_svd_double();
-		svd_inverse_up = svdA;
-		svd_inverse_up.invertInPlace();
-		svd_inverse_dn = svdB;
-		svd_inverse_dn.invertInPlace();
-		update_matrix_up = -svd_inverse_up.matrix();
+		update_matrix_up = -svdA.inverse();
 		update_matrix_up.diagonal() += Vector_d::Ones(V);
 		update_matrix_up.applyOnTheLeft(-2.0*(diagonal(0).array().inverse()+1.0).inverse().matrix().asDiagonal());
 		update_matrix_up.diagonal() += Vector_d::Ones(V);
-		update_matrix_dn = -svd_inverse_dn.matrix();
+		update_matrix_dn = -svdB.inverse();
 		update_matrix_dn.diagonal() += Vector_d::Ones(V);
 		update_matrix_dn.applyOnTheLeft(-2.0*(diagonal(0).array().inverse()+1.0).inverse().matrix().asDiagonal());
 		update_matrix_dn.diagonal() += Vector_d::Ones(V);

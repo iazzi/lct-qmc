@@ -81,7 +81,7 @@ int main (int argc, char **argv) {
 			int measures = 0;
 			t0 = steady_clock::now();
 			while (duration_cast<seconds_type>(steady_clock::now()-t0).count()<10) {
-				simulation.measure();
+				simulation.measure_quick();
 				measures++;
 			}
 			t1 = steady_clock::now();

@@ -127,20 +127,20 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 					int N = simulation.timeSlices();
 					int V = simulation.volume();
 					log << "thread" << j << "thermalizing: " << i << '/' << thermalization_sweeps << "..." << (double(simulation.steps)/duration_cast<seconds_type>(t1-t0).count()) << "steps per second (" << N*V << "sites sweep in" << (duration_cast<seconds_type>(t1-t0).count()*N*V/simulation.steps) << "seconds)";
-					log << simulation.measured_sign;
-					log << "Density: " << measurement_ratio(simulation.density, simulation.measured_sign, " +- ");
-					log << "Magnetization: " << measurement_ratio(simulation.magnetization, simulation.measured_sign, " +- ") << '\n';
-					ofstream dens("density.dat");
+					//log << simulation.measured_sign;
+					//log << "Density: " << measurement_ratio(simulation.density, simulation.measured_sign, " +- ");
+					//log << "Magnetization: " << measurement_ratio(simulation.magnetization, simulation.measured_sign, " +- ") << '\n';
+					//ofstream dens("density.dat");
 					for (int i=0;i<V;i++) {
-						dens << i << ' ';
-						dens << measurement_ratio(simulation.d_up[i], simulation.measured_sign, " ") << ' ';
-						dens << measurement_ratio(simulation.d_dn[i], simulation.measured_sign, " ") << ' ';
-						dens << measurement_ratio(simulation.spincorrelation[i], simulation.measured_sign, " ") << ' ';
-						dens << endl;
+						//dens << i << ' ';
+						//dens << measurement_ratio(simulation.d_up[i], simulation.measured_sign, " ") << ' ';
+						//dens << measurement_ratio(simulation.d_dn[i], simulation.measured_sign, " ") << ' ';
+						//dens << measurement_ratio(simulation.spincorrelation[i], simulation.measured_sign, " ") << ' ';
+						//dens << endl;
 					}
 				}
 				simulation.update();
-				simulation.measure_quick();
+				//simulation.measure_quick();
 			}
 			log << "thread" << j << "thermalized";
 			simulation.steps = 0;
