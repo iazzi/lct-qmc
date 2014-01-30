@@ -90,17 +90,10 @@ void Simulation::init () {
 	time_shift = 0;
 	if (flips_per_update<1) flips_per_update = V;
 	randomPosition = std::uniform_int_distribution<int>(0, V-1);
-	randomTime = std::uniform_int_distribution<int>(0, N-1);
+	randomTime = std::uniform_real_distribution<double>(0, beta);
 	dt = beta/N;
 	A = sqrt(exp(g*dt)-1.0);
-	diagonals.insert(diagonals.begin(), N, Vector_d::Zero(V));
 	distribution = std::bernoulli_distribution(0.5);
-	for (size_t i=0;i<diagonals.size();i++) {
-		diagonals[i] = Array_d::Constant(V, distribution(generator)?A:-A);
-		for (int j=0;j<V;j++) {
-			diagonals[i][j] = distribution(generator)?A:-A;
-		}
-	}
 	v_x.setZero(V);
 	v_p.setZero(V);
 
@@ -110,12 +103,7 @@ void Simulation::init () {
 	prepare_propagators();
 	prepare_open_boundaries();
 
-	valid_slices.clear();
-	valid_slices.insert(valid_slices.begin(), nslices(), false);
-	make_slices();
-	make_svd();
-	make_svd_inverse();
-	make_density_matrices();
+	make_svd_inverse(0.0);
 	plog = svd_probability();
 	psign = svd_sign();
 
@@ -325,12 +313,6 @@ std::pair<double, double> Simulation::rank1_probability (int x) {
 	}
 	if (j>=L) {
 		std::swap(update_perm[j], update_perm[L]);
-		//update_U.col(L).setZero();
-		//update_U.col(L)[x] = -2*diagonal(t)[x]/(1.0+diagonal(t)[x]);
-		//update_Vt.row(L).setZero();
-		//update_Vt.row(L)[x] = 1.0;
-		//d1 = (update_Vt.topRows(L+1)*update_U.leftCols(L+1) - (update_Vt.topRows(L+1)*svd_inverse_up.U) * svd_inverse_up.S.asDiagonal() * (svd_inverse_up.Vt*update_U.leftCols(L+1)) + Matrix_d::Identity(L+1, L+1)).determinant();
-		//d2 = (update_Vt.topRows(L+1)*update_U.leftCols(L+1) - (update_Vt.topRows(L+1)*svd_inverse_dn.U) * svd_inverse_dn.S.asDiagonal() * (svd_inverse_dn.Vt*update_U.leftCols(L+1)) + Matrix_d::Identity(L+1, L+1)).determinant();
 		new_update_size = update_size+1;
 		update_matrix_up.col(j).swap(update_matrix_up.col(L));
 		update_matrix_up.row(j).swap(update_matrix_up.row(L));
@@ -340,10 +322,6 @@ std::pair<double, double> Simulation::rank1_probability (int x) {
 		d2 = update_matrix_dn.topLeftCorner(L+1, L+1).determinant();
 	} else {
 		std::swap(update_perm[j], update_perm[L-1]);
-		//update_U.col(j).swap(update_U.col(L-1));
-		//update_Vt.row(j).swap(update_Vt.row(L-1));
-		//d1 = (update_Vt.topRows(L-1)*update_U.leftCols(L-1) - (update_Vt.topRows(L-1)*svd_inverse_up.U) * svd_inverse_up.S.asDiagonal() * (svd_inverse_up.Vt*update_U.leftCols(L-1)) + Matrix_d::Identity(L-1, L-1)).determinant();
-		//d2 = (update_Vt.topRows(L-1)*update_U.leftCols(L-1) - (update_Vt.topRows(L-1)*svd_inverse_dn.U) * svd_inverse_dn.S.asDiagonal() * (svd_inverse_dn.Vt*update_U.leftCols(L-1)) + Matrix_d::Identity(L-1, L-1)).determinant();
 		new_update_size = update_size-1;
 		update_matrix_up.col(j).swap(update_matrix_up.col(L-1));
 		update_matrix_up.row(j).swap(update_matrix_up.row(L-1));
@@ -364,7 +342,57 @@ std::pair<double, double> Simulation::rank1_probability (int x) {
 	return std::pair<double, double>(std::log(d1)+std::log(d2), s);
 }
 
-bool Simulation::metropolis () {
+bool Simulation::metropolis_add () {
+	double t = randomTime(generator);
+	if (diagonals.find(t)!=diagonals.end()) return false;
+	make_svd_double(t);
+	Vector_d new_diag(V);
+	for (int x=0;x<V;x++) new_diag[x] = distribution(generator)?A:-A;
+	svdA.U.applyOnTheLeft((Vector_d::Constant(V, 1.0)+new_diag).asDiagonal());
+	svdB.U.applyOnTheLeft((Vector_d::Constant(V, 1.0)+new_diag).asDiagonal());
+	svdA.add_identity(1.0);
+	svdB.add_identity(1.0);
+	double np = svd_probability();
+	bool ret = -trialDistribution(generator)<np-plog;
+	if (ret) {
+		diagonals[t] = new_diag;
+		plog = np;
+		psign = svd_sign();
+	}
+	return ret;
+}
+
+bool Simulation::metropolis_del () {
+	diagonal d = diagonals.begin();
+	int n = std::uniform_int_distribution<int>(0, diagonals.size()-1)(generator);
+	while (n-->0) d++;
+	make_svd_double(d->first);
+	svdA.U.applyOnTheLeft((Vector_d::Constant(V, 1.0)-d->second).array().inverse().matrix().asDiagonal());
+	svdB.U.applyOnTheLeft((Vector_d::Constant(V, 1.0)-d->second).array().inverse().matrix().asDiagonal());
+	svdA.absorbU();
+	svdB.absorbU();
+	svdA.add_identity(1.0);
+	svdB.add_identity(1.0);
+	double np = svd_probability();
+	bool ret = -trialDistribution(generator)<np-plog;
+	if (ret) {
+		diagonals.erase(d->first);
+		plog = np;
+		psign = svd_sign();
+	}
+	return ret;
+}
+
+bool Simulation::metropolis_sweep () {
+	for (diagonal d = diagonals.begin();d!=diagonals.end();d++) {
+		current = d;
+		make_svd_inverse(d->first);
+		for (int i=0;i<V;i++) metropolis_flip();
+	}
+	return true;
+}
+
+bool Simulation::metropolis_flip () {
 	steps++;
 	bool ret = false;
 	int x = randomPosition(generator);
@@ -372,7 +400,7 @@ bool Simulation::metropolis () {
 	ret = -trialDistribution(generator)<r1.first-update_prob;
 	if (ret) {
 		//std::cerr << "accepted " << x << ' ' << update_size << std::endl;
-		diagonal(0)[x] = -diagonal(0)[x];
+		current->second[x] = -current->second[x];
 		update_size = new_update_size;
 		update_prob = r1.first;
 		update_sign = r1.second;
@@ -400,7 +428,7 @@ void Simulation::load_sigma (lua_State *L, const char *fn) {
 
 void Simulation::write_wavefunction (std::ostream &out) {
 	for (auto d : diagonals) {
-		out << (d.array()>Array_d::Zero(V)).transpose() << std::endl;
+		out << (d.second.array()>Array_d::Zero(V)).transpose() << std::endl;
 	}
 	out << std::endl;
 }
