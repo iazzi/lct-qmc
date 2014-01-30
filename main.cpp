@@ -112,7 +112,7 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 			lock.unlock();
 		};
 		save_checkpoint(thermalization_sweeps, total_sweeps);
-		{
+		try {
 			t0 = steady_clock::now();
 			t1 = steady_clock::now();
 			for (int i=0;i<thermalization_sweeps;i++) {
@@ -174,6 +174,9 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 			lua_insert(L, -2);
 			lua_pcall(L, 2, 0, 0);
 			lock.unlock();
+		} catch (...) {
+			failed++;
+			log << "thread" << j << "caught exception in simulation" << job << " with params " << simulation.params();
 		}
 	}
 }
