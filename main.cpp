@@ -38,12 +38,12 @@ using namespace std::chrono;
 
 typedef std::chrono::duration<double> seconds_type;
 
-std::string measurement_ratio (const measurement<double, false>& x, const measurement<double, false>& y) {
+std::string measurement_ratio (const measurement<double, false>& x, const measurement<double, false>& y, const char *s) {
 	double a, b;
 	a = x.mean()/y.mean();
 	b = fabs(a)*(fabs(x.error()/x.mean())+fabs(y.error()/y.mean()));
 	std::ostringstream buf;
-	buf << x.name() << ": " << a << " +- " << b;
+	buf << a << s << b;
 	return buf.str();
 }
 
@@ -128,14 +128,14 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 					int V = simulation.volume();
 					log << "thread" << j << "thermalizing: " << i << '/' << thermalization_sweeps << "..." << (double(simulation.steps)/duration_cast<seconds_type>(t1-t0).count()) << "steps per second (" << N*V << "sites sweep in" << (duration_cast<seconds_type>(t1-t0).count()*N*V/simulation.steps) << "seconds)";
 					log << simulation.measured_sign;
-					log << measurement_ratio(simulation.density, simulation.measured_sign);
-					log << measurement_ratio(simulation.magnetization, simulation.measured_sign) << '\n';
+					log << "Density: " << measurement_ratio(simulation.density, simulation.measured_sign, " +- ");
+					log << "Magnetization: " << measurement_ratio(simulation.magnetization, simulation.measured_sign, " +- ") << '\n';
 					ofstream dens("density.dat");
 					for (int i=0;i<V;i++) {
 						dens << i << ' ';
-						dens << simulation.d_up[i].mean() << ' ' << simulation.d_up[i].error() << ' ';
-						dens << simulation.d_dn[i].mean() << ' ' << simulation.d_dn[i].error() << ' ';
-						dens << simulation.spincorrelation[i].mean() << ' ' << simulation.spincorrelation[i].error() << ' ';
+						dens << measurement_ratio(simulation.d_up[i], simulation.measured_sign, " ") << ' ';
+						dens << measurement_ratio(simulation.d_dn[i], simulation.measured_sign, " ") << ' ';
+						dens << measurement_ratio(simulation.spincorrelation[i], simulation.measured_sign, " ") << ' ';
 						dens << endl;
 					}
 				}
