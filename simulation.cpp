@@ -44,7 +44,9 @@ void Simulation::prepare_open_boundaries () {
 	//throw 1;
 	//std::cerr << "propagator\n" << freePropagator_open << std::endl << std::endl;
 	//std::cerr << "eigenvalues: " << solver.eigenvalues().transpose() << std::endl << std::endl;
-	//hamiltonian = H;
+	hamiltonian = H;
+	eigenvectors = solver.eigenvectors();
+	energies = solver.eigenvalues();
 	//positionSpace = hamiltonian;
 	//fftw_execute(x2p_col);
 	//std::cerr << "hamiltonian\n" << H << std::endl << std::endl;
@@ -53,7 +55,7 @@ void Simulation::prepare_open_boundaries () {
 
 
 void Simulation::prepare_propagators () {
-	energies = Vector_d::Zero(V);
+	Vector_d my_energies = Vector_d::Zero(V);
 	freePropagator = Vector_d::Zero(V);
 	freePropagator_b = Vector_d::Zero(V);
 	potential = Vector_d::Zero(V);
@@ -68,11 +70,11 @@ void Simulation::prepare_propagators () {
 		int kx = (i/Kz/Ky)%Kx;
 		int ky = (i/Kz)%Ky;
 		int kz = i%Kz;
-		if (Kx>1) energies[i] += (Kx>2?-2.0:-1.0) * tx * cos(2.0*kx*pi/Kx);
-		if (Ky>1) energies[i] += (Ky>2?-2.0:-1.0) * ty * cos(2.0*ky*pi/Ky);
-		if (Kz>1) energies[i] += (Kz>2?-2.0:-1.0) * tz * cos(2.0*kz*pi/Kz);
-		freePropagator[i] = exp(-dt*energies[i]);
-		freePropagator_b[i] = exp(dt*energies[i]);
+		if (Kx>1) my_energies[i] += (Kx>2?-2.0:-1.0) * tx * cos(2.0*kx*pi/Kx);
+		if (Ky>1) my_energies[i] += (Ky>2?-2.0:-1.0) * ty * cos(2.0*ky*pi/Ky);
+		if (Kz>1) my_energies[i] += (Kz>2?-2.0:-1.0) * tz * cos(2.0*kz*pi/Kz);
+		freePropagator[i] = exp(-dt*my_energies[i]);
+		freePropagator_b[i] = exp(dt*my_energies[i]);
 		double pos_x = (x-Lx/2.0+0.5);
 		potential[i] = 0.5*w_x*pos_x*pos_x;
 		freePropagator_x[i] = exp(-dt*potential[i]);

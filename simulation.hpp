@@ -86,7 +86,6 @@ class Simulation {
 	std::uniform_int_distribution<int> randomTime;
 	std::exponential_distribution<double> trialDistribution;
 
-	Vector_d energies;
 	Vector_d freePropagator;
 	Vector_d freePropagator_b;
 	Matrix_d freePropagator_open;
@@ -116,6 +115,8 @@ class Simulation {
 	Matrix_d update_matrix_dn;
 
 	Matrix_d hamiltonian;
+	Matrix_d eigenvectors;
+	Array_d energies;
 
 	public:
 
