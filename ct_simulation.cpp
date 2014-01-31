@@ -619,5 +619,74 @@ void Simulation::write_green_function () {
 	}
 }
 
+void Simulation::make_svd_double (double t0) {
+	int nsvd = 1;
+	double dBeta = 0.2;
+	svdA.setIdentity(V);
+	svdB.setIdentity(V);
+	double t1 = t0;
+	double dtau;
+	while (t1<beta) {
+		double start = t1, end = std::min(beta, t1+dBeta);
+		for (iter i=diagonals.lower_bound(start);i!=diagonals.lower_bound(end);i++) {
+			dtau = i->first-t1;
+			//std::cerr << "multiplying diagonal at " << i->first << std::endl;
+			if (dtau>0.0) {
+				svdA.U.applyOnTheLeft(eigenvectors.transpose());
+				svdA.U.applyOnTheLeft((-dtau*(energies-mu-0.5*B)).exp().matrix().asDiagonal());
+				svdA.U.applyOnTheLeft(eigenvectors);
+				svdB.U.applyOnTheLeft(eigenvectors.transpose());
+				svdB.U.applyOnTheLeft((+dtau*(energies-mu+0.5*B)).exp().matrix().asDiagonal());
+				svdB.U.applyOnTheLeft(eigenvectors);
+			}
+			svdA.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+i->second).array()).matrix().asDiagonal());
+			svdB.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+i->second).array()).matrix().asDiagonal());
+			t1 = i->first;
+		}
+		dtau = end-t1;
+		if (dtau>0.0) {
+			svdA.U.applyOnTheLeft(eigenvectors.transpose());
+			svdA.U.applyOnTheLeft((-dtau*(energies-mu-0.5*B)).exp().matrix().asDiagonal());
+			svdA.U.applyOnTheLeft(eigenvectors);
+			svdB.U.applyOnTheLeft(eigenvectors.transpose());
+			svdB.U.applyOnTheLeft((+dtau*(energies-mu+0.5*B)).exp().matrix().asDiagonal());
+			svdB.U.applyOnTheLeft(eigenvectors);
+		}
+		t1 = end;
+		svdA.absorbU();
+		svdB.absorbU();
+	}
+	t1 = 0.0;
+	while (t1<t0) {
+		double start = t1, end = std::min(t0, t1+dBeta);
+		for (iter i=diagonals.lower_bound(start);i!=diagonals.lower_bound(end);i++) {
+			dtau = i->first-t1;
+			//std::cerr << "multiplying diagonal at " << i->first << " (wrap around)" << std::endl;
+			if (dtau>0.0) {
+				svdA.U.applyOnTheLeft(eigenvectors.transpose());
+				svdA.U.applyOnTheLeft((-dtau*(energies-mu-0.5*B)).exp().matrix().asDiagonal());
+				svdA.U.applyOnTheLeft(eigenvectors);
+				svdB.U.applyOnTheLeft(eigenvectors.transpose());
+				svdB.U.applyOnTheLeft((+dtau*(energies-mu+0.5*B)).exp().matrix().asDiagonal());
+				svdB.U.applyOnTheLeft(eigenvectors);
+			}
+			svdA.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+i->second).array()).matrix().asDiagonal());
+			svdB.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+i->second).array()).matrix().asDiagonal());
+			t1 = i->first;
+		}
+		dtau = end-t1;
+		if (dtau>0.0) {
+			svdA.U.applyOnTheLeft(eigenvectors.transpose());
+			svdA.U.applyOnTheLeft((-dtau*(energies-mu-0.5*B)).exp().matrix().asDiagonal());
+			svdA.U.applyOnTheLeft(eigenvectors);
+			svdB.U.applyOnTheLeft(eigenvectors.transpose());
+			svdB.U.applyOnTheLeft((+dtau*(energies-mu+0.5*B)).exp().matrix().asDiagonal());
+			svdB.U.applyOnTheLeft(eigenvectors);
+		}
+		t1 = end;
+		svdA.absorbU();
+		svdB.absorbU();
+	}
+}
 
 
