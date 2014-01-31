@@ -266,8 +266,9 @@ class Simulation {
 		double dtau;
 		while (t1<beta) {
 			double start = t1, end = std::min(beta, t1+dBeta);
-			for (iter i=diagonals.lower_bound(start);i!=diagonals.upper_bound(end);i++) {
+			for (iter i=diagonals.lower_bound(start);i!=diagonals.lower_bound(end);i++) {
 				dtau = i->first-t1;
+				//std::cerr << "multiplying diagonal at " << i->first << std::endl;
 				if (dtau>0.0) {
 					svdA.U.applyOnTheLeft(eigenvectors.transpose());
 					svdA.U.applyOnTheLeft((-dtau*(energies-mu-0.5*B)).exp().matrix().asDiagonal());
@@ -296,8 +297,9 @@ class Simulation {
 		t1 = 0.0;
 		while (t1<t0) {
 			double start = t1, end = std::min(t0, t1+dBeta);
-			for (iter i=diagonals.lower_bound(start);i!=diagonals.upper_bound(end);i++) {
+			for (iter i=diagonals.lower_bound(start);i!=diagonals.lower_bound(end);i++) {
 				dtau = i->first-t1;
+				//std::cerr << "multiplying diagonal at " << i->first << " (wrap around)" << std::endl;
 				if (dtau>0.0) {
 					svdA.U.applyOnTheLeft(eigenvectors.transpose());
 					svdA.U.applyOnTheLeft((-dtau*(energies-mu-0.5*B)).exp().matrix().asDiagonal());
@@ -427,7 +429,7 @@ class Simulation {
 
 	void update () {
 		//valid_slices[time_shift/mslices] = false;
-		for (int i=0;i<flips_per_update;i++) {
+		for (int i=0;i<1;i++) {
 			//collapse_updates();
 			//acceptance.add(metropolis()?1.0:0.0);
 			//measured_sign.add(psign*update_sign);

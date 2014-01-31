@@ -129,6 +129,12 @@ void Simulation::init () {
 		std::cerr << s << ' ' << svd_probability() << ' ' << svd_sign() << std::endl;
 	}
 
+	diagonals.clear();
+	make_svd_double(0.0);
+	svdA.add_identity(1.0);
+	svdB.add_identity(1.0);
+
+
 	init_measurements();
 	reset_updates();
 }
@@ -365,44 +371,92 @@ bool Simulation::metropolis_add () {
 	for (int x=0;x<V;x++) new_diag[x] = coin_flip(generator)?A:-A;
 	svdA.U.applyOnTheLeft((Vector_d::Constant(V, 1.0)+new_diag).asDiagonal());
 	svdB.U.applyOnTheLeft((Vector_d::Constant(V, 1.0)+new_diag).asDiagonal());
-	svdA.add_identity(1.0);
-	svdB.add_identity(1.0);
-	double np = svd_probability();
-	bool ret = -trialDistribution(generator)<np-plog+log(beta)-log(diagonals.size()+1);
-	if (ret) {
-		diagonals[t] = new_diag;
-		plog = np;
-		psign = svd_sign();
-	}
-	return ret;
-}
-
-bool Simulation::metropolis_del () {
-	diagonal d = diagonals.begin();
-	int n = std::uniform_int_distribution<int>(0, diagonals.size()-1)(generator);
-	while (n-->0) d++;
-	make_svd_double(d->first);
-	svdA.U.applyOnTheLeft((Vector_d::Constant(V, 1.0)-d->second).array().inverse().matrix().asDiagonal());
-	svdB.U.applyOnTheLeft((Vector_d::Constant(V, 1.0)-d->second).array().inverse().matrix().asDiagonal());
 	svdA.absorbU();
 	svdB.absorbU();
 	svdA.add_identity(1.0);
 	svdB.add_identity(1.0);
 	double np = svd_probability();
-	bool ret = -trialDistribution(generator)<np-plog+log(diagonals.size())-log(beta);
+	std::cerr << "trying add: " << plog << " -> " << np << " = " << np-plog << std::endl;
+	bool ret = -trialDistribution(generator)<np-plog+log(beta)-log(diagonals.size()+1);
 	if (ret) {
+		std::cerr << "increasing slices: " << diagonals.size() << " -> " << diagonals.size()+1 << std::endl;
+		diagonals.insert(std::pair<double, Vector_d>(t, new_diag));
+		plog = np;
+		psign = svd_sign();
+		make_svd_double(0.0);
+		svdA.add_identity(1.0);
+		svdB.add_identity(1.0);
+		std::cerr << "increased slices: " << svd_probability() << std::endl;
+		std::cerr << new_diag.transpose() << std::endl;
+		std::cerr << diagonals[t].transpose() << std::endl;
+	}
+	return ret;
+}
+
+bool Simulation::metropolis_del () {
+	if (diagonals.size()==0) return false;
+	diagonal d = diagonals.begin();
+	int n = std::uniform_int_distribution<int>(0, diagonals.size()-1)(generator);
+	std::cerr << "deleting slice #" << n << std::endl;
+	while (n-->0) d++;
+	if (d==diagonals.end()) return false;
+	std::cerr << "deleting slice @" << d->first << std::endl;
+	make_svd_double(d->first);
+	double t = d->first;
+	Vector_d save = d->second;
+	svdA.U.applyOnTheLeft((Vector_d::Constant(V, 1.0)+d->second).array().inverse().matrix().asDiagonal());
+	svdB.U.applyOnTheLeft((Vector_d::Constant(V, 1.0)+d->second).array().inverse().matrix().asDiagonal());
+	svdA.absorbU();
+	svdB.absorbU();
+	//std::cerr << svdA.matrix() << std::endl << std::endl;
+	svdA.add_identity(1.0);
+	svdB.add_identity(1.0);
+	double np = svd_probability();
+	bool ret = -trialDistribution(generator)<np-plog+log(diagonals.size())-log(beta);
+	std::cerr << "trying del: " << plog << " -> " << np << " = " << np-plog << std::endl;
+	if (ret) {
+		std::cerr << "decreasing slices: " << diagonals.size() << " -> " << diagonals.size()-1 << std::endl;
 		diagonals.erase(d->first);
 		plog = np;
 		psign = svd_sign();
+		make_svd_double(0.0);
+		svdA.add_identity(1.0);
+		svdB.add_identity(1.0);
+		//std::cerr << "decreased slices: " << svd_probability() << std::endl;
+		//std::cerr << save.transpose() << std::endl;
+		//make_svd_double(t);
+		//svdA.U.applyOnTheLeft((Vector_d::Constant(V, 1.0)+save).matrix().asDiagonal());
+		//svdB.U.applyOnTheLeft((Vector_d::Constant(V, 1.0)+save).matrix().asDiagonal());
+		//svdA.absorbU();
+		//svdB.absorbU();
+		//svdA.add_identity(1.0);
+		//svdB.add_identity(1.0);
+		std::cerr << "decreased slices: " << svd_probability() << std::endl;
+		//make_svd_double(t);
+		//svdA.Vt.applyOnTheRight((Vector_d::Constant(V, 1.0)+save).matrix().asDiagonal());
+		//svdB.Vt.applyOnTheRight((Vector_d::Constant(V, 1.0)+save).matrix().asDiagonal());
+		//svdA.absorbVt();
+		//svdB.absorbVt();
+		//svdB.absorbU();
+		//std::cerr << svdA.matrix() << std::endl << std::endl;
+		//svdA.U.applyOnTheLeft((Vector_d::Constant(V, 1.0)+save).array().inverse().matrix().asDiagonal());
+		//svdB.U.applyOnTheLeft((Vector_d::Constant(V, 1.0)+save).array().inverse().matrix().asDiagonal());
+		//svdA.absorbU();
+		//svdB.absorbU();
+		//std::cerr << svdA.matrix() << std::endl << std::endl;
+		//svdA.add_identity(1.0);
+		//svdB.add_identity(1.0);
+		//std::cerr << "decreased slices: " << svd_probability() << std::endl;
 	}
 	return ret;
 }
 
 bool Simulation::metropolis_sweep () {
+	//std::cerr << "sweeping " << diagonals.size() << " slices" << std::endl;
 	for (diagonal d = diagonals.begin();d!=diagonals.end();d++) {
 		current = d;
-		make_svd_inverse(d->first);
-		for (int i=0;i<V;i++) metropolis_flip();
+		//make_svd_inverse(d->first);
+		//for (int i=0;i<V;i++) metropolis_flip();
 	}
 	return true;
 }
