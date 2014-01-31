@@ -383,12 +383,12 @@ bool Simulation::metropolis_add () {
 		diagonals.insert(std::pair<double, Vector_d>(t, new_diag));
 		plog = np;
 		psign = svd_sign();
-		make_svd_double(0.0);
-		svdA.add_identity(1.0);
-		svdB.add_identity(1.0);
-		std::cerr << "increased slices: " << svd_probability() << std::endl;
-		std::cerr << new_diag.transpose() << std::endl;
-		std::cerr << diagonals[t].transpose() << std::endl;
+		//make_svd_double(0.0);
+		//svdA.add_identity(1.0);
+		//svdB.add_identity(1.0);
+		//std::cerr << "increased slices: " << svd_probability() << std::endl;
+		//std::cerr << new_diag.transpose() << std::endl;
+		//std::cerr << diagonals[t].transpose() << std::endl;
 	}
 	return ret;
 }
@@ -419,9 +419,9 @@ bool Simulation::metropolis_del () {
 		diagonals.erase(d->first);
 		plog = np;
 		psign = svd_sign();
-		make_svd_double(0.0);
-		svdA.add_identity(1.0);
-		svdB.add_identity(1.0);
+		//make_svd_double(0.0);
+		//svdA.add_identity(1.0);
+		//svdB.add_identity(1.0);
 		//std::cerr << "decreased slices: " << svd_probability() << std::endl;
 		//std::cerr << save.transpose() << std::endl;
 		//make_svd_double(t);
@@ -431,7 +431,7 @@ bool Simulation::metropolis_del () {
 		//svdB.absorbU();
 		//svdA.add_identity(1.0);
 		//svdB.add_identity(1.0);
-		std::cerr << "decreased slices: " << svd_probability() << std::endl;
+		//std::cerr << "decreased slices: " << svd_probability() << std::endl;
 		//make_svd_double(t);
 		//svdA.Vt.applyOnTheRight((Vector_d::Constant(V, 1.0)+save).matrix().asDiagonal());
 		//svdB.Vt.applyOnTheRight((Vector_d::Constant(V, 1.0)+save).matrix().asDiagonal());
