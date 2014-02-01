@@ -156,6 +156,7 @@ class Simulation {
 	int steps;
 
 	mymeasurement<double> acceptance;
+	mymeasurement<double> order;
 	mymeasurement<double> density;
 	mymeasurement<double> magnetization;
 	mymeasurement<double> order_parameter;
@@ -199,7 +200,9 @@ class Simulation {
 
 	void init_measurements () {
 		sign.set_name("Sign");
+		measured_sign.set_name("Sign (every step)");
 		acceptance.set_name("Acceptance");
+		order.set_name("Order");
 		density.set_name("Density");
 		magnetization.set_name("Magnetization");
 		order_parameter.set_name("Order Parameter");

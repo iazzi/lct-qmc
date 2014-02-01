@@ -127,6 +127,7 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 					int N = simulation.timeSlices();
 					int V = simulation.volume();
 					log << "thread" << j << "thermalizing: " << i << '/' << thermalization_sweeps << "..." << (double(simulation.steps)/duration_cast<seconds_type>(t1-t0).count()) << "steps per second (" << N*V << "sites sweep in" << (duration_cast<seconds_type>(t1-t0).count()*N*V/simulation.steps) << "seconds)";
+					log << simulation.order;
 					log << simulation.measured_sign;
 					log << "Density:" << measurement_ratio(simulation.density, simulation.measured_sign, " +- ");
 					log << "Magnetization:" << measurement_ratio(simulation.magnetization, simulation.measured_sign, " +- ") << '\n';

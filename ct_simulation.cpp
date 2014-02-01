@@ -516,6 +516,7 @@ void Simulation::measure_sign () {
 }
 
 void Simulation::measure_quick () {
+	order.add(diagonals.size());
 	double s = svd_sign();
 	rho_up = Matrix_d::Identity(V, V) - svdA.inverse();
 	rho_dn = svdB.inverse();
