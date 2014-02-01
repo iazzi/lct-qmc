@@ -376,10 +376,10 @@ bool Simulation::metropolis_add () {
 	svdA.add_identity(1.0);
 	svdB.add_identity(1.0);
 	double np = svd_probability();
-	std::cerr << "trying add: " << plog << " -> " << np << " = " << np-plog << std::endl;
+	//std::cerr << "trying add: " << plog << " -> " << np << " = " << np-plog << std::endl;
 	bool ret = -trialDistribution(generator)<np-plog+log(beta)-log(diagonals.size()+1);
 	if (ret) {
-		std::cerr << "increasing slices: " << diagonals.size() << " -> " << diagonals.size()+1 << std::endl;
+		//std::cerr << "increasing slices: " << diagonals.size() << " -> " << diagonals.size()+1 << std::endl;
 		diagonals.insert(std::pair<double, Vector_d>(t, new_diag));
 		plog = np;
 		psign = svd_sign();
@@ -397,10 +397,10 @@ bool Simulation::metropolis_del () {
 	if (diagonals.size()==0) return false;
 	diagonal d = diagonals.begin();
 	int n = std::uniform_int_distribution<int>(0, diagonals.size()-1)(generator);
-	std::cerr << "deleting slice #" << n << std::endl;
+	//std::cerr << "deleting slice #" << n << std::endl;
 	while (n-->0) d++;
 	if (d==diagonals.end()) return false;
-	std::cerr << "deleting slice @" << d->first << std::endl;
+	//std::cerr << "deleting slice @" << d->first << std::endl;
 	make_svd_double(d->first);
 	double t = d->first;
 	Vector_d save = d->second;
@@ -413,9 +413,9 @@ bool Simulation::metropolis_del () {
 	svdB.add_identity(1.0);
 	double np = svd_probability();
 	bool ret = -trialDistribution(generator)<np-plog+log(diagonals.size())-log(beta);
-	std::cerr << "trying del: " << plog << " -> " << np << " = " << np-plog << std::endl;
+	//std::cerr << "trying del: " << plog << " -> " << np << " = " << np-plog << std::endl;
 	if (ret) {
-		std::cerr << "decreasing slices: " << diagonals.size() << " -> " << diagonals.size()-1 << std::endl;
+		//std::cerr << "decreasing slices: " << diagonals.size() << " -> " << diagonals.size()-1 << std::endl;
 		diagonals.erase(d->first);
 		plog = np;
 		psign = svd_sign();
@@ -455,8 +455,10 @@ bool Simulation::metropolis_sweep () {
 	//std::cerr << "sweeping " << diagonals.size() << " slices" << std::endl;
 	for (diagonal d = diagonals.begin();d!=diagonals.end();d++) {
 		current = d;
-		//make_svd_inverse(d->first);
-		//for (int i=0;i<V;i++) metropolis_flip();
+		update_prob = 0.0;
+		update_sign = 1.0;
+		make_svd_inverse(d->first);
+		for (int i=0;i<V;i++) metropolis_flip();
 	}
 	return true;
 }

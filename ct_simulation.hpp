@@ -364,13 +364,16 @@ class Simulation {
 		for (int i=0;i<1;i++) {
 			//collapse_updates();
 			//acceptance.add(metropolis()?1.0:0.0);
-			//measured_sign.add(psign*update_sign);
 			if (coin_flip(generator)) {
 				metropolis_add();
 			} else {
 				metropolis_del();
 			}
 			metropolis_sweep();
+			measured_sign.add(psign*update_sign);
+			make_svd_double(0.0);
+			svdA.add_identity(1.0);
+			svdB.add_identity(1.0);
 		}
 		//time_shift = randomTime(generator);
 		//redo_all();
