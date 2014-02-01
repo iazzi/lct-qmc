@@ -67,6 +67,8 @@ class Simulation {
 	//double staggered_field;
 
 
+	double K;
+
 	typedef std::map<double, Vector_d>::const_iterator iter;
 	typedef std::map<double, Vector_d>::iterator diagonal;
 	//state

@@ -92,7 +92,7 @@ void Simulation::init () {
 	randomPosition = std::uniform_int_distribution<int>(0, V-1);
 	randomTime = std::uniform_real_distribution<double>(0, beta);
 	dt = beta/N;
-	A = sqrt(exp(g*dt)-1.0);
+	A = g/K;
 	coin_flip = std::bernoulli_distribution(0.5);
 	v_x.setZero(V);
 	v_p.setZero(V);
@@ -152,6 +152,7 @@ void Simulation::load (lua_State *L, int index) {
 	tx = config.tx;
 	ty = config.ty;
 	tz = config.tz;
+	K = std::max(fabs(config.K), 1.0);
 	g = fabs(config.U);
 	mu = config.mu;
 	B = config.B;
@@ -377,7 +378,7 @@ bool Simulation::metropolis_add () {
 	svdB.add_identity(1.0);
 	double np = svd_probability();
 	//std::cerr << "trying add: " << plog << " -> " << np << " = " << np-plog << std::endl;
-	bool ret = -trialDistribution(generator)<np-plog+log(beta)-log(diagonals.size()+1);
+	bool ret = -trialDistribution(generator)<np-plog+log(beta)-log(diagonals.size()+1)+log(K);
 	if (ret) {
 		//std::cerr << "increasing slices: " << diagonals.size() << " -> " << diagonals.size()+1 << std::endl;
 		diagonals.insert(std::pair<double, Vector_d>(t, new_diag));
@@ -412,7 +413,7 @@ bool Simulation::metropolis_del () {
 	svdA.add_identity(1.0);
 	svdB.add_identity(1.0);
 	double np = svd_probability();
-	bool ret = -trialDistribution(generator)<np-plog+log(diagonals.size())-log(beta);
+	bool ret = -trialDistribution(generator)<np-plog+log(diagonals.size())-log(beta)-log(K);
 	//std::cerr << "trying del: " << plog << " -> " << np << " = " << np-plog << std::endl;
 	if (ret) {
 		//std::cerr << "decreasing slices: " << diagonals.size() << " -> " << diagonals.size()-1 << std::endl;
@@ -533,8 +534,8 @@ void Simulation::measure_quick () {
 		double ssz = 0.0;
 		int x = j;
 		int y = shift_x(j, 1);
-		ssz += rho_up(x, x)*rho_up(y, y) + rho_dn(x, x)*rho_dn(y, y);
-		ssz -= rho_up(x, x)*rho_dn(y, y) + rho_dn(x, x)*rho_up(y, y);
+		//ssz += rho_up(x, x)*rho_up(y, y) + rho_dn(x, x)*rho_dn(y, y);
+		//ssz -= rho_up(x, x)*rho_dn(y, y) + rho_dn(x, x)*rho_up(y, y);
 		ssz -= rho_up(x, y)*rho_up(y, x) + rho_dn(x, y)*rho_dn(y, x);
 		spincorrelation[j].add(s*0.25*ssz);
 	}
@@ -623,8 +624,7 @@ void Simulation::write_green_function () {
 }
 
 void Simulation::make_svd_double (double t0) {
-	int nsvd = 1;
-	double dBeta = 0.2;
+	double dBeta = beta/(config.nsvd+1);
 	svdA.setIdentity(V);
 	svdB.setIdentity(V);
 	double t1 = t0;
