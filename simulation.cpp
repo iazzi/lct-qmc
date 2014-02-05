@@ -197,12 +197,20 @@ void Simulation::save (lua_State *L, int index) {
 	lua_setfield(L, -2, "density");
 	L << magnetization;
 	lua_setfield(L, -2, "magnetization");
+	L << singlet;
+	lua_setfield(L, -2, "singlet");
 	L << order_parameter;
 	lua_setfield(L, -2, "order_parameter");
 	L << chi_af;
 	lua_setfield(L, -2, "chi_af");
 	//L << measured_sign;
 	//lua_setfield(L, -2, "measured_sign");
+	L << d_up;
+	lua_setfield(L, -2, "d_up");
+	L << d_dn;
+	lua_setfield(L, -2, "d_dn");
+	L << spincorrelation;
+	lua_setfield(L, -2, "spincorrelation");
 	L << chi_d;
 	lua_setfield(L, -2, "chi_d");
 	lua_setfield(L, index, "results");
@@ -586,6 +594,7 @@ void Simulation::measure_quick () {
 		d_up[i].add(s*rho_up(i, i));
 		d_dn[i].add(s*rho_dn(i, i));
 	}
+	double sum = 0.0;
 	for (int j=0;j<V;j++) {
 		double ssz = 0.0;
 		int x = j;
@@ -594,7 +603,9 @@ void Simulation::measure_quick () {
 		ssz -= rho_up(x, x)*rho_dn(y, y) + rho_dn(x, x)*rho_up(y, y);
 		ssz -= rho_up(x, y)*rho_up(y, x) + rho_dn(x, y)*rho_dn(y, x);
 		spincorrelation[j].add(s*0.25*ssz);
+		sum += 0.25*ssz;
 	}
+	singlet.add(s*sum/V);
 }
 
 void Simulation::measure () {

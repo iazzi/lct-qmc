@@ -150,6 +150,7 @@ class Simulation {
 	mymeasurement<double> acceptance;
 	mymeasurement<double> density;
 	mymeasurement<double> magnetization;
+	mymeasurement<double> singlet;
 	mymeasurement<double> order_parameter;
 	mymeasurement<double> chi_d;
 	mymeasurement<double> chi_af;
@@ -202,6 +203,7 @@ class Simulation {
 		acceptance.set_name("Acceptance");
 		density.set_name("Density");
 		magnetization.set_name("Magnetization");
+		singlet.set_name("Singlet population");
 		order_parameter.set_name("Order Parameter");
 		chi_d.set_name("Chi (D-wave)");
 		chi_af.set_name("Chi (AF)");
@@ -644,6 +646,7 @@ class Simulation {
 		acceptance.clear();
 		density.clear();
 		magnetization.clear();
+		singlet.clear();
 		order_parameter.clear();
 		chi_d.clear();
 		chi_af.clear();
