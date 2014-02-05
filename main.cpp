@@ -91,7 +91,7 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 				simulation.load_checkpoint(L);
 				lua_pop(L, 1);
 			}
-			simulation.discard_measurements();
+			if (thermalization_sweeps>0) simulation.discard_measurements();
 		}
 		//simulation.load_sigma(L, "nice.lua");
 		lock.unlock();
