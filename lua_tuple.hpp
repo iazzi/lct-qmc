@@ -37,3 +37,12 @@ static void lua_set (lua_State *L, named_tuple<Args...> &t) {
 	(void)dummy;
 }
 
+template <class T>
+void operator<< (lua_State *L, const std::vector<T>& v) {
+	lua_newtable(L);
+	for (size_t i=0;i<v.size();i++) {
+		L << v[i];
+		lua_rawseti(L, -2, i+1);
+	}
+}
+
