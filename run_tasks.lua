@@ -15,8 +15,9 @@ end
 for i in io.popen('ls '..dir..'*.in'):lines() do
 	local t = dofile(i)
 	if type(t)=='table' and t[1].outfile then
-		local f = io.open(t[1].outfile)
+		local f = io.open(dir..t[1].outfile)
 		if not f then
+			print("launching", i)
 			--os.execute('cd '..dir..'; bsub -W '..time..' -J '..name..' ./exec '..i)
 			os.execute('./setup_batch '..i..' '..i:match('[^/]+%.in$'))
 			os.execute('cd '..dir..'; sbatch '..i:match('[^/]+%.in$')..'.batch')
