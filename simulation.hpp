@@ -365,7 +365,6 @@ class Simulation {
 	}
 
 	std::pair<double, double> make_svd_inverse () {
-		//make_svd_double();
 		std::pair<double, double> ret = make_density_matrices();
 		rho_up = Matrix_d::Identity(V, V) - svdA.inverse();
 		update_matrix_up = rho_up;
@@ -495,8 +494,14 @@ class Simulation {
 	}
 
 	void test_wrap () {
-		time_shift = 0;
-		redo_all();
+		std::vector<Matrix_d> v(N);
+		for (int i=0;i<N;i++) {
+			v[i] = freePropagator_open;
+			v[i].applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(i)).array()).matrix().asDiagonal());
+			v[i] *= std::exp(-dt*(-mu-0.5*B));
+		}
+		SVDHelper help;
+		Matrix_d prod;
 	}
 
 	void load_sigma (lua_State *L, const char *fn);
