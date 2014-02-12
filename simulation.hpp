@@ -367,16 +367,14 @@ class Simulation {
 	std::pair<double, double> make_svd_inverse () {
 		//make_svd_double();
 		std::pair<double, double> ret = make_density_matrices();
-		update_matrix_up = -svdA.inverse();
-		update_matrix_up.diagonal() += Vector_d::Ones(V);
+		rho_up = Matrix_d::Identity(V, V) - svdA.inverse();
+		update_matrix_up = rho_up;
 		update_matrix_up.applyOnTheLeft(-2.0*(diagonal(0).array().inverse()+1.0).inverse().matrix().asDiagonal());
 		update_matrix_up.diagonal() += Vector_d::Ones(V);
-		update_matrix_dn = -svdB.inverse();
-		update_matrix_dn.diagonal() += Vector_d::Ones(V);
+		rho_dn = svdB.inverse();
+		update_matrix_dn = Matrix_d::Identity(V, V) - rho_dn;
 		update_matrix_dn.applyOnTheLeft(-2.0*(diagonal(0).array().inverse()+1.0).inverse().matrix().asDiagonal());
 		update_matrix_dn.diagonal() += Vector_d::Ones(V);
-		rho_up = Matrix_d::Identity(V, V) - svdA.inverse();
-		rho_dn = svdB.inverse();
 		return ret;
 	}
 
