@@ -301,7 +301,7 @@ class Simulation {
 			}
 			//std::cerr << (T-svd.U).norm() << std::endl;
 			i++;
-			if (i%msvd==0 || i==N-1) svd.absorbU();
+			if (i%msvd==0 || i==N) svd.absorbU();
 		}
 	}
 
@@ -338,16 +338,18 @@ class Simulation {
 		svdB.add_identity(std::exp(-beta*B*0.5+beta*mu));
 	}
 
-	void make_density_matrices () {
+	std::pair<double, double> make_density_matrices () {
 		make_svd();
 		svdA = svd;
 		svdA.add_identity(std::exp(+beta*B*0.5+beta*mu));
 		svdB = svd;
 		svdB.add_identity(std::exp(-beta*B*0.5+beta*mu));
+		return { svd_probability(), svd_sign() };
 	}
 
-	void make_svd_inverse () {
-		make_svd_double();
+	std::pair<double, double> make_svd_inverse () {
+		//make_svd_double();
+		std::pair<double, double> ret = make_density_matrices();
 		update_matrix_up = -svdA.inverse();
 		update_matrix_up.diagonal() += Vector_d::Ones(V);
 		update_matrix_up.applyOnTheLeft(-2.0*(diagonal(0).array().inverse()+1.0).inverse().matrix().asDiagonal());
@@ -356,15 +358,16 @@ class Simulation {
 		update_matrix_dn.diagonal() += Vector_d::Ones(V);
 		update_matrix_dn.applyOnTheLeft(-2.0*(diagonal(0).array().inverse()+1.0).inverse().matrix().asDiagonal());
 		update_matrix_dn.diagonal() += Vector_d::Ones(V);
+		return ret;
 	}
 
-	double svd_probability () {
+	double svd_probability () const {
 		double ret = svdA.S.array().log().sum() + svdB.S.array().log().sum();
 		//std::cerr << svd.S.transpose() << std::endl;
 		return ret; // * (svdA.U*svdA.Vt*svdB.U*svdB.Vt).determinant();
 	}
 
-	double svd_sign () {
+	double svd_sign () const {
 		return (svdA.U*svdA.Vt*svdB.U*svdB.Vt).determinant()>0.0?1.0:-1.0;
 	}
 
@@ -418,10 +421,9 @@ class Simulation {
 
 	void redo_all () {
 		//make_svd();
-		make_svd_inverse();
 		//make_density_matrices(); // already called in make_svd_inverse
-		double np = svd_probability();
-		double ns = svd_sign();
+		double np, ns;
+		std::tie(np, ns) = make_svd_inverse();
 		if (fabs(np-plog-update_prob)>1.0e-8 || psign*update_sign!=ns) {
 			std::cerr << "redo " << plog+update_prob << " <> " << np << " ~~ " << np-plog-update_prob << '\t' << (psign*update_sign*ns) << std::endl;
 			plog = np;
@@ -432,14 +434,10 @@ class Simulation {
 		psign = ns;
 		if (isnan(plog)) {
 			std::cerr << "NaN found: restoring" << std::endl;
-			diagonals = diagonals_saved;
 			//make_svd();
-			make_svd_inverse();
+			std::tie(plog, psign) = make_svd_inverse();
 			//make_density_matrices() // already called in make_svd_inverse;
-			plog = svd_probability();
-			psign = svd_sign();
 		} else {
-			diagonals_saved = diagonals;
 		}
 		//recheck();
 		reset_updates();
@@ -470,15 +468,10 @@ class Simulation {
 	}
 
 	void update () {
-		valid_slices[time_shift/mslices] = false;
 		for (int i=0;i<flips_per_update;i++) {
-			collapse_updates();
 			acceptance.add(metropolis()?1.0:0.0);
 			measured_sign.add(psign*update_sign);
 		}
-		//time_shift = randomTime(generator);
-		//redo_all();
-		//try_site_flip();
 		shift_time();
 	}
 
@@ -486,8 +479,8 @@ class Simulation {
 		int x = randomPosition(generator);
 		flip(x);
 		//make_svd();
-		make_svd_inverse();
-		double np = svd_probability();
+		double np, ns;
+		std::tie(np, ns) = make_svd_inverse();
 		bool ret = -trialDistribution(generator)<np-plog;
 		if (ret) {
 			std::cerr << "accepted site flip at " << x << std::endl;
@@ -509,9 +502,8 @@ class Simulation {
 			plog += update_prob;
 			psign *= update_sign;
 			//make_svd();
-			make_svd_inverse();
-			double np = svd_probability();
-			double ns = svd_sign();
+			double np, ns;
+			std::tie(np, ns) = make_svd_inverse();
 			if (fabs(np-plog)>1.0e-8 || psign!=ns) {
 				std::cerr << "collapse " << plog+update_prob << " <> " << np << " ~~ " << np-plog-update_prob << '\t' << (psign*update_sign*ns) << std::endl;
 			}

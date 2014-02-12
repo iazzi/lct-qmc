@@ -112,12 +112,7 @@ void Simulation::init () {
 
 	valid_slices.clear();
 	valid_slices.insert(valid_slices.begin(), nslices(), false);
-	make_slices();
-	make_svd();
-	make_svd_inverse();
-	make_density_matrices();
-	plog = svd_probability();
-	psign = svd_sign();
+	std::tie(plog, psign) = make_svd_inverse();
 
 	init_measurements();
 	reset_updates();
