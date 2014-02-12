@@ -108,8 +108,6 @@ class Simulation {
 	int update_size;
 	int new_update_size;
 	//std::vector<bool> update_flips;
-	Matrix_d update_U;
-	Matrix_d update_Vt;
 	std::vector<int> update_perm;
 	Matrix_d update_matrix_up;
 	Matrix_d update_matrix_dn;
@@ -119,6 +117,11 @@ class Simulation {
 	Array_d energies;
 
 	public:
+
+	Matrix_d plain;
+	Matrix_d plainA;
+	Matrix_d plainB;
+	Eigen::ColPivHouseholderQR<Matrix_d> qr;
 
 	SVDHelper svd;
 	SVDHelper svdA;
@@ -233,8 +236,6 @@ class Simulation {
 		for (int i=0;i<V;i++) update_perm[i] = i;
 		//update_flips.resize(V);
 		//for (bool& b : update_flips) b = false;
-		update_U.setZero(V, V);
-		update_Vt.setZero(V, V);
 	}
 
 	void init ();
@@ -305,6 +306,22 @@ class Simulation {
 		}
 	}
 
+	void make_plain () {
+		//Matrix_d T;
+		plain.setIdentity(V, V);
+		for (int i=0;i<N;) {
+			plain.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(i)).array()).matrix().asDiagonal());
+			if (false) {
+				plain.applyOnTheLeft(freePropagator_open);
+			} else {
+				fftw_execute_dft_r2c(x2p_col, plain.data(), reinterpret_cast<fftw_complex*>(momentumSpace.data()));
+				momentumSpace.applyOnTheLeft((freePropagator/double(V)).asDiagonal());
+				fftw_execute_dft_c2r(p2x_col, reinterpret_cast<fftw_complex*>(momentumSpace.data()), plain.data());
+			}
+			i++;
+		}
+	}
+
 	void make_svd_double () {
 		svdA.setIdentity(V);
 		for (int i=0;i<N;) {
@@ -358,6 +375,31 @@ class Simulation {
 		update_matrix_dn.diagonal() += Vector_d::Ones(V);
 		update_matrix_dn.applyOnTheLeft(-2.0*(diagonal(0).array().inverse()+1.0).inverse().matrix().asDiagonal());
 		update_matrix_dn.diagonal() += Vector_d::Ones(V);
+		rho_up = Matrix_d::Identity(V, V) - svdA.inverse();
+		rho_dn = svdB.inverse();
+		return ret;
+	}
+
+	std::pair<double, double> make_plain_inverse () {
+		std::pair<double, double> ret = { 0.0, 0.0 };
+		make_plain();
+		plainA = plain*std::exp(+beta*B*0.5+beta*mu) + Matrix_d::Identity(V, V);
+		plainB = plain*std::exp(-beta*B*0.5+beta*mu) + Matrix_d::Identity(V, V);
+		qr.compute(plainA);
+		update_matrix_up = -qr.inverse();
+		update_matrix_up.diagonal() += Vector_d::Ones(V);
+		update_matrix_up.applyOnTheLeft(-2.0*(diagonal(0).array().inverse()+1.0).inverse().matrix().asDiagonal());
+		update_matrix_up.diagonal() += Vector_d::Ones(V);
+		rho_up = Matrix_d::Identity(V, V) - qr.inverse();
+		ret.first += qr.logAbsDeterminant();
+		qr.compute(plainB);
+		update_matrix_dn = -qr.inverse();
+		update_matrix_dn.diagonal() += Vector_d::Ones(V);
+		update_matrix_dn.applyOnTheLeft(-2.0*(diagonal(0).array().inverse()+1.0).inverse().matrix().asDiagonal());
+		update_matrix_dn.diagonal() += Vector_d::Ones(V);
+		ret.first += qr.logAbsDeterminant();
+		ret.second = (plainA*plainB).determinant()<0.0?-1.0:1.0;
+		rho_dn = qr.inverse();
 		return ret;
 	}
 
@@ -423,7 +465,7 @@ class Simulation {
 		//make_svd();
 		//make_density_matrices(); // already called in make_svd_inverse
 		double np, ns;
-		std::tie(np, ns) = make_svd_inverse();
+		std::tie(np, ns) = make_plain_inverse();
 		if (fabs(np-plog-update_prob)>1.0e-8 || psign*update_sign!=ns) {
 			std::cerr << "redo " << plog+update_prob << " <> " << np << " ~~ " << np-plog-update_prob << '\t' << (psign*update_sign*ns) << std::endl;
 			plog = np;
@@ -435,7 +477,7 @@ class Simulation {
 		if (isnan(plog)) {
 			std::cerr << "NaN found: restoring" << std::endl;
 			//make_svd();
-			std::tie(plog, psign) = make_svd_inverse();
+			std::tie(plog, psign) = make_plain_inverse();
 			//make_density_matrices() // already called in make_svd_inverse;
 		} else {
 		}

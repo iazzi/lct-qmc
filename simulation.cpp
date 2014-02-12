@@ -578,8 +578,6 @@ void Simulation::measure_sign () {
 
 void Simulation::measure_quick () {
 	double s = svd_sign();
-	rho_up = Matrix_d::Identity(V, V) - svdA.inverse();
-	rho_dn = svdB.inverse();
 	double n_up = rho_up.diagonal().array().sum();
 	double n_dn = rho_dn.diagonal().array().sum();
 	sign.add(psign*update_sign);
