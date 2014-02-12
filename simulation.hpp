@@ -386,20 +386,18 @@ class Simulation {
 		plainA = plain*std::exp(+beta*B*0.5+beta*mu) + Matrix_d::Identity(V, V);
 		plainB = plain*std::exp(-beta*B*0.5+beta*mu) + Matrix_d::Identity(V, V);
 		qr.compute(plainA);
-		update_matrix_up = -qr.inverse();
-		update_matrix_up.diagonal() += Vector_d::Ones(V);
+		rho_up = Matrix_d::Identity(V, V) - qr.inverse();
+		update_matrix_up = rho_up;
 		update_matrix_up.applyOnTheLeft(-2.0*(diagonal(0).array().inverse()+1.0).inverse().matrix().asDiagonal());
 		update_matrix_up.diagonal() += Vector_d::Ones(V);
-		rho_up = Matrix_d::Identity(V, V) - qr.inverse();
 		ret.first += qr.logAbsDeterminant();
 		qr.compute(plainB);
-		update_matrix_dn = -qr.inverse();
-		update_matrix_dn.diagonal() += Vector_d::Ones(V);
+		rho_dn = qr.inverse();
+		update_matrix_dn = Matrix_d::Identity(V, V) - rho_dn;
 		update_matrix_dn.applyOnTheLeft(-2.0*(diagonal(0).array().inverse()+1.0).inverse().matrix().asDiagonal());
 		update_matrix_dn.diagonal() += Vector_d::Ones(V);
 		ret.first += qr.logAbsDeterminant();
 		ret.second = (plainA*plainB).determinant()<0.0?-1.0:1.0;
-		rho_dn = qr.inverse();
 		return ret;
 	}
 
