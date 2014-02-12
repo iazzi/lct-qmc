@@ -365,7 +365,6 @@ bool Simulation::metropolis () {
 	ret = -trialDistribution(generator)<r1.first-update_prob;
 	if (ret) {
 		//std::cerr << "accepted " << x << ' ' << update_size << std::endl;
-		diagonal(0)[x] = -diagonal(0)[x];
 		update_size = new_update_size;
 		update_prob = r1.first;
 		update_sign = r1.second;

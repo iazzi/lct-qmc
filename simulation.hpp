@@ -486,6 +486,10 @@ class Simulation {
 
 	void set_time_shift (int t) { time_shift = t%N; redo_all(); }
 	bool shift_time () { 
+		for (int i=0;i<update_size;i++) {
+			int x = update_perm[i];
+			diagonal(0)[x] = -diagonal(0)[x];
+		}
 		time_shift++;
 		bool ret = time_shift>=N;
 		if (ret) time_shift -= N;
