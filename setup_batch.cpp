@@ -7,6 +7,7 @@
 #include <chrono>
 #include <atomic>
 #include <sstream>
+#include <iomanip>
 
 using namespace std;
 using namespace std::chrono;
@@ -15,7 +16,8 @@ typedef std::chrono::duration<double> seconds_type;
 
 string time_str (int t) {
 	stringstream str;
-	str << (t/3600) << ':' << (t/60%60) << ':' << (t%60);
+	str.fill('0');
+	str << std::setw(2) <<(t/3600) << ':' << std::setw(2) << (t/60%60) << ':' << std::setw(2) << (t%60);
 	return str.str();
 }
 
