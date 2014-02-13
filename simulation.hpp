@@ -499,7 +499,7 @@ class Simulation {
 	bool shift_time () { 
 		//std::cerr << plain.rows() << ' ' << plain.cols() << ' ' << (Vector_d::Constant(V, 1.0)+diagonal(0)).array().inverse().matrix().size() << std::endl;
 		bool ret = time_shift==N-1;
-		if (!ret) {
+		if (time_shift%2) {
 			plain.applyOnTheRight((Vector_d::Constant(V, 1.0)+diagonal(0)).array().inverse().matrix().asDiagonal());
 			plain.transposeInPlace();
 			fftw_execute_dft_r2c(x2p_col, plain.data(), reinterpret_cast<fftw_complex*>(momentumSpace.data()));
@@ -517,9 +517,9 @@ class Simulation {
 		} else {
 			apply_updates();
 			time_shift++;
-			time_shift -= N;
 			redo_all();
 		}
+		time_shift = time_shift%N;
 		return ret;
 	}
 
