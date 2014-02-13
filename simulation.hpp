@@ -377,9 +377,8 @@ class Simulation {
 		return ret;
 	}
 
-	std::pair<double, double> make_plain_inverse () {
+	std::pair<double, double> make_plain_inverse_second_step () {
 		std::pair<double, double> ret = { 0.0, 0.0 };
-		make_plain();
 		plainA = plain*std::exp(+beta*B*0.5+beta*mu) + Matrix_d::Identity(V, V);
 		plainB = plain*std::exp(-beta*B*0.5+beta*mu) + Matrix_d::Identity(V, V);
 		qr.compute(plainA);
@@ -396,6 +395,11 @@ class Simulation {
 		ret.first += qr.logAbsDeterminant();
 		ret.second = (plainA*plainB).determinant()<0.0?-1.0:1.0;
 		return ret;
+	}
+
+	std::pair<double, double> make_plain_inverse () {
+		make_plain();
+		return make_plain_inverse_second_step();
 	}
 
 	double svd_probability () const {
@@ -480,20 +484,42 @@ class Simulation {
 		reset_updates();
 	}
 
+	void apply_updates () {
+		for (int i=0;i<update_size;i++) {
+			int x = update_perm[i];
+			diagonal(0)[x] = -diagonal(0)[x];
+		}
+	}
+
 	std::pair<double, double> rank1_probability (int x);
 
 	bool metropolis ();
 
 	void set_time_shift (int t) { time_shift = t%N; redo_all(); }
 	bool shift_time () { 
-		for (int i=0;i<update_size;i++) {
-			int x = update_perm[i];
-			diagonal(0)[x] = -diagonal(0)[x];
+		//std::cerr << plain.rows() << ' ' << plain.cols() << ' ' << (Vector_d::Constant(V, 1.0)+diagonal(0)).array().inverse().matrix().size() << std::endl;
+		bool ret = time_shift==N-1;
+		if (!ret) {
+			plain.applyOnTheRight((Vector_d::Constant(V, 1.0)+diagonal(0)).array().inverse().matrix().asDiagonal());
+			plain.transposeInPlace();
+			fftw_execute_dft_r2c(x2p_col, plain.data(), reinterpret_cast<fftw_complex*>(momentumSpace.data()));
+			momentumSpace.applyOnTheLeft((freePropagator.array().inverse().matrix()/double(V)).asDiagonal());
+			fftw_execute_dft_c2r(p2x_col, reinterpret_cast<fftw_complex*>(momentumSpace.data()), plain.data());
+			plain.transposeInPlace();
+			apply_updates();
+			plain.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(0)).array()).matrix().asDiagonal());
+			fftw_execute_dft_r2c(x2p_col, plain.data(), reinterpret_cast<fftw_complex*>(momentumSpace.data()));
+			momentumSpace.applyOnTheLeft((freePropagator.array().matrix()/double(V)).asDiagonal());
+			fftw_execute_dft_c2r(p2x_col, reinterpret_cast<fftw_complex*>(momentumSpace.data()), plain.data());
+			time_shift++;
+			std::tie(plog, psign) = make_plain_inverse_second_step();
+			reset_updates();
+		} else {
+			apply_updates();
+			time_shift++;
+			time_shift -= N;
+			redo_all();
 		}
-		time_shift++;
-		bool ret = time_shift>=N;
-		if (ret) time_shift -= N;
-		redo_all();
 		return ret;
 	}
 

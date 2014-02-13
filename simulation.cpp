@@ -112,6 +112,7 @@ void Simulation::init () {
 
 	valid_slices.clear();
 	valid_slices.insert(valid_slices.begin(), nslices(), false);
+	std::tie(plog, psign) = make_plain_inverse();
 	std::tie(plog, psign) = make_svd_inverse();
 
 	init_measurements();
