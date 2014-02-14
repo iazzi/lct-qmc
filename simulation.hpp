@@ -495,22 +495,55 @@ class Simulation {
 
 	bool metropolis ();
 
+	void remove_first_slice (Matrix_d &A) {
+		A.applyOnTheRight((Vector_d::Constant(V, 1.0)+diagonal(0)).array().inverse().matrix().asDiagonal());
+		A.transposeInPlace();
+		fftw_execute_dft_r2c(x2p_col, A.data(), reinterpret_cast<fftw_complex*>(momentumSpace.data()));
+		momentumSpace.applyOnTheLeft((freePropagator.array().inverse().matrix()/double(V)).asDiagonal());
+		fftw_execute_dft_c2r(p2x_col, reinterpret_cast<fftw_complex*>(momentumSpace.data()), A.data());
+		A.transposeInPlace();
+	}
+
+	void queue_first_slice (Matrix_d &A) {
+		A.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(0)).array()).matrix().asDiagonal());
+		fftw_execute_dft_r2c(x2p_col, A.data(), reinterpret_cast<fftw_complex*>(momentumSpace.data()));
+		momentumSpace.applyOnTheLeft((freePropagator.array().matrix()/double(V)).asDiagonal());
+		fftw_execute_dft_c2r(p2x_col, reinterpret_cast<fftw_complex*>(momentumSpace.data()), A.data());
+	}
+
 	void set_time_shift (int t) { time_shift = t%N; redo_all(); }
 	bool shift_time () { 
 		//std::cerr << plain.rows() << ' ' << plain.cols() << ' ' << (Vector_d::Constant(V, 1.0)+diagonal(0)).array().inverse().matrix().size() << std::endl;
 		bool ret = time_shift==N-1;
 		if (time_shift%2) {
-			plain.applyOnTheRight((Vector_d::Constant(V, 1.0)+diagonal(0)).array().inverse().matrix().asDiagonal());
-			plain.transposeInPlace();
-			fftw_execute_dft_r2c(x2p_col, plain.data(), reinterpret_cast<fftw_complex*>(momentumSpace.data()));
-			momentumSpace.applyOnTheLeft((freePropagator.array().inverse().matrix()/double(V)).asDiagonal());
-			fftw_execute_dft_c2r(p2x_col, reinterpret_cast<fftw_complex*>(momentumSpace.data()), plain.data());
-			plain.transposeInPlace();
+			remove_first_slice(plain);
 			apply_updates();
-			plain.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(0)).array()).matrix().asDiagonal());
-			fftw_execute_dft_r2c(x2p_col, plain.data(), reinterpret_cast<fftw_complex*>(momentumSpace.data()));
-			momentumSpace.applyOnTheLeft((freePropagator.array().matrix()/double(V)).asDiagonal());
-			fftw_execute_dft_c2r(p2x_col, reinterpret_cast<fftw_complex*>(momentumSpace.data()), plain.data());
+			queue_first_slice(plain);
+			time_shift++;
+			std::tie(plog, psign) = make_plain_inverse_second_step();
+			reset_updates();
+		} else {
+			apply_updates();
+			time_shift++;
+			redo_all();
+		}
+		time_shift = time_shift%N;
+		return ret;
+	}
+
+	bool shift_time_svd () {
+		//std::cerr << plain.rows() << ' ' << plain.cols() << ' ' << (Vector_d::Constant(V, 1.0)+diagonal(0)).array().inverse().matrix().size() << std::endl;
+		bool ret = time_shift==N-1;
+		if (time_shift%2) {
+			remove_first_slice(svdA.Vt);
+			remove_first_slice(svdB.Vt);
+			svdA.absorbVt();
+			svdB.absorbVt();
+			apply_updates();
+			queue_first_slice(svdA.U);
+			queue_first_slice(svdB.U);
+			svdA.absorbU();
+			svdB.absorbU();
 			time_shift++;
 			std::tie(plog, psign) = make_plain_inverse_second_step();
 			reset_updates();
