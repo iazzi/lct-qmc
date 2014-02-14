@@ -464,7 +464,7 @@ class Simulation {
 		//make_svd();
 		//make_density_matrices(); // already called in make_svd_inverse
 		double np, ns;
-		std::tie(np, ns) = make_plain_inverse();
+		std::tie(np, ns) = make_svd_inverse();
 		if (fabs(np-plog-update_prob)>1.0e-8 || psign*update_sign!=ns) {
 			std::cerr << "redo " << plog+update_prob << " <> " << np << " ~~ " << np-plog-update_prob << '\t' << (psign*update_sign*ns) << std::endl;
 			plog = np;
@@ -476,7 +476,7 @@ class Simulation {
 		if (isnan(plog)) {
 			std::cerr << "NaN found: restoring" << std::endl;
 			//make_svd();
-			std::tie(plog, psign) = make_plain_inverse();
+			std::tie(plog, psign) = make_svd_inverse();
 			//make_density_matrices() // already called in make_svd_inverse;
 		} else {
 		}
@@ -515,7 +515,7 @@ class Simulation {
 	bool shift_time () { 
 		//std::cerr << plain.rows() << ' ' << plain.cols() << ' ' << (Vector_d::Constant(V, 1.0)+diagonal(0)).array().inverse().matrix().size() << std::endl;
 		bool ret = time_shift==N-1;
-		if (time_shift%2) {
+		if (time_shift%5) {
 			remove_first_slice(plain);
 			apply_updates();
 			queue_first_slice(plain);
@@ -534,18 +534,27 @@ class Simulation {
 	bool shift_time_svd () {
 		//std::cerr << plain.rows() << ' ' << plain.cols() << ' ' << (Vector_d::Constant(V, 1.0)+diagonal(0)).array().inverse().matrix().size() << std::endl;
 		bool ret = time_shift==N-1;
-		if (time_shift%2) {
-			remove_first_slice(svdA.Vt);
-			remove_first_slice(svdB.Vt);
-			svdA.absorbVt();
-			svdB.absorbVt();
+		if (time_shift%5>0) {
+			remove_first_slice(svd.Vt);
+			svd.absorbVt();
 			apply_updates();
-			queue_first_slice(svdA.U);
-			queue_first_slice(svdB.U);
-			svdA.absorbU();
-			svdB.absorbU();
+			queue_first_slice(svd.U);
+			svd.absorbU();
 			time_shift++;
-			std::tie(plog, psign) = make_plain_inverse_second_step();
+			svdA = svd;
+			svdA.add_identity(std::exp(+beta*B*0.5+beta*mu));
+			svdB = svd;
+			svdB.add_identity(std::exp(-beta*B*0.5+beta*mu));
+			rho_up = Matrix_d::Identity(V, V) - svdA.inverse();
+			update_matrix_up = rho_up;
+			update_matrix_up.applyOnTheLeft(-2.0*(diagonal(0).array().inverse()+1.0).inverse().matrix().asDiagonal());
+			update_matrix_up.diagonal() += Vector_d::Ones(V);
+			rho_dn = svdB.inverse();
+			update_matrix_dn = Matrix_d::Identity(V, V) - rho_dn;
+			update_matrix_dn.applyOnTheLeft(-2.0*(diagonal(0).array().inverse()+1.0).inverse().matrix().asDiagonal());
+			update_matrix_dn.diagonal() += Vector_d::Ones(V);
+			plog = svd_probability();
+			psign = svd_sign();
 			reset_updates();
 		} else {
 			apply_updates();
@@ -578,7 +587,7 @@ class Simulation {
 			acceptance.add(metropolis()?1.0:0.0);
 			measured_sign.add(psign*update_sign);
 		}
-		shift_time();
+		shift_time_svd();
 	}
 
 	bool try_site_flip () {
