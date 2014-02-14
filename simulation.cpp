@@ -732,4 +732,30 @@ void Simulation::write_green_function () {
 }
 
 
+void Simulation::accumulate_forward (int start, int end, Matrix_d &G_up, Matrix_d &G_dn) {
+	while (end>N) end -= N;
+	for (int i=start;i<end;i++) {
+		G_up.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonals[i]).array()).matrix().asDiagonal());
+		if (false) {
+			svdA.U.applyOnTheLeft(freePropagator_open);
+		} else {
+			G_up.applyOnTheLeft(freePropagator_x.asDiagonal());
+			fftw_execute_dft_r2c(x2p_col, G_up.data(), reinterpret_cast<fftw_complex*>(momentumSpace.data()));
+			momentumSpace.applyOnTheLeft((freePropagator/double(V)).asDiagonal());
+			fftw_execute_dft_c2r(p2x_col, reinterpret_cast<fftw_complex*>(momentumSpace.data()), G_up.data());
+		}
+	}
+	for (int i=start;i<end;i++) {
+		G_dn.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonals[i]).array()).matrix().asDiagonal());
+		if (false) {
+			G_dn.applyOnTheLeft(freePropagator_open);
+		} else {
+			G_dn.applyOnTheLeft(freePropagator_x.array().inverse().matrix().asDiagonal());
+			fftw_execute_dft_r2c(x2p_col, G_dn.data(), reinterpret_cast<fftw_complex*>(momentumSpace.data()));
+			momentumSpace.applyOnTheLeft((freePropagator.array().inverse().matrix()/double(V)).asDiagonal());
+			fftw_execute_dft_c2r(p2x_col, reinterpret_cast<fftw_complex*>(momentumSpace.data()), G_dn.data());
+		}
+	}
+}
+
 

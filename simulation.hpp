@@ -141,11 +141,6 @@ class Simulation {
 	Matrix_d rho_up;
 	Matrix_d rho_dn;
 
-	struct {
-		Vector_d u_smart;
-		Vector_d v_smart;
-	} cache;
-
 	public:
 
 	int steps;
@@ -412,57 +407,9 @@ class Simulation {
 		return (svdA.U*svdA.Vt*svdB.U*svdB.Vt).determinant()>0.0?1.0:-1.0;
 	}
 
-	void accumulate_forward (int start, int end, Matrix_d &G_up, Matrix_d &G_dn) {
-		while (end>N) end -= N;
-		for (int i=start;i<end;i++) {
-			G_up.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonals[i]).array()).matrix().asDiagonal());
-			if (false) {
-				svdA.U.applyOnTheLeft(freePropagator_open);
-			} else {
-				G_up.applyOnTheLeft(freePropagator_x.asDiagonal());
-				fftw_execute_dft_r2c(x2p_col, G_up.data(), reinterpret_cast<fftw_complex*>(momentumSpace.data()));
-				momentumSpace.applyOnTheLeft((freePropagator/double(V)).asDiagonal());
-				fftw_execute_dft_c2r(p2x_col, reinterpret_cast<fftw_complex*>(momentumSpace.data()), G_up.data());
-			}
-		}
-		for (int i=start;i<end;i++) {
-			G_dn.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonals[i]).array()).matrix().asDiagonal());
-			if (false) {
-				G_dn.applyOnTheLeft(freePropagator_open);
-			} else {
-				G_dn.applyOnTheLeft(freePropagator_x.array().inverse().matrix().asDiagonal());
-				fftw_execute_dft_r2c(x2p_col, G_dn.data(), reinterpret_cast<fftw_complex*>(momentumSpace.data()));
-				momentumSpace.applyOnTheLeft((freePropagator.array().inverse().matrix()/double(V)).asDiagonal());
-				fftw_execute_dft_c2r(p2x_col, reinterpret_cast<fftw_complex*>(momentumSpace.data()), G_dn.data());
-			}
-		}
-	}
-
-	void compute_uv_f_short (int x, int t) {
-		//std::cerr << cache.u_smart[0] << ' ' << cache.u_smart[x] << ' ' << -2*diagonal(t)[x]/(1.0+diagonal(t)[x]) << std::endl;
-		cache.u_smart.setZero(V);
-		cache.u_smart[x] = -2*diagonal(t)[x]/(1.0+diagonal(t)[x]);
-		cache.v_smart.setZero(V);
-		cache.v_smart[x] = 1.0;
-	}
-
-	void flip (int x) {
-		for (int t=0;t<N;t++) diagonal(t)[x] = -diagonal(t)[x];
-	}
-
-	void flip (int t, int x) {
-		diagonal(t)[x] = -diagonal(t)[x];
-	}
-
-	void flip (int t, const std::vector<int> &vec) {
-		for (int x : vec) {
-			diagonal(t)[x] = -diagonal(t)[x];
-		}
-	}
+	void accumulate_forward (int start, int end, Matrix_d &G_up, Matrix_d &G_dn);
 
 	void redo_all () {
-		//make_svd();
-		//make_density_matrices(); // already called in make_svd_inverse
 		double np, ns;
 		std::tie(np, ns) = make_svd_inverse();
 		if (fabs(np-plog-update_prob)>1.0e-8 || psign*update_sign!=ns) {
@@ -590,46 +537,7 @@ class Simulation {
 		shift_time_svd();
 	}
 
-	bool try_site_flip () {
-		int x = randomPosition(generator);
-		flip(x);
-		//make_svd();
-		double np, ns;
-		std::tie(np, ns) = make_svd_inverse();
-		bool ret = -trialDistribution(generator)<np-plog;
-		if (ret) {
-			std::cerr << "accepted site flip at " << x << std::endl;
-			plog = np;
-			psign = svd_sign();
-		} else {
-			std::cerr << "rejected site flip at " << x << std::endl;
-			flip(x);
-			//make_svd();
-			make_svd_inverse();
-		}
-		return ret;
-	}
-
 	void get_green_function (double s = 1.0, int t0 = 0);
-
-	bool collapse_updates () {
-		if (update_size>=V) {
-			plog += update_prob;
-			psign *= update_sign;
-			//make_svd();
-			double np, ns;
-			std::tie(np, ns) = make_svd_inverse();
-			if (fabs(np-plog)>1.0e-8 || psign!=ns) {
-				std::cerr << "collapse " << plog+update_prob << " <> " << np << " ~~ " << np-plog-update_prob << '\t' << (psign*update_sign*ns) << std::endl;
-			}
-			plog = np;
-			psign = ns;
-			reset_updates();
-			return true;
-		} else {
-			return false;
-		}
-	}
 
 	double get_kinetic_energy (const Matrix_d &M) {
 		positionSpace = M;
@@ -674,28 +582,6 @@ class Simulation {
 
 	void write_wavefunction (std::ostream &out);
 
-	void output_sign () {
-		std::ostringstream buf;
-		buf << outfn << "_sign.dat";
-		std::ofstream out(buf.str(), reset?std::ios::trunc:std::ios::app);
-		out << "# " << params();
-		out << 1.0/(beta*tx) << ' ' << 0.5*(B+g)/tx;
-		//out << ' ' << measured_sign.mean() << ' ' << measured_sign.error();
-		//out << ' ' << sign_correlation.mean() << ' ' << sign_correlation.error();
-		//out << ' ' << exact_sign.mean() << ' ' << exact_sign.variance();
-		//if (staggered_field!=0.0) out << ' ' << -staggered_magnetization.mean()/staggered_field << ' ' << staggered_magnetization.variance();
-		for (int i=0;i<V;i++) {
-			//out << ' ' << d_up[i].mean();
-		}
-		for (int i=0;i<V;i++) {
-			//out << ' ' << d_dn[i].mean();
-		}
-		for (int i=1;i<=Lx/2;i++) {
-			//out << ' ' << spincorrelation[i].mean()/V << ' ' << spincorrelation[i].variance();
-		}
-		out << std::endl << std::endl;
-	}
-
 	void output_results () {
 		std::ostringstream buf;
 		buf << outfn << "stablefast_U" << (g/tx) << "_T" << 1.0/(beta*tx) << '_' << Lx << 'x' << Ly << 'x' << Lz << ".dat";
@@ -723,13 +609,6 @@ class Simulation {
 			//out << ' ' << spincorrelation[i].mean()/V << ' ' << spincorrelation[i].variance();
 		}
 		out << std::endl;
-		//out << "+-" << std::endl << green_function_up[0].error() << std::endl << std::endl;
-		//out << "Green Function Up (N-1)" << std::endl << green_function_up[N-1].mean() << std::endl << std::endl;
-		//out << "+-" << std::endl << green_function_up[N-1].error() << std::endl << std::endl;
-		//out << "Green Function Dn (0)" << std::endl << green_function_dn[0].mean() << std::endl << std::endl;
-		//out << "+-" << std::endl << green_function_dn[0].error() << std::endl << std::endl;
-		//out << "Green Function Dn (N-1)" << std::endl << green_function_dn[N-1].mean() << std::endl << std::endl;
-		//out << "+-" << std::endl << green_function_dn[N-1].error() << std::endl << std::endl;
 		write_green_function();
 	}
 

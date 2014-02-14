@@ -169,7 +169,6 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 			log << "thread" << j << "finished simulation" << job << "in" << seconds << "seconds";
 			lock.lock();
 			simulation.output_results();
-			//simulation.output_sign();
 			lua_rawgeti(L, -1, job);
 			lua_pushnumber(L, seconds);
 			lua_setfield(L, -2, "elapsed_time");

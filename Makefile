@@ -14,6 +14,8 @@ main.o: main.cpp simulation.hpp
 
 test_params: test_params.o simulation.o mpfr.o
 
+setup_batch.o: setup_batch.cpp simulation.hpp
+
 setup_batch: setup_batch.o simulation.o mpfr.o
 
 parallel:
