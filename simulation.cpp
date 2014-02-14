@@ -44,7 +44,6 @@ void Simulation::prepare_open_boundaries () {
 void Simulation::prepare_propagators () {
 	Vector_d my_energies = Vector_d::Zero(V);
 	freePropagator = Vector_d::Zero(V);
-	freePropagator_b = Vector_d::Zero(V);
 	potential = Vector_d::Zero(V);
 	freePropagator_x = Vector_d::Zero(V);
 	//freePropagator_x_b = Vector_d::Zero(V);
@@ -61,7 +60,6 @@ void Simulation::prepare_propagators () {
 		if (Ky>1) my_energies[i] += (Ky>2?-2.0:-1.0) * ty * cos(2.0*ky*pi/Ky);
 		if (Kz>1) my_energies[i] += (Kz>2?-2.0:-1.0) * tz * cos(2.0*kz*pi/Kz);
 		freePropagator[i] = exp(-dt*my_energies[i]);
-		freePropagator_b[i] = exp(dt*my_energies[i]);
 		double pos_x = (x-Lx/2.0+0.5);
 		potential[i] = 0.5*w_x*pos_x*pos_x;
 		freePropagator_x[i] = exp(-dt*potential[i]);
@@ -101,8 +99,6 @@ void Simulation::init () {
 			diagonals[i][j] = distribution(generator)?A:-A;
 		}
 	}
-	v_x.setZero(V);
-	v_p.setZero(V);
 
 	positionSpace.setIdentity(V, V);
 	momentumSpace.setIdentity(V, V);
@@ -731,6 +727,40 @@ void Simulation::write_green_function () {
 	}
 }
 
+bool Simulation::shift_time_svd () {
+	//std::cerr << plain.rows() << ' ' << plain.cols() << ' ' << (Vector_d::Constant(V, 1.0)+diagonal(0)).array().inverse().matrix().size() << std::endl;
+	bool ret = time_shift==N-1;
+	if (time_shift%5>0) {
+		remove_first_slice(svd.Vt);
+		svd.absorbVt();
+		apply_updates();
+		queue_first_slice(svd.U);
+		svd.absorbU();
+		time_shift++;
+		svdA = svd;
+		svdA.add_identity(std::exp(+beta*B*0.5+beta*mu));
+		svdB = svd;
+		svdB.add_identity(std::exp(-beta*B*0.5+beta*mu));
+		rho_up = Matrix_d::Identity(V, V) - svdA.inverse();
+		update_matrix_up = rho_up;
+		update_matrix_up.applyOnTheLeft(-2.0*(diagonal(0).array().inverse()+1.0).inverse().matrix().asDiagonal());
+		update_matrix_up.diagonal() += Vector_d::Ones(V);
+		rho_dn = svdB.inverse();
+		update_matrix_dn = Matrix_d::Identity(V, V) - rho_dn;
+		update_matrix_dn.applyOnTheLeft(-2.0*(diagonal(0).array().inverse()+1.0).inverse().matrix().asDiagonal());
+		update_matrix_dn.diagonal() += Vector_d::Ones(V);
+		plog = svd_probability();
+		psign = svd_sign();
+		reset_updates();
+	} else {
+		apply_updates();
+		time_shift++;
+		redo_all();
+	}
+	time_shift = time_shift%N;
+	return ret;
+}
+
 
 void Simulation::accumulate_forward (int start, int end, Matrix_d &G_up, Matrix_d &G_dn) {
 	while (end>N) end -= N;
@@ -754,6 +784,29 @@ void Simulation::accumulate_forward (int start, int end, Matrix_d &G_up, Matrix_
 			fftw_execute_dft_r2c(x2p_col, G_dn.data(), reinterpret_cast<fftw_complex*>(momentumSpace.data()));
 			momentumSpace.applyOnTheLeft((freePropagator.array().inverse().matrix()/double(V)).asDiagonal());
 			fftw_execute_dft_c2r(p2x_col, reinterpret_cast<fftw_complex*>(momentumSpace.data()), G_dn.data());
+		}
+	}
+}
+
+void Simulation::make_slice (int i) {
+	if (!valid_slices[i/mslices]) {
+		//std::cerr << "remaking slice " << i << " (" << i/mslices << ')' << std::endl;
+		slices_up[i/mslices].setIdentity(V, V);
+		slices_dn[i/mslices].setIdentity(V, V);
+		accumulate_forward(i, i+mslices, slices_up[i/mslices], slices_dn[i/mslices]);
+		valid_slices[i/mslices] = true;
+	}
+}
+
+void Simulation::make_slices () {
+	slices_up.resize(N/mslices + ((N%mslices>0)?1:0));
+	slices_dn.resize(N/mslices + ((N%mslices>0)?1:0));
+	for (int i=0;i<N;i+=mslices) {
+		if (!valid_slices[i/mslices]) {
+			slices_up[i/mslices].setIdentity(V, V);
+			slices_dn[i/mslices].setIdentity(V, V);
+			accumulate_forward(i, i+mslices, slices_up[i/mslices], slices_dn[i/mslices]);
+			valid_slices[i/mslices] = true;
 		}
 	}
 }

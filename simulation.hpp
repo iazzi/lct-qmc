@@ -87,7 +87,6 @@ class Simulation {
 	std::exponential_distribution<double> trialDistribution;
 
 	Vector_d freePropagator;
-	Vector_d freePropagator_b;
 	Matrix_d freePropagator_open;
 	Matrix_d freePropagator_inverse;
 	double w_x, w_y, w_z;
@@ -127,13 +126,8 @@ class Simulation {
 	SVDHelper svdA;
 	SVDHelper svdB;
 
-	Vector_cd v_x;
-	Vector_cd v_p;
-
 	fftw_plan x2p_col;
 	fftw_plan p2x_col;
-	//fftw_plan x2p_row;
-	//fftw_plan p2x_row;
 
 	double plog;
 	double psign;
@@ -183,13 +177,8 @@ class Simulation {
 		return ((a+k+Ly)%Ly)*Lz + b;
 	}
 
-	Vector_d& diagonal (int t) {
-		return diagonals[(t+time_shift)%N];
-	}
-
-	const Vector_d& diagonal (int t) const {
-		return diagonals[(t+time_shift)%N];
-	}
+	const Vector_d& diagonal (int t) const { return diagonals[(t+time_shift)%N]; }
+	Vector_d& diagonal (int t) { return diagonals[(t+time_shift)%N]; }
 
 	public:
 
@@ -229,8 +218,6 @@ class Simulation {
 		update_size = 0.0;
 		update_perm.resize(V);
 		for (int i=0;i<V;i++) update_perm[i] = i;
-		//update_flips.resize(V);
-		//for (bool& b : update_flips) b = false;
 	}
 
 	void init ();
@@ -244,7 +231,7 @@ class Simulation {
 		load(L, index);
 	}
 
-	double logDetU_s (int x = -1, int t = -1) {
+	double logDetU_s (int x = -1, int t = -1) const {
 		int nspinup = 0;
 		for (int i=0;i<N;i++) {
 			for (int j=0;j<V;j++) {
@@ -259,35 +246,13 @@ class Simulation {
 
 	int nslices () const { return N/mslices + ((N%mslices>0)?1:0); }
 
-	void make_slice (int i) {
-		if (!valid_slices[i/mslices]) {
-			//std::cerr << "remaking slice " << i << " (" << i/mslices << ')' << std::endl;
-			slices_up[i/mslices].setIdentity(V, V);
-			slices_dn[i/mslices].setIdentity(V, V);
-			accumulate_forward(i, i+mslices, slices_up[i/mslices], slices_dn[i/mslices]);
-			valid_slices[i/mslices] = true;
-		}
-	}
-
-	void make_slices () {
-		slices_up.resize(N/mslices + ((N%mslices>0)?1:0));
-		slices_dn.resize(N/mslices + ((N%mslices>0)?1:0));
-		for (int i=0;i<N;i+=mslices) {
-			if (!valid_slices[i/mslices]) {
-				slices_up[i/mslices].setIdentity(V, V);
-				slices_dn[i/mslices].setIdentity(V, V);
-				accumulate_forward(i, i+mslices, slices_up[i/mslices], slices_dn[i/mslices]);
-				valid_slices[i/mslices] = true;
-			}
-		}
-	}
+	void make_slice (int i);
+	void make_slices ();
 
 	void make_svd () {
-		//Matrix_d T;
 		svd.setIdentity(V);
 		for (int i=0;i<N;) {
 			svd.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(i)).array()).matrix().asDiagonal());
-			//T = freePropagator_open * svd.U;
 			if (false) {
 				svd.U.applyOnTheLeft(freePropagator_open);
 			} else {
@@ -295,14 +260,12 @@ class Simulation {
 				momentumSpace.applyOnTheLeft((freePropagator/double(V)).asDiagonal());
 				fftw_execute_dft_c2r(p2x_col, reinterpret_cast<fftw_complex*>(momentumSpace.data()), svd.U.data());
 			}
-			//std::cerr << (T-svd.U).norm() << std::endl;
 			i++;
 			if (i%msvd==0 || i==N) svd.absorbU();
 		}
 	}
 
 	void make_plain () {
-		//Matrix_d T;
 		plain.setIdentity(V, V);
 		for (int i=0;i<N;) {
 			plain.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(i)).array()).matrix().asDiagonal());
@@ -398,9 +361,7 @@ class Simulation {
 	}
 
 	double svd_probability () const {
-		double ret = svdA.S.array().log().sum() + svdB.S.array().log().sum();
-		//std::cerr << svd.S.transpose() << std::endl;
-		return ret; // * (svdA.U*svdA.Vt*svdB.U*svdB.Vt).determinant();
+		return svdA.S.array().log().sum() + svdB.S.array().log().sum();
 	}
 
 	double svd_sign () const {
@@ -478,39 +439,7 @@ class Simulation {
 		return ret;
 	}
 
-	bool shift_time_svd () {
-		//std::cerr << plain.rows() << ' ' << plain.cols() << ' ' << (Vector_d::Constant(V, 1.0)+diagonal(0)).array().inverse().matrix().size() << std::endl;
-		bool ret = time_shift==N-1;
-		if (time_shift%5>0) {
-			remove_first_slice(svd.Vt);
-			svd.absorbVt();
-			apply_updates();
-			queue_first_slice(svd.U);
-			svd.absorbU();
-			time_shift++;
-			svdA = svd;
-			svdA.add_identity(std::exp(+beta*B*0.5+beta*mu));
-			svdB = svd;
-			svdB.add_identity(std::exp(-beta*B*0.5+beta*mu));
-			rho_up = Matrix_d::Identity(V, V) - svdA.inverse();
-			update_matrix_up = rho_up;
-			update_matrix_up.applyOnTheLeft(-2.0*(diagonal(0).array().inverse()+1.0).inverse().matrix().asDiagonal());
-			update_matrix_up.diagonal() += Vector_d::Ones(V);
-			rho_dn = svdB.inverse();
-			update_matrix_dn = Matrix_d::Identity(V, V) - rho_dn;
-			update_matrix_dn.applyOnTheLeft(-2.0*(diagonal(0).array().inverse()+1.0).inverse().matrix().asDiagonal());
-			update_matrix_dn.diagonal() += Vector_d::Ones(V);
-			plog = svd_probability();
-			psign = svd_sign();
-			reset_updates();
-		} else {
-			apply_updates();
-			time_shift++;
-			redo_all();
-		}
-		time_shift = time_shift%N;
-		return ret;
-	}
+	bool shift_time_svd ();
 
 	void test_wrap () {
 		std::vector<Matrix_d> v(N);
