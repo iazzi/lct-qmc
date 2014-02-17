@@ -5,6 +5,48 @@
 
 // FIXME only works in 2D
 void Simulation::prepare_open_boundaries () {
+}
+
+void Simulation::prepare_fft () {
+	int E = 3;
+	if (Lz<2) E=2;
+	if (Lz<2 && Ly<2) E=1;
+	const int size[] = { Lx, Ly, Lz, };
+	x2p_col = fftw_plan_many_dft_r2c(E, size, V, positionSpace.data(),
+			size, 1, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()), size, 1, V, FFTW_PATIENT);
+	p2x_col = fftw_plan_many_dft_c2r(E, size, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()),
+			size, 1, V, positionSpace.data(), size, 1, V, FFTW_PATIENT);
+	positionSpace.setIdentity(V, V);
+	momentumSpace.setZero(V, V);
+}
+
+
+void Simulation::prepare_propagators () {
+	Vector_d my_energies = Vector_d::Zero(V);
+	freePropagator_diagonal = Vector_d::Zero(V);
+	potential = Vector_d::Zero(V);
+	freePropagator_x = Vector_d::Zero(V);
+	//freePropagator_x_b = Vector_d::Zero(V);
+	staggering = Array_d::Zero(V);
+	for (int i=0;i<V;i++) {
+		int x = (i/Lz/Ly)%Lx;
+		int y = (i/Lz)%Ly;
+		int z = i%Lz;
+		int Kx = Lx, Ky = Ly, Kz = Lz;
+		int kx = (i/Kz/Ky)%Kx;
+		int ky = (i/Kz)%Ky;
+		int kz = i%Kz;
+		if (Kx>1) my_energies[i] += (Kx>2?-2.0:-1.0) * tx * cos(2.0*kx*pi/Kx);
+		if (Ky>1) my_energies[i] += (Ky>2?-2.0:-1.0) * ty * cos(2.0*ky*pi/Ky);
+		if (Kz>1) my_energies[i] += (Kz>2?-2.0:-1.0) * tz * cos(2.0*kz*pi/Kz);
+		freePropagator_diagonal[i] = exp(-dt*my_energies[i]);
+		double pos_x = (x-Lx/2.0+0.5);
+		potential[i] = 0.5*w_x*pos_x*pos_x;
+		freePropagator_x[i] = exp(-dt*potential[i]);
+		//freePropagator_x_b[i] = exp(dt*potential[i]);
+		staggering[i] = (x+y+z)%2?-1.0:1.0;
+	}
+
 	Matrix_d H = Matrix_d::Zero(V, V);
 	for (int x=0;x<Lx;x++) {
 		for (int y=0;y<Ly;y++) {
@@ -26,58 +68,21 @@ void Simulation::prepare_open_boundaries () {
 
 	Eigen::SelfAdjointEigenSolver<Matrix_d> solver;
 	solver.compute(H);
-	freePropagator_open = solver.eigenvectors() * (-dt*solver.eigenvalues().array()).exp().matrix().asDiagonal() * solver.eigenvectors().transpose();
+	freePropagator_matrix = solver.eigenvectors() * (-dt*solver.eigenvalues().array()).exp().matrix().asDiagonal() * solver.eigenvectors().transpose();
 	freePropagator_inverse = solver.eigenvectors() * (+dt*solver.eigenvalues().array()).exp().matrix().asDiagonal() * solver.eigenvectors().transpose();
 	positionSpace.setIdentity(V, V);
 	momentumSpace.setZero(V, V);
-	fftw_execute(x2p_col);
-	//std::cerr << "k-space\n" << momentumSpace << std::endl << std::endl;
-	momentumSpace.applyOnTheLeft(freePropagator.asDiagonal());
-	fftw_execute(p2x_col);
-	std::cerr << "propagator difference = " << (freePropagator_open-positionSpace/V).norm() << std::endl;
+
 	hamiltonian = H;
 	eigenvectors = solver.eigenvectors();
 	energies = solver.eigenvalues();
-}
 
-
-void Simulation::prepare_propagators () {
-	Vector_d my_energies = Vector_d::Zero(V);
-	freePropagator = Vector_d::Zero(V);
-	potential = Vector_d::Zero(V);
-	freePropagator_x = Vector_d::Zero(V);
-	//freePropagator_x_b = Vector_d::Zero(V);
-	staggering = Array_d::Zero(V);
-	for (int i=0;i<V;i++) {
-		int x = (i/Lz/Ly)%Lx;
-		int y = (i/Lz)%Ly;
-		int z = i%Lz;
-		int Kx = Lx, Ky = Ly, Kz = Lz;
-		int kx = (i/Kz/Ky)%Kx;
-		int ky = (i/Kz)%Ky;
-		int kz = i%Kz;
-		if (Kx>1) my_energies[i] += (Kx>2?-2.0:-1.0) * tx * cos(2.0*kx*pi/Kx);
-		if (Ky>1) my_energies[i] += (Ky>2?-2.0:-1.0) * ty * cos(2.0*ky*pi/Ky);
-		if (Kz>1) my_energies[i] += (Kz>2?-2.0:-1.0) * tz * cos(2.0*kz*pi/Kz);
-		freePropagator[i] = exp(-dt*my_energies[i]);
-		double pos_x = (x-Lx/2.0+0.5);
-		potential[i] = 0.5*w_x*pos_x*pos_x;
-		freePropagator_x[i] = exp(-dt*potential[i]);
-		//freePropagator_x_b[i] = exp(dt*potential[i]);
-		staggering[i] = (x+y+z)%2?-1.0:1.0;
-	}
-
-	int E = 3;
-	if (Lz<2) E=2;
-	if (Lz<2 && Ly<2) E=1;
-	const int size[] = { Lx, Ly, Lz, };
-	x2p_col = fftw_plan_many_dft_r2c(E, size, V, positionSpace.data(),
-			size, 1, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()), size, 1, V, FFTW_PATIENT);
-	p2x_col = fftw_plan_many_dft_c2r(E, size, V, reinterpret_cast<fftw_complex*>(momentumSpace.data()),
-			size, 1, V, positionSpace.data(), size, 1, V, FFTW_PATIENT);
-	positionSpace.setIdentity(V, V);
-	momentumSpace.setZero(V, V);
-
+	fftw_execute(x2p_col);
+	momentumSpace.applyOnTheLeft(freePropagator_diagonal.asDiagonal());
+	fftw_execute(p2x_col);
+	std::cerr << "propagator difference = " << (freePropagator_matrix-positionSpace/V).norm() << std::endl;
+	use_fft = (freePropagator_matrix-positionSpace/V).norm()<1e-10;
+	std::cerr << (use_fft?"":"not ") << "using FFT" << std::endl;
 }
 
 void Simulation::init () {
@@ -103,6 +108,7 @@ void Simulation::init () {
 	positionSpace.setIdentity(V, V);
 	momentumSpace.setIdentity(V, V);
 
+	prepare_fft();
 	prepare_propagators();
 	prepare_open_boundaries();
 
@@ -150,7 +156,7 @@ void Simulation::load (lua_State *L, int index) {
 	lua_getfield(L, index, "SLICES");  mslices = lua_tointeger(L, -1);         lua_pop(L, 1);
 	lua_getfield(L, index, "SVD");     msvd = lua_tointeger(L, -1);            lua_pop(L, 1);
 	lua_getfield(L, index, "flips_per_update");     flips_per_update = lua_tointeger(L, -1);            lua_pop(L, 1);
-	lua_getfield(L, index, "open_boundary");     open_boundary = lua_toboolean(L, -1);            lua_pop(L, 1);
+	lua_getfield(L, index, "use_fft");     use_fft = lua_toboolean(L, -1);            lua_pop(L, 1);
 	//lua_getfield(L, index, "LOGFILE");  logfile.open(lua_tostring(L, -1));     lua_pop(L, 1);
 	init();
 }
@@ -179,7 +185,7 @@ void Simulation::save (lua_State *L, int index) {
 	lua_pushinteger(L, mslices); lua_setfield(L, index, "SLICES");
 	lua_pushinteger(L, msvd); lua_setfield(L, index, "SVD");
 	lua_pushinteger(L, flips_per_update); lua_setfield(L, index, "flips_per_update");
-	lua_pushboolean(L, open_boundary?1:0); lua_setfield(L, index, "open_boundary");
+	lua_pushboolean(L, use_fft?1:0); lua_setfield(L, index, "use_fft");
 	lua_newtable(L);
 	L << sign;
 	lua_setfield(L, -2, "sign");
@@ -400,11 +406,11 @@ std::pair<double, double> Simulation::recheck () {
 	PreciseMatrix C(prec), Q(prec), wr(prec), wi(prec);
 	A = Matrix_d::Identity(V, V);
 	for (int i=0;i<N;i++) {
-		//A.applyOnTheLeft(freePropagator_open*((Vector_d::Constant(V, 1.0)+diagonal(i)).array()).matrix().asDiagonal());
+		//A.applyOnTheLeft(freePropagator_matrix*((Vector_d::Constant(V, 1.0)+diagonal(i)).array()).matrix().asDiagonal());
 	}
 	for (int i=0;i<N;i++) {
 		A.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(i)).array()).matrix().asDiagonal());
-		A.applyOnTheLeft(freePropagator_open);
+		A.applyOnTheLeft(freePropagator_matrix);
 	}
 	A2 = A1 = W = A;
 	A1 *= std::exp(beta*B/2+beta*mu);
@@ -515,7 +521,7 @@ std::pair<double, double> Simulation::recheck () {
 		for (int j=0;j<V;j++) wf << " " << v.coeff(j, 0) << ",";
 		wf << " norm = " << lambda << ", },\n";
 		if (i==N) break;
-		v.applyOnTheLeft(freePropagator_open*((Vector_d::Constant(V, 1.0)+diagonal(i)).array()).matrix().asDiagonal());
+		v.applyOnTheLeft(freePropagator_matrix*((Vector_d::Constant(V, 1.0)+diagonal(i)).array()).matrix().asDiagonal());
 		v.get_norm(lambda);
 		v.normalize();
 	}
@@ -652,7 +658,7 @@ void Simulation::get_green_function (double s, int t0) {
 	help.setIdentity(V);
 	for (int t=0;t<=N;t++) {
 		flist[t] = help;
-		help.U.applyOnTheLeft(freePropagator_open);
+		help.U.applyOnTheLeft(freePropagator_matrix);
 		help.S *= std::exp(+dt*B*0.5+dt*mu);
 		help.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonals[(t+t0)%N]).array()).matrix().asDiagonal());
 		help.absorbU();
@@ -674,7 +680,7 @@ void Simulation::get_green_function (double s, int t0) {
 	help.setIdentity(V);
 	for (int t=0;t<=N;t++) {
 		flist[t] = help;
-		help.U.applyOnTheLeft(freePropagator_open);
+		help.U.applyOnTheLeft(freePropagator_matrix);
 		help.S *= std::exp(-dt*B*0.5+dt*mu);
 		help.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonals[(t+t0)%N]).array()).matrix().asDiagonal());
 		help.absorbU();
@@ -767,22 +773,22 @@ void Simulation::accumulate_forward (int start, int end, Matrix_d &G_up, Matrix_
 	for (int i=start;i<end;i++) {
 		G_up.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonals[i]).array()).matrix().asDiagonal());
 		if (false) {
-			svdA.U.applyOnTheLeft(freePropagator_open);
+			svdA.U.applyOnTheLeft(freePropagator_matrix);
 		} else {
 			G_up.applyOnTheLeft(freePropagator_x.asDiagonal());
 			fftw_execute_dft_r2c(x2p_col, G_up.data(), reinterpret_cast<fftw_complex*>(momentumSpace.data()));
-			momentumSpace.applyOnTheLeft((freePropagator/double(V)).asDiagonal());
+			momentumSpace.applyOnTheLeft((freePropagator_diagonal/double(V)).asDiagonal());
 			fftw_execute_dft_c2r(p2x_col, reinterpret_cast<fftw_complex*>(momentumSpace.data()), G_up.data());
 		}
 	}
 	for (int i=start;i<end;i++) {
 		G_dn.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonals[i]).array()).matrix().asDiagonal());
 		if (false) {
-			G_dn.applyOnTheLeft(freePropagator_open);
+			G_dn.applyOnTheLeft(freePropagator_matrix);
 		} else {
 			G_dn.applyOnTheLeft(freePropagator_x.array().inverse().matrix().asDiagonal());
 			fftw_execute_dft_r2c(x2p_col, G_dn.data(), reinterpret_cast<fftw_complex*>(momentumSpace.data()));
-			momentumSpace.applyOnTheLeft((freePropagator.array().inverse().matrix()/double(V)).asDiagonal());
+			momentumSpace.applyOnTheLeft((freePropagator_diagonal.array().inverse().matrix()/double(V)).asDiagonal());
 			fftw_execute_dft_c2r(p2x_col, reinterpret_cast<fftw_complex*>(momentumSpace.data()), G_dn.data());
 		}
 	}

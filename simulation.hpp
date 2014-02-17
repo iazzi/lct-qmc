@@ -77,7 +77,7 @@ class Simulation {
 	int mslices;
 	int msvd;
 	int flips_per_update;
-	bool open_boundary;
+	bool use_fft;
 
 
 	// RNG distributions
@@ -86,8 +86,8 @@ class Simulation {
 	std::uniform_int_distribution<int> randomTime;
 	std::exponential_distribution<double> trialDistribution;
 
-	Vector_d freePropagator;
-	Matrix_d freePropagator_open;
+	Vector_d freePropagator_diagonal;
+	Matrix_d freePropagator_matrix;
 	Matrix_d freePropagator_inverse;
 	double w_x, w_y, w_z;
 	Vector_d potential;
@@ -182,6 +182,7 @@ class Simulation {
 
 	public:
 
+	void prepare_fft ();
 	void prepare_propagators ();
 	void prepare_open_boundaries ();
 
@@ -253,11 +254,11 @@ class Simulation {
 		svd.setIdentity(V);
 		for (int i=0;i<N;) {
 			svd.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(i)).array()).matrix().asDiagonal());
-			if (false) {
-				svd.U.applyOnTheLeft(freePropagator_open);
+			if (!use_fft) {
+				svd.U.applyOnTheLeft(freePropagator_matrix);
 			} else {
 				fftw_execute_dft_r2c(x2p_col, svd.U.data(), reinterpret_cast<fftw_complex*>(momentumSpace.data()));
-				momentumSpace.applyOnTheLeft((freePropagator/double(V)).asDiagonal());
+				momentumSpace.applyOnTheLeft((freePropagator_diagonal/double(V)).asDiagonal());
 				fftw_execute_dft_c2r(p2x_col, reinterpret_cast<fftw_complex*>(momentumSpace.data()), svd.U.data());
 			}
 			i++;
@@ -269,11 +270,11 @@ class Simulation {
 		plain.setIdentity(V, V);
 		for (int i=0;i<N;) {
 			plain.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(i)).array()).matrix().asDiagonal());
-			if (false) {
-				plain.applyOnTheLeft(freePropagator_open);
+			if (!use_fft) {
+				plain.applyOnTheLeft(freePropagator_matrix);
 			} else {
 				fftw_execute_dft_r2c(x2p_col, plain.data(), reinterpret_cast<fftw_complex*>(momentumSpace.data()));
-				momentumSpace.applyOnTheLeft((freePropagator/double(V)).asDiagonal());
+				momentumSpace.applyOnTheLeft((freePropagator_diagonal/double(V)).asDiagonal());
 				fftw_execute_dft_c2r(p2x_col, reinterpret_cast<fftw_complex*>(momentumSpace.data()), plain.data());
 			}
 			i++;
@@ -284,12 +285,12 @@ class Simulation {
 		svdA.setIdentity(V);
 		for (int i=0;i<N;) {
 			svdA.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(i)).array()).matrix().asDiagonal());
-			if (true) {
-				svdA.U.applyOnTheLeft(freePropagator_open);
+			if (!use_fft) {
+				svdA.U.applyOnTheLeft(freePropagator_matrix);
 			} else {
 				svdA.U.applyOnTheLeft(freePropagator_x.asDiagonal());
 				fftw_execute_dft_r2c(x2p_col, svdA.U.data(), reinterpret_cast<fftw_complex*>(momentumSpace.data()));
-				momentumSpace.applyOnTheLeft((freePropagator/double(V)).asDiagonal());
+				momentumSpace.applyOnTheLeft((freePropagator_diagonal/double(V)).asDiagonal());
 				fftw_execute_dft_c2r(p2x_col, reinterpret_cast<fftw_complex*>(momentumSpace.data()), svdA.U.data());
 			}
 			i++;
@@ -298,12 +299,12 @@ class Simulation {
 		svdB.setIdentity(V);
 		for (int i=0;i<N;) {
 			svdB.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(i)).array()).matrix().asDiagonal());
-			if (true) {
+			if (!use_fft) {
 				svdB.U.applyOnTheLeft(freePropagator_inverse);
 			} else {
 				svdB.U.applyOnTheLeft(freePropagator_x.array().inverse().matrix().asDiagonal());
 				fftw_execute_dft_r2c(x2p_col, svdB.U.data(), reinterpret_cast<fftw_complex*>(momentumSpace.data()));
-				momentumSpace.applyOnTheLeft((freePropagator.array().inverse().matrix()/double(V)).asDiagonal());
+				momentumSpace.applyOnTheLeft((freePropagator_diagonal.array().inverse().matrix()/double(V)).asDiagonal());
 				fftw_execute_dft_c2r(p2x_col, reinterpret_cast<fftw_complex*>(momentumSpace.data()), svdB.U.data());
 			}
 			i++;
@@ -404,19 +405,29 @@ class Simulation {
 	bool metropolis ();
 
 	void remove_first_slice (Matrix_d &A) {
-		A.applyOnTheRight((Vector_d::Constant(V, 1.0)+diagonal(0)).array().inverse().matrix().asDiagonal());
-		A.transposeInPlace();
-		fftw_execute_dft_r2c(x2p_col, A.data(), reinterpret_cast<fftw_complex*>(momentumSpace.data()));
-		momentumSpace.applyOnTheLeft((freePropagator.array().inverse().matrix()/double(V)).asDiagonal());
-		fftw_execute_dft_c2r(p2x_col, reinterpret_cast<fftw_complex*>(momentumSpace.data()), A.data());
-		A.transposeInPlace();
+		if (use_fft) {
+			A.applyOnTheRight((Vector_d::Constant(V, 1.0)+diagonal(0)).array().inverse().matrix().asDiagonal());
+			A.transposeInPlace();
+			fftw_execute_dft_r2c(x2p_col, A.data(), reinterpret_cast<fftw_complex*>(momentumSpace.data()));
+			momentumSpace.applyOnTheLeft((freePropagator_diagonal.array().inverse().matrix()/double(V)).asDiagonal());
+			fftw_execute_dft_c2r(p2x_col, reinterpret_cast<fftw_complex*>(momentumSpace.data()), A.data());
+			A.transposeInPlace();
+		} else {
+			A.applyOnTheRight((Vector_d::Constant(V, 1.0)+diagonal(0)).array().inverse().matrix().asDiagonal());
+			A.applyOnTheLeft(freePropagator_inverse);
+		}
 	}
 
 	void queue_first_slice (Matrix_d &A) {
-		A.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(0)).array()).matrix().asDiagonal());
-		fftw_execute_dft_r2c(x2p_col, A.data(), reinterpret_cast<fftw_complex*>(momentumSpace.data()));
-		momentumSpace.applyOnTheLeft((freePropagator.array().matrix()/double(V)).asDiagonal());
-		fftw_execute_dft_c2r(p2x_col, reinterpret_cast<fftw_complex*>(momentumSpace.data()), A.data());
+		if (use_fft) {
+			A.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(0)).array()).matrix().asDiagonal());
+			fftw_execute_dft_r2c(x2p_col, A.data(), reinterpret_cast<fftw_complex*>(momentumSpace.data()));
+			momentumSpace.applyOnTheLeft((freePropagator_diagonal.array().matrix()/double(V)).asDiagonal());
+			fftw_execute_dft_c2r(p2x_col, reinterpret_cast<fftw_complex*>(momentumSpace.data()), A.data());
+		} else {
+			A.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(0)).array()).matrix().asDiagonal());
+			A.applyOnTheLeft(freePropagator_matrix);
+		}
 	}
 
 	void set_time_shift (int t) { time_shift = t%N; redo_all(); }
@@ -444,7 +455,7 @@ class Simulation {
 	void test_wrap () {
 		std::vector<Matrix_d> v(N);
 		for (int i=0;i<N;i++) {
-			v[i] = freePropagator_open;
+			v[i] = freePropagator_matrix;
 			v[i].applyOnTheLeft(((Vector_d::Constant(V, 1.0)+diagonal(i)).array()).matrix().asDiagonal());
 			v[i] *= std::exp(-dt*(-mu-0.5*B));
 		}
