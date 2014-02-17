@@ -373,23 +373,37 @@ class Simulation {
 
 	void redo_all () {
 		double np, ns;
-		std::tie(np, ns) = make_svd_inverse();
+		std::tie(np, ns) = make_plain_inverse();
 		if (fabs(np-plog-update_prob)>1.0e-8 || psign*update_sign!=ns) {
 			std::cerr << "redo " << plog+update_prob << " <> " << np << " ~~ " << np-plog-update_prob << '\t' << (psign*update_sign*ns) << std::endl;
 			plog = np;
 			psign = ns;
-			//std::cerr << "    " << np-plog << " ~~ " << update_prob << std::endl;
 		}
 		plog = np;
 		psign = ns;
 		if (isnan(plog)) {
 			std::cerr << "NaN found: restoring" << std::endl;
-			//make_svd();
-			std::tie(plog, psign) = make_svd_inverse();
-			//make_density_matrices() // already called in make_svd_inverse;
+			std::tie(plog, psign) = make_plain_inverse();
 		} else {
 		}
-		//recheck();
+		reset_updates();
+	}
+
+	void redo_all_svd () {
+		double np, ns;
+		std::tie(np, ns) = make_svd_inverse();
+		if (fabs(np-plog-update_prob)>1.0e-8 || psign*update_sign!=ns) {
+			std::cerr << "redo " << plog+update_prob << " <> " << np << " ~~ " << np-plog-update_prob << '\t' << (psign*update_sign*ns) << std::endl;
+			plog = np;
+			psign = ns;
+		}
+		plog = np;
+		psign = ns;
+		if (isnan(plog)) {
+			std::cerr << "NaN found: restoring" << std::endl;
+			std::tie(plog, psign) = make_svd_inverse();
+		} else {
+		}
 		reset_updates();
 	}
 
@@ -431,25 +445,8 @@ class Simulation {
 	}
 
 	void set_time_shift (int t) { time_shift = t%N; redo_all(); }
-	bool shift_time () { 
-		//std::cerr << plain.rows() << ' ' << plain.cols() << ' ' << (Vector_d::Constant(V, 1.0)+diagonal(0)).array().inverse().matrix().size() << std::endl;
-		bool ret = time_shift==N-1;
-		if (time_shift%5) {
-			remove_first_slice(plain);
-			apply_updates();
-			queue_first_slice(plain);
-			time_shift++;
-			std::tie(plog, psign) = make_plain_inverse_second_step();
-			reset_updates();
-		} else {
-			apply_updates();
-			time_shift++;
-			redo_all();
-		}
-		time_shift = time_shift%N;
-		return ret;
-	}
 
+	bool shift_time ();
 	bool shift_time_svd ();
 
 	void test_wrap () {
@@ -474,7 +471,7 @@ class Simulation {
 			acceptance.add(metropolis()?1.0:0.0);
 			measured_sign.add(psign*update_sign);
 		}
-		shift_time_svd();
+		shift_time();
 	}
 
 	void get_green_function (double s = 1.0, int t0 = 0);

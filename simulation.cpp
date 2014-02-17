@@ -733,8 +733,25 @@ void Simulation::write_green_function () {
 	}
 }
 
+bool Simulation::shift_time () {
+	bool ret = time_shift==N-1;
+	if (time_shift%5) {
+		remove_first_slice(plain);
+		apply_updates();
+		queue_first_slice(plain);
+		time_shift++;
+		std::tie(plog, psign) = make_plain_inverse_second_step();
+		reset_updates();
+	} else {
+		apply_updates();
+		time_shift++;
+		redo_all();
+	}
+	time_shift = time_shift%N;
+	return ret;
+}
+
 bool Simulation::shift_time_svd () {
-	//std::cerr << plain.rows() << ' ' << plain.cols() << ' ' << (Vector_d::Constant(V, 1.0)+diagonal(0)).array().inverse().matrix().size() << std::endl;
 	bool ret = time_shift==N-1;
 	if (time_shift%5>0) {
 		remove_first_slice(svd.Vt);
@@ -761,7 +778,7 @@ bool Simulation::shift_time_svd () {
 	} else {
 		apply_updates();
 		time_shift++;
-		redo_all();
+		redo_all_svd();
 	}
 	time_shift = time_shift%N;
 	return ret;
