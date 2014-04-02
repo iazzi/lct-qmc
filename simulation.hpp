@@ -428,7 +428,7 @@ class Simulation {
 			A.transposeInPlace();
 		} else {
 			A.applyOnTheRight((Vector_d::Constant(V, 1.0)+diagonal(0)).array().inverse().matrix().asDiagonal());
-			A.applyOnTheLeft(freePropagator_inverse);
+			A.applyOnTheRight(freePropagator_inverse);
 		}
 	}
 
