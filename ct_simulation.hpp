@@ -1,7 +1,7 @@
-#ifndef SIMULATION_HPP
-#define SIMULATION_HPP
+#ifndef CT_SIMULATION_HPP
+#define CT_SIMULATION_HPP
 
-#include "config.hpp"
+#include "ct_config.hpp"
 
 #include "svd.hpp"
 #include "types.hpp"
@@ -48,7 +48,7 @@ static auto measurements_proto = make_named_tuple(
 typedef decltype(measurements_proto) measurements_type;
 #endif
 
-class Simulation {
+class CTSimulation {
 	private:
 
 	// Model parameters
@@ -247,7 +247,7 @@ class Simulation {
 	void load_checkpoint (lua_State *L);
 	void save_checkpoint (lua_State *L);
 
-	Simulation (lua_State *L, int index) : coin_flip(0.5), trialDistribution(1.0), steps(0) {
+	CTSimulation (lua_State *L, int index) : coin_flip(0.5), trialDistribution(1.0), steps(0) {
 		load(L, index);
 	}
 
@@ -518,7 +518,7 @@ class Simulation {
 		return buf.str();
 	}
 
-	~Simulation () {
+	~CTSimulation () {
 		fftw_destroy_plan(x2p_col);
 		fftw_destroy_plan(p2x_col);
 	}
@@ -549,5 +549,5 @@ class Simulation {
 };
 
 
-#endif // SIMULATION_HPP
+#endif // CT_SIMULATION_HPP
 

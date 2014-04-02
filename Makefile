@@ -2,15 +2,21 @@ CXXFLAGS=$(MYCXXFLAGS) -std=c++11 -I $(HOME)/local/include `pkg-config --cflags 
 LDFLAGS=$(MYLDFLAGS) -L $(HOME)/local/lib `pkg-config --libs eigen3`
 LDLIBS=$(MYLDLIBS) -lgmp -lmpfr `pkg-config --libs eigen3` -lm -lstdc++ -lmkl_gf_lp64 -lmkl_scalapack_lp64 -lmkl_blacs_openmpi_lp64 -lmkl_sequential -lmkl_core -llua -pthread -lfftw3_threads -lfftw3 -lmpi
 
-all: full unstable main test_params setup_batch process_gf
+all: main test_params setup_batch process_gf ct_main
 
 process_gf: process_gf.o
 
 main: main.o simulation.o mpfr.o
 
+ct_main: ct_main.o ct_simulation.o mpfr.o
+
 simulation.o: simulation.cpp simulation.hpp
 
+ct_simulation.o: ct_simulation.cpp ct_simulation.hpp
+
 main.o: main.cpp simulation.hpp
+
+ct_main.o: ct_main.cpp ct_simulation.hpp
 
 test_params: test_params.o simulation.o mpfr.o
 

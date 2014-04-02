@@ -1,10 +1,10 @@
-#include "simulation.hpp"
+#include "ct_simulation.hpp"
 #include "mpfr.hpp"
 
 #include "lua_tuple.hpp"
 
 // FIXME only works in 2D
-void Simulation::prepare_open_boundaries () {
+void CTSimulation::prepare_open_boundaries () {
 	Matrix_d H = Matrix_d::Zero(V, V);
 	for (int x=0;x<Lx;x++) {
 		for (int y=0;y<Ly;y++) {
@@ -41,7 +41,7 @@ void Simulation::prepare_open_boundaries () {
 }
 
 
-void Simulation::prepare_propagators () {
+void CTSimulation::prepare_propagators () {
 	Vector_d my_energies = Vector_d::Zero(V);
 	freePropagator = Vector_d::Zero(V);
 	freePropagator_b = Vector_d::Zero(V);
@@ -82,7 +82,7 @@ void Simulation::prepare_propagators () {
 
 }
 
-void Simulation::init () {
+void CTSimulation::init () {
 	if (Lx<2) { Lx = 1; tx = 0.0; }
 	if (Ly<2) { Ly = 1; ty = 0.0; }
 	if (Lz<2) { Lz = 1; tz = 0.0; }
@@ -139,7 +139,7 @@ void Simulation::init () {
 	reset_updates();
 }
 
-void Simulation::load (lua_State *L, int index) {
+void CTSimulation::load (lua_State *L, int index) {
 	lua_pushvalue(L, index);
 	lua_get(L, config);
 	lua_pop(L, 1);
@@ -180,7 +180,7 @@ void Simulation::load (lua_State *L, int index) {
 	init();
 }
 
-void Simulation::save (lua_State *L, int index) {
+void CTSimulation::save (lua_State *L, int index) {
 	if (index<1) index = lua_gettop(L)+index+1;
 	std::stringstream out;
 	out << generator;
@@ -225,7 +225,7 @@ void Simulation::save (lua_State *L, int index) {
 	lua_setfield(L, index, "results");
 }
 
-void Simulation::load_checkpoint (lua_State *L) {
+void CTSimulation::load_checkpoint (lua_State *L) {
 	lua_getfield(L, -1, "SEED");
 	std::stringstream in;
 	in.str(lua_tostring(L, -1));
@@ -277,7 +277,7 @@ void Simulation::load_checkpoint (lua_State *L) {
 	lua_pop(L, 1);
 }
 
-void Simulation::save_checkpoint (lua_State *L) {
+void CTSimulation::save_checkpoint (lua_State *L) {
 	lua_newtable(L);
 	std::stringstream out;
 	out << generator;
@@ -326,7 +326,7 @@ void Simulation::save_checkpoint (lua_State *L) {
 	lua_setfield(L, -2, "sigma");
 }
 
-std::pair<double, double> Simulation::rank1_probability (int x) {
+std::pair<double, double> CTSimulation::rank1_probability (int x) {
 	int L = update_size;
 	int j;
 	double d1, d2;
@@ -364,7 +364,7 @@ std::pair<double, double> Simulation::rank1_probability (int x) {
 	return std::pair<double, double>(std::log(d1)+std::log(d2), s);
 }
 
-bool Simulation::metropolis_add () {
+bool CTSimulation::metropolis_add () {
 	double t = randomTime(generator);
 	if (diagonals.find(t)!=diagonals.end()) return false;
 	make_svd_double(t);
@@ -394,7 +394,7 @@ bool Simulation::metropolis_add () {
 	return ret;
 }
 
-bool Simulation::metropolis_del () {
+bool CTSimulation::metropolis_del () {
 	if (diagonals.size()==0) return false;
 	diagonal d = diagonals.begin();
 	int n = std::uniform_int_distribution<int>(0, diagonals.size()-1)(generator);
@@ -452,7 +452,7 @@ bool Simulation::metropolis_del () {
 	return ret;
 }
 
-bool Simulation::metropolis_sweep () {
+bool CTSimulation::metropolis_sweep () {
 	//std::cerr << "sweeping " << diagonals.size() << " slices" << std::endl;
 	for (diagonal d = diagonals.begin();d!=diagonals.end();d++) {
 		current = d;
@@ -464,7 +464,7 @@ bool Simulation::metropolis_sweep () {
 	return true;
 }
 
-bool Simulation::metropolis_flip () {
+bool CTSimulation::metropolis_flip () {
 	steps++;
 	bool ret = false;
 	int x = randomPosition(generator);
@@ -483,7 +483,7 @@ bool Simulation::metropolis_flip () {
 	return ret;
 }
 
-void Simulation::load_sigma (lua_State *L, const char *fn) {
+void CTSimulation::load_sigma (lua_State *L, const char *fn) {
 	luaL_dofile(L, fn);
 	lua_getfield(L, -1,  "sigma");
 	for (int t=0;t<N;t++) {
@@ -498,25 +498,25 @@ void Simulation::load_sigma (lua_State *L, const char *fn) {
 	lua_pop(L, 2);
 }
 
-void Simulation::write_wavefunction (std::ostream &out) {
+void CTSimulation::write_wavefunction (std::ostream &out) {
 	for (auto d : diagonals) {
 		out << (d.second.array()>Array_d::Zero(V)).transpose() << std::endl;
 	}
 	out << std::endl;
 }
 
-std::pair<double, double> Simulation::recheck () {
+std::pair<double, double> CTSimulation::recheck () {
 	return std::pair<double, double>(1, 1);
 }
 
-void Simulation::straighten_slices () {
+void CTSimulation::straighten_slices () {
 }
 
-void Simulation::measure_sign () {
+void CTSimulation::measure_sign () {
 	exact_sign.add(psign*update_sign*recheck().second);
 }
 
-void Simulation::measure_quick () {
+void CTSimulation::measure_quick () {
 	order.add(diagonals.size());
 	double s = svd_sign();
 	rho_up = Matrix_d::Identity(V, V) - svdA.inverse();
@@ -541,7 +541,7 @@ void Simulation::measure_quick () {
 	}
 }
 
-void Simulation::measure () {
+void CTSimulation::measure () {
 	double s = svd_sign();
 	rho_up = Matrix_d::Identity(V, V) - svdA.inverse();
 	rho_dn = svdB.inverse();
@@ -587,10 +587,10 @@ void Simulation::measure () {
 	get_green_function(s);
 }
 
-void Simulation::get_green_function (double s, int t0) {
+void CTSimulation::get_green_function (double s, int t0) {
 }
 
-void Simulation::write_green_function () {
+void CTSimulation::write_green_function () {
 	if (gf_name.empty()) return;
 	std::ofstream out(gf_name);
 	Eigen::IOFormat HeavyFmt(Eigen::FullPrecision, 0, ", ", ",\n", "{", "}", "{", "}");
@@ -623,7 +623,7 @@ void Simulation::write_green_function () {
 	}
 }
 
-void Simulation::make_svd_double (double t0) {
+void CTSimulation::make_svd_double (double t0) {
 	double dBeta = beta/(config.nsvd+1);
 	svdA.setIdentity(V);
 	svdB.setIdentity(V);

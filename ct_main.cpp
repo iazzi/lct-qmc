@@ -1,4 +1,4 @@
-#include "simulation.hpp"
+#include "ct_simulation.hpp"
 
 #include <cstdlib>
 #include <fstream>
@@ -79,7 +79,7 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 		lua_getfield(L, -1, "THERMALIZATION"); int thermalization_sweeps = lua_tointeger(L, -1); lua_pop(L, 1);
 		lua_getfield(L, -1, "SWEEPS"); int total_sweeps = lua_tointeger(L, -1); lua_pop(L, 1);
 		lua_getfield(L, -1, "savefile"); std::string savefile = lua_isstring(L, -1)?lua_tostring(L, -1):std::string(); lua_pop(L, 1);
-		Simulation simulation(L, -1);
+		CTSimulation simulation(L, -1);
 		lua_pop(L, 1);
 		if (!savefile.empty()) {
 			if (luaL_dofile(L, savefile.c_str())) {
