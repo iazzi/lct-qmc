@@ -37,8 +37,9 @@ class measurement {
 
 		void clear () { set_bins(0); }
 
-		void add (const T &x) {
-			T nx = x;
+		template <typename U>
+		void add (U &&x) {
+			T nx = std::forward<U>(x);
 			for (size_t i=0;;i++) {
 				if (i==n_.size()) {
 					sums_.push_back(T());
