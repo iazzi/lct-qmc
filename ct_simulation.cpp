@@ -517,28 +517,17 @@ void CTSimulation::measure_sign () {
 }
 
 void CTSimulation::measure_quick () {
-	order.add(diagonals.size());
+	measurements.order.add(diagonals.size());
 	double s = svd_sign();
 	rho_up = Matrix_d::Identity(V, V) - svdA.inverse();
 	rho_dn = svdB.inverse();
 	double n_up = rho_up.diagonal().array().sum();
 	double n_dn = rho_dn.diagonal().array().sum();
-	sign.add(psign*update_sign);
-	density.add(s*(n_up+n_dn)/V);
-	magnetization.add(s*(n_up-n_dn)/2.0/V);
-	for (int i=0;i<V;i++) {
-		d_up[i].add(s*rho_up(i, i));
-		d_dn[i].add(s*rho_dn(i, i));
-	}
-	for (int j=0;j<V;j++) {
-		double ssz = 0.0;
-		int x = j;
-		int y = shift_x(j, 1);
-		//ssz += rho_up(x, x)*rho_up(y, y) + rho_dn(x, x)*rho_dn(y, y);
-		//ssz -= rho_up(x, x)*rho_dn(y, y) + rho_dn(x, x)*rho_up(y, y);
-		ssz -= rho_up(x, y)*rho_up(y, x) + rho_dn(x, y)*rho_dn(y, x);
-		spincorrelation[j].add(s*0.25*ssz);
-	}
+	measurements.sign.add(psign*update_sign);
+	measurements.density.add(s*(n_up+n_dn)/V);
+	measurements.magnetization.add(s*(n_up-n_dn)/2.0/V);
+	measurements.d_up.add(s*rho_up.diagonal().array());
+	measurements.d_dn.add(s*rho_dn.diagonal().array());
 }
 
 void CTSimulation::measure () {

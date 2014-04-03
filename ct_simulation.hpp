@@ -48,6 +48,64 @@ static auto measurements_proto = make_named_tuple(
 typedef decltype(measurements_proto) measurements_type;
 #endif
 
+class Measurements {
+	public:
+	mymeasurement<double> acceptance;
+	mymeasurement<double> order;
+	mymeasurement<double> density;
+	mymeasurement<double> magnetization;
+	mymeasurement<double> order_parameter;
+	mymeasurement<double> chi_d;
+	mymeasurement<double> chi_af;
+	//measurement<double, false> magnetization_slow;
+	mymeasurement<double> kinetic;
+	mymeasurement<double> interaction;
+	mymeasurement<double> sign;
+	mymeasurement<double> measured_sign;
+	//mymeasurement<double> sign_correlation;
+	mymeasurement<double> exact_sign;
+	mymeasurement<Array_d> d_up;
+	mymeasurement<Array_d> d_dn;
+
+	Measurements () {
+		init();
+	}
+
+	void init () {
+		sign.set_name("Sign");
+		measured_sign.set_name("Sign (every step)");
+		acceptance.set_name("Acceptance");
+		order.set_name("Order");
+		density.set_name("Density");
+		magnetization.set_name("Magnetization");
+		order_parameter.set_name("Order Parameter");
+		chi_d.set_name("Chi (D-wave)");
+		chi_af.set_name("Chi (AF)");
+		//measured_sign.set_name("Sign (Measurements)");
+		//sign_correlation.set_name("Sign Correlation");
+		exact_sign.set_name("Sign (Exact)");
+		//magnetization_slow.set_name("Magnetization (slow)");
+		d_up.set_name("Density (Up)");
+		d_dn.set_name("Density (Down)");
+	}
+
+	void discard () {
+		acceptance.clear();
+		density.clear();
+		magnetization.clear();
+		order_parameter.clear();
+		chi_d.clear();
+		chi_af.clear();
+		kinetic.clear();
+		interaction.clear();
+		sign.clear();
+		measured_sign.clear();
+		exact_sign.clear();
+			d_up.clear();
+			d_dn.clear();
+	}
+};
+
 class CTSimulation {
 	private:
 
@@ -180,6 +238,8 @@ class CTSimulation {
 
 	std::vector<mymeasurement<Eigen::ArrayXXd>> green_function_up;
 	std::vector<mymeasurement<Eigen::ArrayXXd>> green_function_dn;
+
+	Measurements measurements;
 
 	int time_shift;
 
