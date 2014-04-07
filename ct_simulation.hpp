@@ -215,6 +215,7 @@ class CTSimulation {
 
 	int steps;
 
+#if 0
 	mymeasurement<double> acceptance;
 	mymeasurement<double> order;
 	mymeasurement<double> density;
@@ -238,6 +239,7 @@ class CTSimulation {
 
 	std::vector<mymeasurement<Eigen::ArrayXXd>> green_function_up;
 	std::vector<mymeasurement<Eigen::ArrayXXd>> green_function_dn;
+#endif
 
 	Measurements measurements;
 
@@ -261,31 +263,31 @@ class CTSimulation {
 	void prepare_open_boundaries ();
 
 	void init_measurements () {
-		sign.set_name("Sign");
-		measured_sign.set_name("Sign (every step)");
-		acceptance.set_name("Acceptance");
-		order.set_name("Order");
-		density.set_name("Density");
-		magnetization.set_name("Magnetization");
-		order_parameter.set_name("Order Parameter");
-		chi_d.set_name("Chi (D-wave)");
-		chi_af.set_name("Chi (AF)");
+		//sign.set_name("Sign");
+		//measured_sign.set_name("Sign (every step)");
+		//acceptance.set_name("Acceptance");
+		//order.set_name("Order");
+		//density.set_name("Density");
+		//magnetization.set_name("Magnetization");
+		//order_parameter.set_name("Order Parameter");
+		//chi_d.set_name("Chi (D-wave)");
+		//chi_af.set_name("Chi (AF)");
 		//measured_sign.set_name("Sign (Measurements)");
 		//sign_correlation.set_name("Sign Correlation");
-		exact_sign.set_name("Sign (Exact)");
+		//exact_sign.set_name("Sign (Exact)");
 		//magnetization_slow.set_name("Magnetization (slow)");
-		for (int i=0;i<V;i++) {
-			d_up.push_back(mymeasurement<double>());
-			d_dn.push_back(mymeasurement<double>());
-		}
-		for (int i=0;i<V;i++) {
-			spincorrelation.push_back(mymeasurement<double>());
-		}
-		for (int i=0;i<=N;i++) {
-			error.push_back(mymeasurement<double>());
-			green_function_up.push_back(mymeasurement<Eigen::ArrayXXd>());
-			green_function_dn.push_back(mymeasurement<Eigen::ArrayXXd>());
-		}
+		//for (int i=0;i<V;i++) {
+			//d_up.push_back(mymeasurement<double>());
+			//d_dn.push_back(mymeasurement<double>());
+		//}
+		//for (int i=0;i<V;i++) {
+			//spincorrelation.push_back(mymeasurement<double>());
+		//}
+		//for (int i=0;i<=N;i++) {
+			//error.push_back(mymeasurement<double>());
+			//green_function_up.push_back(mymeasurement<Eigen::ArrayXXd>());
+			//green_function_dn.push_back(mymeasurement<Eigen::ArrayXXd>());
+		//}
 	}
 
 	void reset_updates () {
@@ -435,7 +437,7 @@ class CTSimulation {
 				metropolis_del();
 			}
 			metropolis_sweep();
-			measured_sign.add(psign*update_sign);
+			measurements.measured_sign.add(psign*update_sign);
 			make_svd_double(0.0);
 			svdA.add_identity(1.0);
 			svdB.add_identity(1.0);
@@ -537,6 +539,7 @@ class CTSimulation {
 		std::ostringstream buf;
 		buf << outfn << "stablefast_U" << (g/tx) << "_T" << 1.0/(beta*tx) << '_' << Lx << 'x' << Ly << 'x' << Lz << ".dat";
 		outfn = buf.str();
+#if 0
 		std::ofstream out(buf.str(), reset?std::ios::trunc:std::ios::app);
 		out << 1.0/(beta*tx) << ' ' << 0.5*(B+g)/tx
 			<< ' ' << density.mean() << ' ' << density.error()
@@ -568,6 +571,7 @@ class CTSimulation {
 		//out << "Green Function Dn (N-1)" << std::endl << green_function_dn[N-1].mean() << std::endl << std::endl;
 		//out << "+-" << std::endl << green_function_dn[N-1].error() << std::endl << std::endl;
 		write_green_function();
+#endif
 	}
 
 	void write_green_function ();
@@ -587,22 +591,23 @@ class CTSimulation {
 	void straighten_slices ();
 
 	void discard_measurements () {
-		acceptance.clear();
-		density.clear();
-		magnetization.clear();
-		order_parameter.clear();
-		chi_d.clear();
-		chi_af.clear();
-		kinetic.clear();
-		interaction.clear();
-		sign.clear();
-		measured_sign.clear();
-		exact_sign.clear();
-		for (int i=0;i<V;i++) {
-			d_up[i].clear();
-			d_dn[i].clear();
-			spincorrelation[i].clear();
-		}
+		measurements.discard();
+		//acceptance.clear();
+		//density.clear();
+		//magnetization.clear();
+		//order_parameter.clear();
+		//chi_d.clear();
+		//chi_af.clear();
+		//kinetic.clear();
+		//interaction.clear();
+		//sign.clear();
+		//measured_sign.clear();
+		//exact_sign.clear();
+		//for (int i=0;i<V;i++) {
+			//d_up[i].clear();
+			//d_dn[i].clear();
+			//spincorrelation[i].clear();
+		//}
 	}
 
 	protected:
