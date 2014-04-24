@@ -39,8 +39,8 @@ static auto measurements_proto = make_named_tuple(
 		named_value2(mymeasurement<double>(), chi_af),
 		named_value2(mymeasurement<double>(), kinetic),
 		named_value2(mymeasurement<double>(), interaction),
-		named_value2(mymeasurement<double>(), sign),
-		named_value2(mymeasurement<double>(), measured_sign),
+		named_value2(mymeasurement<double>(), sign_measured),
+		named_value2(mymeasurement<double>(), sign_all_steps),
 		named_value2(mymeasurement<double>(), sign_correlation)
 		);
 };
@@ -60,8 +60,8 @@ class Measurements {
 	//measurement<double, false> magnetization_slow;
 	mymeasurement<double> kinetic;
 	mymeasurement<double> interaction;
-	mymeasurement<double> sign;
-	mymeasurement<double> measured_sign;
+	mymeasurement<double> sign_measured;
+	mymeasurement<double> sign_all_steps;
 	//mymeasurement<double> sign_correlation;
 	mymeasurement<double> exact_sign;
 	mymeasurement<Array_d> d_up;
@@ -72,8 +72,8 @@ class Measurements {
 	}
 
 	void init () {
-		sign.set_name("Sign");
-		measured_sign.set_name("Sign (every step)");
+		sign_measured.set_name("Sign");
+		sign_all_steps.set_name("Sign (every step)");
 		acceptance.set_name("Acceptance");
 		order.set_name("Order");
 		density.set_name("Density");
@@ -81,7 +81,7 @@ class Measurements {
 		order_parameter.set_name("Order Parameter");
 		chi_d.set_name("Chi (D-wave)");
 		chi_af.set_name("Chi (AF)");
-		//measured_sign.set_name("Sign (Measurements)");
+		//sign_all_steps.set_name("Sign (Measurements)");
 		//sign_correlation.set_name("Sign Correlation");
 		exact_sign.set_name("Sign (Exact)");
 		//magnetization_slow.set_name("Magnetization (slow)");
@@ -98,8 +98,8 @@ class Measurements {
 		chi_af.clear();
 		kinetic.clear();
 		interaction.clear();
-		sign.clear();
-		measured_sign.clear();
+		sign_measured.clear();
+		sign_all_steps.clear();
 		exact_sign.clear();
 			d_up.clear();
 			d_dn.clear();
@@ -226,8 +226,8 @@ class CTSimulation {
 	//measurement<double, false> magnetization_slow;
 	mymeasurement<double> kinetic;
 	mymeasurement<double> interaction;
-	mymeasurement<double> sign;
-	mymeasurement<double> measured_sign;
+	mymeasurement<double> sign_measured;
+	mymeasurement<double> sign_all_steps;
 	//mymeasurement<double> sign_correlation;
 	mymeasurement<double> exact_sign;
 	std::vector<mymeasurement<double>> d_up;
@@ -263,8 +263,8 @@ class CTSimulation {
 	void prepare_open_boundaries ();
 
 	void init_measurements () {
-		//sign.set_name("Sign");
-		//measured_sign.set_name("Sign (every step)");
+		//sign_measured.set_name("Sign");
+		//sign_all_steps.set_name("Sign (every step)");
 		//acceptance.set_name("Acceptance");
 		//order.set_name("Order");
 		//density.set_name("Density");
@@ -272,7 +272,7 @@ class CTSimulation {
 		//order_parameter.set_name("Order Parameter");
 		//chi_d.set_name("Chi (D-wave)");
 		//chi_af.set_name("Chi (AF)");
-		//measured_sign.set_name("Sign (Measurements)");
+		//sign_all_steps.set_name("Sign (Measurements)");
 		//sign_correlation.set_name("Sign Correlation");
 		//exact_sign.set_name("Sign (Exact)");
 		//magnetization_slow.set_name("Magnetization (slow)");
@@ -437,10 +437,10 @@ class CTSimulation {
 				metropolis_del();
 			}
 			metropolis_sweep();
-			measurements.measured_sign.add(psign*update_sign);
-			make_svd_double(0.0);
-			svdA.add_identity(1.0);
-			svdB.add_identity(1.0);
+			measurements.sign_all_steps.add(psign*update_sign);
+			//make_svd_double(0.0);
+			//svdA.add_identity(1.0);
+			//svdB.add_identity(1.0);
 		}
 		//time_shift = randomTime(generator);
 		//redo_all();
@@ -519,7 +519,7 @@ class CTSimulation {
 		std::ofstream out(buf.str(), reset?std::ios::trunc:std::ios::app);
 		out << "# " << params();
 		out << 1.0/(beta*tx) << ' ' << 0.5*(B+g)/tx;
-		//out << ' ' << measured_sign.mean() << ' ' << measured_sign.error();
+		//out << ' ' << sign_all_steps.mean() << ' ' << sign_all_steps.error();
 		//out << ' ' << sign_correlation.mean() << ' ' << sign_correlation.error();
 		//out << ' ' << exact_sign.mean() << ' ' << exact_sign.variance();
 		//if (staggered_field!=0.0) out << ' ' << -staggered_magnetization.mean()/staggered_field << ' ' << staggered_magnetization.variance();
@@ -551,7 +551,7 @@ class CTSimulation {
 		out << ' ' << chi_af.mean() << ' ' << chi_af.error();
 		//out << ' ' << chi_d.mean() << ' ' << chi_d.error();
 		out << ' ' << exact_sign.mean() << ' ' << exact_sign.error();
-		out << ' ' << sign.mean() << ' ' << sign.error();
+		out << ' ' << sign_measured.mean() << ' ' << sign_measured.error();
 		//if (staggered_field!=0.0) out << ' ' << -staggered_magnetization.mean()/staggered_field << ' ' << staggered_magnetization.variance();
 		for (int i=0;i<V;i++) {
 			//out << ' ' << d_up[i].mean();
@@ -600,8 +600,8 @@ class CTSimulation {
 		//chi_af.clear();
 		//kinetic.clear();
 		//interaction.clear();
-		//sign.clear();
-		//measured_sign.clear();
+		//sign_measured.clear();
+		//sign_all_steps.clear();
 		//exact_sign.clear();
 		//for (int i=0;i<V;i++) {
 			//d_up[i].clear();

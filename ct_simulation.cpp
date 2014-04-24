@@ -206,8 +206,8 @@ void CTSimulation::save (lua_State *L, int index) {
 	lua_pushinteger(L, flips_per_update); lua_setfield(L, index, "flips_per_update");
 	lua_pushboolean(L, open_boundary?1:0); lua_setfield(L, index, "open_boundary");
 	lua_newtable(L);
-	L << measurements.sign;
-	lua_setfield(L, -2, "sign");
+	L << measurements.sign_measured;
+	lua_setfield(L, -2, "sign_measured");
 	L << measurements.acceptance;
 	lua_setfield(L, -2, "acceptance");
 	L << measurements.density;
@@ -218,8 +218,8 @@ void CTSimulation::save (lua_State *L, int index) {
 	lua_setfield(L, -2, "order_parameter");
 	L << measurements.chi_af;
 	lua_setfield(L, -2, "chi_af");
-	//L << measured_sign;
-	//lua_setfield(L, -2, "measured_sign");
+	//L << sign_all_steps;
+	//lua_setfield(L, -2, "sign_all_steps");
 	L << measurements.chi_d;
 	lua_setfield(L, -2, "chi_d");
 	lua_setfield(L, index, "results");
@@ -235,8 +235,8 @@ void CTSimulation::load_checkpoint (lua_State *L) {
 	time_shift = lua_tointeger(L, -1);
 	lua_pop(L, 1);
 	lua_getfield(L, -1, "results");
-	lua_getfield(L, -1, "sign");
-	lua_get(L, measurements.sign);
+	lua_getfield(L, -1, "sign_measured");
+	lua_get(L, measurements.sign_measured);
 	lua_pop(L, 1);
 	lua_getfield(L, -1, "acceptance");
 	lua_get(L, measurements.acceptance);
@@ -256,8 +256,8 @@ void CTSimulation::load_checkpoint (lua_State *L) {
 	lua_getfield(L, -1, "exact_sign");
 	lua_get(L, measurements.exact_sign);
 	lua_pop(L, 1);
-	//lua_getfield(L, -1, "measured_sign");
-	//lua_get(L, measured_sign);
+	//lua_getfield(L, -1, "sign_all_steps");
+	//lua_get(L, sign_all_steps);
 	//lua_pop(L, 1);
 	//lua_getfield(L, -1, "sign_correlation");
 	//lua_get(L, sign_correlation);
@@ -286,8 +286,8 @@ void CTSimulation::save_checkpoint (lua_State *L) {
 	lua_pushinteger(L, time_shift);
 	lua_setfield(L, -2, "time_shift");
 	lua_newtable(L);
-	L << measurements.sign;
-	lua_setfield(L, -2, "sign");
+	L << measurements.sign_measured;
+	lua_setfield(L, -2, "sign_measured");
 	L << measurements.acceptance;
 	lua_setfield(L, -2, "acceptance");
 	L << measurements.density;
@@ -300,8 +300,8 @@ void CTSimulation::save_checkpoint (lua_State *L) {
 	lua_setfield(L, -2, "chi_af");
 	L << measurements.exact_sign;
 	lua_setfield(L, -2, "exact_sign");
-	//L << measured_sign;
-	//lua_setfield(L, -2, "measured_sign");
+	//L << sign_all_steps;
+	//lua_setfield(L, -2, "sign_all_steps");
 	//L << sign_correlation;
 	//lua_setfield(L, -2, "sign_correlation");
 	L << measurements.chi_d;
@@ -523,7 +523,7 @@ void CTSimulation::measure_quick () {
 	rho_dn = svdB.inverse();
 	double n_up = rho_up.diagonal().array().sum();
 	double n_dn = rho_dn.diagonal().array().sum();
-	measurements.sign.add(psign*update_sign);
+	measurements.sign_measured.add(psign*update_sign);
 	measurements.density.add(s*(n_up+n_dn)/V);
 	measurements.magnetization.add(s*(n_up-n_dn)/2.0/V);
 	measurements.d_up.add(s*rho_up.diagonal().array());
@@ -540,7 +540,7 @@ void CTSimulation::measure () {
 	double n_dn = rho_dn.diagonal().array().sum();
 	double op = (rho_up.diagonal().array()-rho_dn.diagonal().array()).square().sum();
 	double n2 = (rho_up.diagonal().array()*rho_dn.diagonal().array()).sum();
-	measurements.sign.add(psign*update_sign);
+	measurements.sign_measured.add(psign*update_sign);
 	measurements.density.add(s*(n_up+n_dn)/V);
 	measurements.magnetization.add(s*(n_up-n_dn)/2.0/V);
 	//magnetization_slow.add(s*(n_up-n_dn)/2.0/V);
@@ -549,7 +549,7 @@ void CTSimulation::measure () {
 	measurements.interaction.add(s*g*n2/tx/V);
 	measurements.d_up.add(s*rho_up.diagonal().array());
 	measurements.d_dn.add(s*rho_dn.diagonal().array());
-	//sign.add(svd_sign());
+	//sign_measured.add(svd_sign());
 	//- (d1_up*d2_up).sum() - (d1_dn*d2_dn).sum();
 	double d_wave_chi = pair_correlation(rho_up, rho_dn);
 	Matrix_d F_up = svdA.inverse();
@@ -590,21 +590,21 @@ void CTSimulation::write_green_function () {
 	out << "Ly = " << Ly << "\n";
 	out << "Lz = " << Lz << "\n";
 	out << "N = " << N << "\n";
-	out << "sign = " << measurements.sign.mean() << "\n";
-	out << "Dsign = " << measurements.sign.error() << "\n";
+	out << "sign_measured = " << measurements.sign_measured.mean() << "\n";
+	out << "Dsign = " << measurements.sign_measured.error() << "\n";
 	out << "G_up = {}\n";
 	out << "G_dn = {}\n";
 	out << "DG_up = {}\n";
 	out << "DG_dn = {}\n\n";
 	for (int t=0;t<=N;t++) {
-		//Eigen::ArrayXXd G = green_function_up[t].mean()/sign.mean();
-		//Eigen::ArrayXXd DG = G.abs()*(green_function_up[t].error()/green_function_up[t].mean().abs() + sign.error()/fabs(sign.mean()));
+		//Eigen::ArrayXXd G = green_function_up[t].mean()/sign_measured.mean();
+		//Eigen::ArrayXXd DG = G.abs()*(green_function_up[t].error()/green_function_up[t].mean().abs() + sign_measured.error()/fabs(sign_measured.mean()));
 		//out << "G_up[" << t << "] = " << G.format(HeavyFmt) << std::endl;
 		//out << "DG_up[" << t << "] = " << DG.format(HeavyFmt) << std::endl;
 	}
 	for (int t=0;t<=N;t++) {
-		//Eigen::ArrayXXd G = green_function_dn[t].mean()/sign.mean();
-		//Eigen::ArrayXXd DG = G.abs()*(green_function_dn[t].error()/green_function_dn[t].mean().abs() + sign.error()/fabs(sign.mean()));
+		//Eigen::ArrayXXd G = green_function_dn[t].mean()/sign_measured.mean();
+		//Eigen::ArrayXXd DG = G.abs()*(green_function_dn[t].error()/green_function_dn[t].mean().abs() + sign_measured.error()/fabs(sign_measured.mean()));
 		//out << "G_dn[" << t << "] = " << G.format(HeavyFmt) << std::endl;
 		//out << "DG_dn[" << t << "] = " << DG.format(HeavyFmt) << std::endl;
 	}

@@ -128,15 +128,15 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 					int V = simulation.volume();
 					log << "thread" << j << "thermalizing: " << i << '/' << thermalization_sweeps << "..." << (double(simulation.steps)/duration_cast<seconds_type>(t1-t0).count()) << "steps per second (" << N*V << "sites sweep in" << (duration_cast<seconds_type>(t1-t0).count()*N*V/simulation.steps) << "seconds)";
 					log << simulation.measurements.order;
-					log << simulation.measurements.measured_sign;
-					log << "Density:" << measurement_ratio(simulation.measurements.density, simulation.measurements.measured_sign, " +- ");
-					log << "Magnetization:" << measurement_ratio(simulation.measurements.magnetization, simulation.measurements.measured_sign, " +- ") << '\n';
+					log << simulation.measurements.sign_all_steps;
+					log << "Density:" << measurement_ratio(simulation.measurements.density, simulation.measurements.sign_all_steps, " +- ");
+					log << "Magnetization:" << measurement_ratio(simulation.measurements.magnetization, simulation.measurements.sign_all_steps, " +- ") << '\n';
 					ofstream dens("density.dat");
 					for (int i=0;i<V;i++) {
 						dens << i << ' ' << i << ' ';
-						//dens << measurement_ratio(simulation.d_up[i], simulation.measurements.measured_sign, " ") << ' ';
-						//dens << measurement_ratio(simulation.d_dn[i], simulation.measurements.measured_sign, " ") << ' ';
-						//dens << measurement_ratio(simulation.spincorrelation[i], simulation.measurements.measured_sign, " ") << ' ';
+						//dens << measurement_ratio(simulation.d_up[i], simulation.measurements.sign_all_steps, " ") << ' ';
+						//dens << measurement_ratio(simulation.d_dn[i], simulation.measurements.sign_all_steps, " ") << ' ';
+						//dens << measurement_ratio(simulation.spincorrelation[i], simulation.measurements.sign_all_steps, " ") << ' ';
 						dens << endl;
 					}
 				}
@@ -195,14 +195,6 @@ int main (int argc, char **argv) {
 	fftw_plan_with_nthreads(1);
 
 	int nthreads = 1;
-	char *e = getenv("LSB_HOSTS");
-	while (e!=NULL && *e!='\0') if (*(e++)==' ') nthreads++;
-
-	lua_getfield(L, -1, "THREADS");
-	if (lua_tointeger(L, -1)) {
-		nthreads = lua_tointeger(L, -1);
-	}
-	lua_pop(L, 1);
 	Logger log(cout);
 	//log.setVerbosity(5);
 	log << "using" << nthreads << "threads";

@@ -471,7 +471,7 @@ class Simulation {
 			acceptance.add(metropolis()?1.0:0.0);
 			measured_sign.add(psign*update_sign);
 		}
-		shift_time();
+		shift_time_svd();
 	}
 
 	void get_green_function (double s = 1.0, int t0 = 0);
