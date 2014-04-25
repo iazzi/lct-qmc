@@ -127,10 +127,15 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 					int N = simulation.timeSlices();
 					int V = simulation.volume();
 					log << "thread" << j << "thermalizing: " << i << '/' << thermalization_sweeps << "..." << (double(simulation.steps)/duration_cast<seconds_type>(t1-t0).count()) << "steps per second (" << N*V << "sites sweep in" << (duration_cast<seconds_type>(t1-t0).count()*N*V/simulation.steps) << "seconds)";
+					log << "Acceptance" << simulation.measurements.acceptance;
+					log << "Last expansion order" << simulation.order();
 					log << simulation.measurements.order;
 					log << simulation.measurements.sign_all_steps;
-					log << "Density:" << measurement_ratio(simulation.measurements.density, simulation.measurements.sign_all_steps, " +- ");
-					log << "Magnetization:" << measurement_ratio(simulation.measurements.magnetization, simulation.measurements.sign_all_steps, " +- ") << '\n';
+					//log << "Density:" << measurement_ratio(simulation.measurements.density, simulation.measurements.sign_all_steps, " +- ");
+					//log << "Magnetization:" << measurement_ratio(simulation.measurements.magnetization, simulation.measurements.sign_all_steps, " +- ") << '\n';
+					for (int i=0;i<simulation.histogram.size();i++) {
+						log << i << simulation.histogram[i];
+					}
 					ofstream dens("density.dat");
 					for (int i=0;i<V;i++) {
 						dens << i << ' ' << i << ' ';

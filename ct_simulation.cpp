@@ -153,6 +153,7 @@ void CTSimulation::load (lua_State *L, int index) {
 	ty = config.ty;
 	tz = config.tz;
 	K = std::max(fabs(config.K), 1.0);
+	lambda = config.lambda;
 	g = fabs(config.U);
 	mu = config.mu;
 	B = config.B;
@@ -378,7 +379,7 @@ bool CTSimulation::metropolis_add () {
 	svdB.add_identity(1.0);
 	double np = svd_probability();
 	//std::cerr << "trying add: " << plog << " -> " << np << " = " << np-plog << std::endl;
-	bool ret = -trialDistribution(generator)<np-plog+log(beta)-log(diagonals.size()+1)+log(K);
+	bool ret = -trialDistribution(generator)<np-plog+log(beta)-log(diagonals.size()+1)+log(K)+lambda*(histogram[order()]-histogram[order()+1]);
 	if (ret) {
 		//std::cerr << "increasing slices: " << diagonals.size() << " -> " << diagonals.size()+1 << std::endl;
 		diagonals.insert(std::pair<double, Vector_d>(t, new_diag));
@@ -413,7 +414,7 @@ bool CTSimulation::metropolis_del () {
 	svdA.add_identity(1.0);
 	svdB.add_identity(1.0);
 	double np = svd_probability();
-	bool ret = -trialDistribution(generator)<np-plog+log(diagonals.size())-log(beta)-log(K);
+	bool ret = -trialDistribution(generator)<np-plog+log(diagonals.size())-log(beta)-log(K)+lambda*(histogram[order()]-histogram[order()-1]);
 	//std::cerr << "trying del: " << plog << " -> " << np << " = " << np-plog << std::endl;
 	if (ret) {
 		//std::cerr << "decreasing slices: " << diagonals.size() << " -> " << diagonals.size()-1 << std::endl;

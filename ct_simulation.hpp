@@ -126,6 +126,7 @@ class CTSimulation {
 
 
 	double K;
+	double lambda;
 
 	typedef std::map<double, Vector_d>::const_iterator iter;
 	typedef std::map<double, Vector_d>::iterator diagonal;
@@ -150,6 +151,7 @@ class CTSimulation {
 	std::uniform_int_distribution<int> randomPosition;
 	std::uniform_real_distribution<double> randomTime;
 	std::exponential_distribution<double> trialDistribution;
+	std::uniform_int_distribution<int> randomType;
 
 	Vector_d freePropagator;
 	Vector_d freePropagator_b;
@@ -184,6 +186,8 @@ class CTSimulation {
 	Array_d energies;
 
 	public:
+
+	std::vector<int> histogram;
 
 	SVDHelper svd;
 	SVDHelper svdA;
@@ -309,7 +313,7 @@ class CTSimulation {
 	void load_checkpoint (lua_State *L);
 	void save_checkpoint (lua_State *L);
 
-	CTSimulation (lua_State *L, int index) : coin_flip(0.5), trialDistribution(1.0), steps(0) {
+	CTSimulation (lua_State *L, int index) : coin_flip(0.5), trialDistribution(1.0), randomType(0, 4), steps(0), histogram(2, 2) {
 		load(L, index);
 	}
 
@@ -328,6 +332,8 @@ class CTSimulation {
 
 	void make_density_matrices () {
 	}
+
+	size_t order () const { return diagonals.size(); }
 
 	void make_svd_inverse (double t0) {
 		make_svd_double(t0);
@@ -431,16 +437,20 @@ class CTSimulation {
 		for (int i=0;i<1;i++) {
 			//collapse_updates();
 			//acceptance.add(metropolis()?1.0:0.0);
-			if (coin_flip(generator)) {
-				metropolis_add();
+			int type = randomType(generator);
+			if (type==0) {
+				measurements.acceptance.add(metropolis_add());
+			} else if (type==1) {
+				measurements.acceptance.add(metropolis_del());
 			} else {
-				metropolis_del();
+				measurements.acceptance.add(metropolis_sweep());
 			}
-			metropolis_sweep();
 			measurements.sign_all_steps.add(psign*update_sign);
 			//make_svd_double(0.0);
 			//svdA.add_identity(1.0);
 			//svdB.add_identity(1.0);
+			if (histogram.size()<order()+3) histogram.push_back(0);
+			histogram[order()]++;
 		}
 		//time_shift = randomTime(generator);
 		//redo_all();
