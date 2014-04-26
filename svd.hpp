@@ -6,6 +6,7 @@
 
 #include <iostream>
 
+#if !defined EIGEN_USE_MKL_ALL
 extern "C" void dgesvd_ (const char *jobu, const char *jobvt,
 		const int &M, const int &N,
 		double *A, const int &lda,
@@ -24,6 +25,36 @@ extern "C" void dggev_ (const char *jobvl, const char *jobvr,
 		double *VL, const int &ldvl,
 		double *VR, const int &ldvr,
 		double *work, const int &lwork, int &info);
+
+#define mydgesvd dgesvd_
+#define mydggev dggev_
+
+#else
+
+inline void mydgesvd (const char *jobu, const char *jobvt,
+		const int &M, const int &N,
+		double *A, const int &lda,
+		double *S,
+		double *U, const int &ldu,
+		double *VT, const int &ldvt,
+		double *work, const int &lwork, int &info) {
+	dgesvd_(jobu, jobvt, &M, &N, A, &lda, S, U, &ldu, VT, &ldvt, work, &lwork, &info);
+}
+
+inline void mydggev (const char *jobvl, const char *jobvr,
+		const int &N,
+		double *A, const int &lda,
+		double *B, const int &ldb,
+		double *alphar,
+		double *alphai,
+		double *beta,
+		double *VL, const int &ldvl,
+		double *VR, const int &ldvr,
+		double *work, const int &lwork, int &info) {
+	dggev_(jobvl, jobvr, &N, A, &lda, B, &ldb, alphar, alphai, beta, VL, &ldvl, VR, &ldvr, work, &lwork, &info);
+}
+
+#endif
 
 struct SVDHelper {
 	typedef Eigen::VectorXd Vector;
@@ -61,7 +92,7 @@ struct SVDHelper {
 			//std::cerr << "reserving working space " << work[0] << std::endl;
 			reserve(work[0]);
 		} else if (info<0) {
-			std::cerr << "dgesvd_: error at argument " << -info << std::endl;
+			std::cerr << "mydgesvd: error at argument " << -info << std::endl;
 		} else {
 			std::cerr << "DBDSQR iteration failed at superdiagonal " << info << std::endl;
 		}
@@ -79,7 +110,7 @@ struct SVDHelper {
 		S.resize(inner);
 		Vt.resize(N, N);
 		reserve(5*inner+outer);
-		dgesvd_("A", "A", M, N, B.data(), M, S.data(), U.data(), M, Vt.data(), N, work.data(), work.size(), info);
+		mydgesvd("A", "A", M, N, B.data(), M, S.data(), U.data(), M, Vt.data(), N, work.data(), work.size(), info);
 		check_info(info);
 	}
 
@@ -94,7 +125,7 @@ struct SVDHelper {
 		S.resize(inner);
 		Vt.resize(inner, N);
 		reserve(5*inner+outer);
-		dgesvd_("S", "S", M, N, B.data(), M, S.data(), U.data(), M, Vt.data(), inner, work.data(), work.size(), info);
+		mydgesvd("S", "S", M, N, B.data(), M, S.data(), U.data(), M, Vt.data(), inner, work.data(), work.size(), info);
 		check_info(info);
 	}
 
@@ -109,7 +140,7 @@ struct SVDHelper {
 			S.resize(inner);
 			Vt.resize(inner, N);
 			reserve(5*inner+outer);
-			dgesvd_("O", "S", M, N, U.data(), M, S.data(), U.data(), M, Vt.data(), inner, work.data(), work.size(), info);
+			mydgesvd("O", "S", M, N, U.data(), M, S.data(), U.data(), M, Vt.data(), inner, work.data(), work.size(), info);
 		} else {
 			const int inner = M<N?M:N;
 			const int outer = M<N?N:M;
@@ -117,7 +148,7 @@ struct SVDHelper {
 			S.resize(inner);
 			Vt = A;
 			reserve(5*inner+outer);
-			dgesvd_("S", "O", M, N, Vt.data(), M, S.data(), U.data(), M, Vt.data(), inner, work.data(), work.size(), info);
+			mydgesvd("S", "O", M, N, Vt.data(), M, S.data(), U.data(), M, Vt.data(), inner, work.data(), work.size(), info);
 		}
 		check_info(info);
 	}
@@ -132,7 +163,7 @@ struct SVDHelper {
 		const int outer = M<N?N:M;
 		other.resize(inner, inner);
 		reserve(5*inner+outer);
-		dgesvd_("O", "S", M, N, U.data(), M, S.data(), U.data(), M, other.data(), inner, work.data(), work.size(), info);
+		mydgesvd("O", "S", M, N, U.data(), M, S.data(), U.data(), M, other.data(), inner, work.data(), work.size(), info);
 		check_info(info);
 		Vt.applyOnTheLeft(other);
 	}
@@ -149,11 +180,11 @@ struct SVDHelper {
 		other.resize(inner, inner);
 		reserve(5*inner+outer);
 		if (M<=N) {
-			dgesvd_("S", "O", M, N, Vt.data(), M, S.data(), other.data(), M, Vt.data(), inner, work.data(), work.size(), info);
+			mydgesvd("S", "O", M, N, Vt.data(), M, S.data(), other.data(), M, Vt.data(), inner, work.data(), work.size(), info);
 			check_info(info);
 			U.applyOnTheRight(other);
 		} else {
-			dgesvd_("O", "S", M, N, Vt.data(), M, S.data(), Vt.data(), M, other.data(), inner, work.data(), work.size(), info);
+			mydgesvd("O", "S", M, N, Vt.data(), M, S.data(), Vt.data(), M, other.data(), inner, work.data(), work.size(), info);
 			check_info(info);
 			U.applyOnTheRight(Vt);
 			Vt = other;
@@ -168,7 +199,7 @@ struct SVDHelper {
 		Matrix B = Vt;
 		other = lambda * (U.transpose()*u) * (v.transpose() * Vt.transpose());
 		other.diagonal() += S;
-		dgesvd_("A", "A", N, N, other.data(), N, S.data(), U.data(), N, Vt.data(), N, work.data(), work.size(), info);
+		mydgesvd("A", "A", N, N, other.data(), N, S.data(), U.data(), N, Vt.data(), N, work.data(), work.size(), info);
 		check_info(info);
 		U.applyOnTheLeft(A);
 		Vt.applyOnTheRight(B);
@@ -183,7 +214,7 @@ struct SVDHelper {
 		other = U.transpose() * Vt.transpose();
 		other.diagonal() += S * lambda;
 		reserve(6*N);
-		dgesvd_("A", "A", N, N, other.data(), N, S.data(), U.data(), N, Vt.data(), N, work.data(), work.size(), info);
+		mydgesvd("A", "A", N, N, other.data(), N, S.data(), U.data(), N, Vt.data(), N, work.data(), work.size(), info);
 		check_info(info);
 		U.applyOnTheLeft(A);
 		Vt.applyOnTheRight(B);
@@ -197,7 +228,7 @@ struct SVDHelper {
 		Matrix B = s.Vt;
 		other = (U.transpose()*s.U) * s.S.asDiagonal();
 		other += S.asDiagonal() * (Vt*s.Vt.transpose());
-		dgesvd_("A", "A", N, N, other.data(), N, S.data(), U.data(), N, Vt.data(), N, work.data(), work.size(), info);
+		mydgesvd("A", "A", N, N, other.data(), N, S.data(), U.data(), N, Vt.data(), N, work.data(), work.size(), info);
 		check_info(info);
 		U.applyOnTheLeft(A);
 		Vt.applyOnTheRight(B);
@@ -237,7 +268,7 @@ struct SVDHelper {
 		Vector beta = Vector::Zero(N);
 		//Matrix VR = Matrix::Zero(N, N);
 		int info;
-		dggev_("N", "N", N, A.data(), N, B.data(), N, alphar.data(), alphai.data(), beta.data(), NULL, 1, NULL, 1, work.data(), work.size(), info);
+		mydggev("N", "N", N, A.data(), N, B.data(), N, alphar.data(), alphai.data(), beta.data(), NULL, 1, NULL, 1, work.data(), work.size(), info);
 		std::cerr << "sv: " << S.transpose() << std::endl;
 		std::cerr << "dggev: " << info << std::endl;
 		std::cerr << alphar.transpose() << std::endl;
