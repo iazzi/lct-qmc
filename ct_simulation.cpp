@@ -611,6 +611,17 @@ void CTSimulation::write_green_function () {
 	}
 }
 
+void CTSimulation::propagate_svd (double dtau) {
+	if (dtau>0.0) {
+		svdA.U.applyOnTheLeft(eigenvectors.transpose());
+		svdA.U.applyOnTheLeft((-dtau*(energies-mu-0.5*B)).exp().matrix().asDiagonal());
+		svdA.U.applyOnTheLeft(eigenvectors);
+		svdB.U.applyOnTheLeft(eigenvectors.transpose());
+		svdB.U.applyOnTheLeft((-dtau*(energies-mu+0.5*B)).exp().matrix().asDiagonal());
+		svdB.U.applyOnTheLeft(eigenvectors);
+	}
+}
+
 void CTSimulation::make_svd_double (double t0) {
 	double dBeta = beta/(config.nsvd+1);
 	svdA.setIdentity(V);
@@ -621,28 +632,13 @@ void CTSimulation::make_svd_double (double t0) {
 		double start = t1, end = std::min(beta, t1+dBeta);
 		for (iter i=diagonals.lower_bound(start);i!=diagonals.lower_bound(end);i++) {
 			dtau = i->first-t1;
-			//std::cerr << "multiplying diagonal at " << i->first << std::endl;
-			if (dtau>0.0) {
-				svdA.U.applyOnTheLeft(eigenvectors.transpose());
-				svdA.U.applyOnTheLeft((-dtau*(energies-mu-0.5*B)).exp().matrix().asDiagonal());
-				svdA.U.applyOnTheLeft(eigenvectors);
-				svdB.U.applyOnTheLeft(eigenvectors.transpose());
-				svdB.U.applyOnTheLeft((+dtau*(energies-mu+0.5*B)).exp().matrix().asDiagonal());
-				svdB.U.applyOnTheLeft(eigenvectors);
-			}
+			propagate_svd(dtau);
 			svdA.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+i->second).array()).matrix().asDiagonal());
-			svdB.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+i->second).array()).matrix().asDiagonal());
+			svdB.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)-i->second).array()).matrix().asDiagonal());
 			t1 = i->first;
 		}
 		dtau = end-t1;
-		if (dtau>0.0) {
-			svdA.U.applyOnTheLeft(eigenvectors.transpose());
-			svdA.U.applyOnTheLeft((-dtau*(energies-mu-0.5*B)).exp().matrix().asDiagonal());
-			svdA.U.applyOnTheLeft(eigenvectors);
-			svdB.U.applyOnTheLeft(eigenvectors.transpose());
-			svdB.U.applyOnTheLeft((+dtau*(energies-mu+0.5*B)).exp().matrix().asDiagonal());
-			svdB.U.applyOnTheLeft(eigenvectors);
-		}
+		propagate_svd(dtau);
 		t1 = end;
 		svdA.absorbU();
 		svdB.absorbU();
@@ -652,28 +648,13 @@ void CTSimulation::make_svd_double (double t0) {
 		double start = t1, end = std::min(t0, t1+dBeta);
 		for (iter i=diagonals.lower_bound(start);i!=diagonals.lower_bound(end);i++) {
 			dtau = i->first-t1;
-			//std::cerr << "multiplying diagonal at " << i->first << " (wrap around)" << std::endl;
-			if (dtau>0.0) {
-				svdA.U.applyOnTheLeft(eigenvectors.transpose());
-				svdA.U.applyOnTheLeft((-dtau*(energies-mu-0.5*B)).exp().matrix().asDiagonal());
-				svdA.U.applyOnTheLeft(eigenvectors);
-				svdB.U.applyOnTheLeft(eigenvectors.transpose());
-				svdB.U.applyOnTheLeft((+dtau*(energies-mu+0.5*B)).exp().matrix().asDiagonal());
-				svdB.U.applyOnTheLeft(eigenvectors);
-			}
+			propagate_svd(dtau);
 			svdA.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+i->second).array()).matrix().asDiagonal());
-			svdB.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)+i->second).array()).matrix().asDiagonal());
+			svdB.U.applyOnTheLeft(((Vector_d::Constant(V, 1.0)-i->second).array()).matrix().asDiagonal());
 			t1 = i->first;
 		}
 		dtau = end-t1;
-		if (dtau>0.0) {
-			svdA.U.applyOnTheLeft(eigenvectors.transpose());
-			svdA.U.applyOnTheLeft((-dtau*(energies-mu-0.5*B)).exp().matrix().asDiagonal());
-			svdA.U.applyOnTheLeft(eigenvectors);
-			svdB.U.applyOnTheLeft(eigenvectors.transpose());
-			svdB.U.applyOnTheLeft((+dtau*(energies-mu+0.5*B)).exp().matrix().asDiagonal());
-			svdB.U.applyOnTheLeft(eigenvectors);
-		}
+		propagate_svd(dtau);
 		t1 = end;
 		svdA.absorbU();
 		svdB.absorbU();

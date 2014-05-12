@@ -328,6 +328,7 @@ class CTSimulation {
 	void make_svd () {
 	}
 
+	void propagate_svd (double dtau);
 	void make_svd_double (double t0);
 
 	void make_density_matrices () {
