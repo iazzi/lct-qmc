@@ -246,6 +246,7 @@ class CTSimulation {
 #endif
 
 	Measurements measurements;
+	std::vector<Measurements> measurement_vector;
 
 	int time_shift;
 
@@ -265,6 +266,8 @@ class CTSimulation {
 
 	void prepare_propagators ();
 	void prepare_open_boundaries ();
+
+	Measurements& measurement () { return measurement_vector[order()]; }
 
 	void init_measurements () {
 		//sign_measured.set_name("Sign");
