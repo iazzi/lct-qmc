@@ -267,7 +267,11 @@ class CTSimulation {
 	void prepare_propagators ();
 	void prepare_open_boundaries ();
 
-	Measurements& measurement () { return measurement_vector[order()]; }
+	Measurements& measurement () {
+		while (order()>=measurement_vector.size())
+			measurement_vector.push_back(Measurements());
+		return measurement_vector[order()];
+	}
 
 	void init_measurements () {
 		//sign_measured.set_name("Sign");
