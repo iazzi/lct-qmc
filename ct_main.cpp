@@ -133,7 +133,7 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 					log << simulation.measurements.sign_all_steps;
 					//log << "Density:" << measurement_ratio(simulation.measurements.density, simulation.measurements.sign_all_steps, " +- ");
 					//log << "Magnetization:" << measurement_ratio(simulation.measurements.magnetization, simulation.measurements.sign_all_steps, " +- ") << '\n';
-					for (int i=0;i<simulation.histogram.size();i++) {
+					for (size_t i=0;i<simulation.histogram.size();i++) {
 						log << i << simulation.histogram[i];
 					}
 					ofstream dens("density.dat");

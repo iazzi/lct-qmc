@@ -313,7 +313,7 @@ class CTSimulation {
 	void load_checkpoint (lua_State *L);
 	void save_checkpoint (lua_State *L);
 
-	CTSimulation (lua_State *L, int index) : coin_flip(0.5), trialDistribution(1.0), randomType(0, 4), steps(0), histogram(2, 2) {
+	CTSimulation (lua_State *L, int index) : coin_flip(0.5), trialDistribution(1.0), randomType(0, 4), histogram(2, 0), steps(0) {
 		load(L, index);
 	}
 
@@ -450,7 +450,7 @@ class CTSimulation {
 			//make_svd_double(0.0);
 			//svdA.add_identity(1.0);
 			//svdB.add_identity(1.0);
-			if (histogram.size()<order()+3) histogram.push_back(0);
+			if (histogram.size()<order()+2) histogram.push_back(0);
 			histogram[order()]++;
 		}
 		//time_shift = randomTime(generator);
