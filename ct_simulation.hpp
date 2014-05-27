@@ -274,31 +274,6 @@ class CTSimulation {
 	}
 
 	void init_measurements () {
-		//sign_measured.set_name("Sign");
-		//sign_all_steps.set_name("Sign (every step)");
-		//acceptance.set_name("Acceptance");
-		//order.set_name("Order");
-		//density.set_name("Density");
-		//magnetization.set_name("Magnetization");
-		//order_parameter.set_name("Order Parameter");
-		//chi_d.set_name("Chi (D-wave)");
-		//chi_af.set_name("Chi (AF)");
-		//sign_all_steps.set_name("Sign (Measurements)");
-		//sign_correlation.set_name("Sign Correlation");
-		//exact_sign.set_name("Sign (Exact)");
-		//magnetization_slow.set_name("Magnetization (slow)");
-		//for (int i=0;i<V;i++) {
-			//d_up.push_back(mymeasurement<double>());
-			//d_dn.push_back(mymeasurement<double>());
-		//}
-		//for (int i=0;i<V;i++) {
-			//spincorrelation.push_back(mymeasurement<double>());
-		//}
-		//for (int i=0;i<=N;i++) {
-			//error.push_back(mymeasurement<double>());
-			//green_function_up.push_back(mymeasurement<Eigen::ArrayXXd>());
-			//green_function_dn.push_back(mymeasurement<Eigen::ArrayXXd>());
-		//}
 	}
 
 	void reset_updates () {
