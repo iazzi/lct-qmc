@@ -268,7 +268,7 @@ class CTSimulation {
 	void prepare_open_boundaries ();
 
 	Measurements& measurement () {
-		while (order()>=measurement_vector.size())
+		while (order()+1>=measurement_vector.size())
 			measurement_vector.push_back(Measurements());
 		return measurement_vector[order()];
 	}
@@ -415,7 +415,7 @@ class CTSimulation {
 		return 1.0;
 	}
 
-	void update () {
+	void update (bool update_histogram = false) {
 		//valid_slices[time_shift/mslices] = false;
 		for (int i=0;i<1;i++) {
 			//collapse_updates();
@@ -428,12 +428,12 @@ class CTSimulation {
 			} else {
 				measurements.acceptance.add(metropolis_sweep());
 			}
-			measurements.sign_all_steps.add(psign*update_sign);
+			measurement().sign_all_steps.add(psign*update_sign);
 			//make_svd_double(0.0);
 			//svdA.add_identity(1.0);
 			//svdB.add_identity(1.0);
 			if (histogram.size()<order()+2) histogram.push_back(0);
-			histogram[order()]++;
+			if (update_histogram) histogram[order()]++;
 		}
 		//time_shift = randomTime(generator);
 		//redo_all();
@@ -585,23 +585,10 @@ class CTSimulation {
 
 	void discard_measurements () {
 		measurements.discard();
-		//acceptance.clear();
-		//density.clear();
-		//magnetization.clear();
-		//order_parameter.clear();
-		//chi_d.clear();
-		//chi_af.clear();
-		//kinetic.clear();
-		//interaction.clear();
-		//sign_measured.clear();
-		//sign_all_steps.clear();
-		//exact_sign.clear();
-		//for (int i=0;i<V;i++) {
-			//d_up[i].clear();
-			//d_dn[i].clear();
-			//spincorrelation[i].clear();
-		//}
+		for (auto &m : measurement_vector) m.discard();
 	}
+
+	void collect_measurements ();
 
 	protected:
 };

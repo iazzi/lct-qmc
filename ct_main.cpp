@@ -134,7 +134,7 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 					//log << "Density:" << measurement_ratio(simulation.measurements.density, simulation.measurements.sign_all_steps, " +- ");
 					//log << "Magnetization:" << measurement_ratio(simulation.measurements.magnetization, simulation.measurements.sign_all_steps, " +- ") << '\n';
 					for (size_t i=0;i<simulation.histogram.size();i++) {
-						log << i << simulation.histogram[i];
+						log << i << simulation.histogram[i] << simulation.measurement_vector[i].sign_all_steps.samples();
 					}
 					ofstream dens("density.dat");
 					for (int i=0;i<V;i++) {
@@ -145,7 +145,7 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 						dens << endl;
 					}
 				}
-				simulation.update();
+				simulation.update(true);
 				simulation.measure_quick();
 			}
 			log << "thread" << j << "thermalized";
@@ -160,6 +160,9 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 				if (duration_cast<seconds_type>(steady_clock::now()-t1).count()>5) {
 					t1 = steady_clock::now();
 					log << "thread" << j << "running: " << i << '/' << total_sweeps << "..." << (double(simulation.steps)/duration_cast<seconds_type>(t1-t0).count()) << "steps per second";
+					for (size_t i=0;i<simulation.histogram.size();i++) {
+						log << i << simulation.histogram[i] << simulation.measurement_vector[i].sign_all_steps.samples();
+					}
 				}
 				simulation.update();
 				simulation.measure_quick();

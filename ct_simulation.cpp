@@ -518,17 +518,17 @@ void CTSimulation::measure_sign () {
 }
 
 void CTSimulation::measure_quick () {
-	measurements.order.add(diagonals.size());
+	measurement().order.add(diagonals.size());
 	double s = svd_sign();
 	rho_up = Matrix_d::Identity(V, V) - svdA.inverse();
 	rho_dn = svdB.inverse();
 	double n_up = rho_up.diagonal().array().sum();
 	double n_dn = rho_dn.diagonal().array().sum();
-	measurements.sign_measured.add(psign*update_sign);
-	measurements.density.add(s*(n_up+n_dn)/V);
-	measurements.magnetization.add(s*(n_up-n_dn)/2.0/V);
-	measurements.d_up.add(s*rho_up.diagonal().array());
-	measurements.d_dn.add(s*rho_dn.diagonal().array());
+	measurement().sign_measured.add(psign*update_sign);
+	measurement().density.add(s*(n_up+n_dn)/V);
+	measurement().magnetization.add(s*(n_up-n_dn)/2.0/V);
+	measurement().d_up.add(s*rho_up.diagonal().array());
+	measurement().d_dn.add(s*rho_dn.diagonal().array());
 }
 
 void CTSimulation::measure () {
@@ -659,6 +659,10 @@ void CTSimulation::make_svd_double (double t0) {
 		svdA.absorbU();
 		svdB.absorbU();
 	}
+}
+
+void CTSimulation::collect_measurements () {
+	measurements.discard();
 }
 
 
