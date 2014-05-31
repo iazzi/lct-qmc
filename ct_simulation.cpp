@@ -92,7 +92,7 @@ void CTSimulation::init () {
 	randomPosition = std::uniform_int_distribution<int>(0, V-1);
 	randomTime = std::uniform_real_distribution<double>(0, beta);
 	dt = beta/N;
-	A = g/K;
+	A = sqrt(g/K);
 	coin_flip = std::bernoulli_distribution(0.5);
 	v_x.setZero(V);
 	v_p.setZero(V);
@@ -108,27 +108,19 @@ void CTSimulation::init () {
 	psign = svd_sign();
 
 	std::cerr << "testing make_svd_double\n";
-	for (int l=0;l<10;l++) {
+	for (int l=0;l<100;l++) {
 		double s = randomTime(generator);
 		std::cerr << "inserting random slice at " << s << std::endl;
 		diagonals[s] = Vector_d::Random(V);
+		for (int x=0;x<V;x++) diagonals[s][x] = coin_flip(generator)?A:-A;
+		for (int m=0;m<1;m++) {
+			double s = randomTime(generator);
+			make_svd_double(s);
+			svdA.add_identity(1.0);
+			svdB.add_identity(1.0);
+			std::cerr << s << ' ' << svd_probability() << ' ' << svd_probability()+log(K)*l << ' ' << svd_sign() << std::endl;
+		}
 	}
-	make_svd_double(0.0);
-	svdA.add_identity(1.0);
-	svdB.add_identity(1.0);
-	std::cerr << 0.0 << ' ' << svd_probability() << ' ' << svd_sign() << std::endl;
-	make_svd_double(0.5);
-	svdA.add_identity(1.0);
-	svdB.add_identity(1.0);
-	std::cerr << 0.5 << ' ' << svd_probability() << ' ' << svd_sign() << std::endl;
-	for (int l=0;l<20;l++) {
-		double s = randomTime(generator);
-		make_svd_double(s);
-		svdA.add_identity(1.0);
-		svdB.add_identity(1.0);
-		std::cerr << s << ' ' << svd_probability() << ' ' << svd_sign() << std::endl;
-	}
-
 	diagonals.clear();
 	make_svd_double(0.0);
 	svdA.add_identity(1.0);
@@ -379,7 +371,7 @@ bool CTSimulation::metropolis_add () {
 	svdB.add_identity(1.0);
 	double np = svd_probability();
 	//std::cerr << "trying add: " << plog << " -> " << np << " = " << np-plog << std::endl;
-	bool ret = -trialDistribution(generator)<np-plog+log(beta)-log(diagonals.size()+1)+log(K)+lambda*(histogram[order()]-histogram[order()+1]);
+	bool ret = -trialDistribution(generator)<np-plog+log(beta)-log(diagonals.size()+1)+V*log(K)+lambda*(histogram[order()]-histogram[order()+1]);
 	if (ret) {
 		//std::cerr << "increasing slices: " << diagonals.size() << " -> " << diagonals.size()+1 << std::endl;
 		diagonals.insert(std::pair<double, Vector_d>(t, new_diag));
@@ -414,7 +406,7 @@ bool CTSimulation::metropolis_del () {
 	svdA.add_identity(1.0);
 	svdB.add_identity(1.0);
 	double np = svd_probability();
-	bool ret = -trialDistribution(generator)<np-plog+log(diagonals.size())-log(beta)-log(K)+lambda*(histogram[order()]-histogram[order()-1]);
+	bool ret = -trialDistribution(generator)<np-plog+log(diagonals.size())-log(beta)-V*log(K)+lambda*(histogram[order()]-histogram[order()-1]);
 	//std::cerr << "trying del: " << plog << " -> " << np << " = " << np-plog << std::endl;
 	if (ret) {
 		//std::cerr << "decreasing slices: " << diagonals.size() << " -> " << diagonals.size()-1 << std::endl;
@@ -455,14 +447,16 @@ bool CTSimulation::metropolis_del () {
 
 bool CTSimulation::metropolis_sweep () {
 	//std::cerr << "sweeping " << diagonals.size() << " slices" << std::endl;
-	for (diagonal d = diagonals.begin();d!=diagonals.end();d++) {
-		current = d;
-		update_prob = 0.0;
-		update_sign = 1.0;
-		make_svd_inverse(d->first);
-		for (int i=0;i<V;i++) metropolis_flip();
-	}
-	return true;
+	if (diagonals.begin()==diagonals.end()) return false;
+	diagonal d = diagonals.begin();
+	int t = std::uniform_int_distribution<int>(0, diagonals.size()-1)(generator);
+	while (t-->0) d++;
+	current = d;
+	update_prob = 0.0;
+	update_sign = 1.0;
+	make_svd_inverse(d->first);
+	for (int i=0;i<1;i++) metropolis_flip();
+	return update_size>0;
 }
 
 bool CTSimulation::metropolis_flip () {

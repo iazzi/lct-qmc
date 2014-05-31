@@ -118,7 +118,7 @@ class CTSimulation {
 	double dt; // time step 
 	double g; // interaction strength
 	double mu; // chemical potential
-	double A; // sqrt(exp(g*dt)-1)
+	double A; // sqrt(g/K)
 	double B; // magnetic field
 	double tx, ty, tz; // nearest neighbour hopping
 	//double Vx, Vy, Vz; // trap strength
@@ -295,7 +295,7 @@ class CTSimulation {
 	void load_checkpoint (lua_State *L);
 	void save_checkpoint (lua_State *L);
 
-	CTSimulation (lua_State *L, int index) : coin_flip(0.5), trialDistribution(1.0), randomType(0, 4), histogram(2, 0), steps(0) {
+	CTSimulation (lua_State *L, int index) : coin_flip(0.5), trialDistribution(1.0), randomType(0, 1), histogram(2, 0), steps(0) {
 		load(L, index);
 	}
 
@@ -423,8 +423,10 @@ class CTSimulation {
 			int type = randomType(generator);
 			if (type==0) {
 				measurements.acceptance.add(metropolis_add());
+				if (update_histogram) histogram[order()]++;
 			} else if (type==1) {
 				measurements.acceptance.add(metropolis_del());
+				if (update_histogram) histogram[order()]++;
 			} else {
 				measurements.acceptance.add(metropolis_sweep());
 			}
@@ -433,7 +435,7 @@ class CTSimulation {
 			//svdA.add_identity(1.0);
 			//svdB.add_identity(1.0);
 			if (histogram.size()<order()+2) histogram.push_back(0);
-			if (update_histogram) histogram[order()]++;
+			if (measurement_vector.size()<order()+2) measurement_vector.push_back(Measurements());
 		}
 		//time_shift = randomTime(generator);
 		//redo_all();
@@ -589,6 +591,12 @@ class CTSimulation {
 	}
 
 	void collect_measurements ();
+
+	void update_histogram () {
+		for (size_t i=0;i<measurement_vector.size();i++) {
+			histogram[i] += measurement_vector[i].sign_all_steps.samples();
+		}
+	}
 
 	protected:
 };
