@@ -57,9 +57,10 @@ class V3Simulation {
 	Vector_d eigenvalues;
 
 	size_t V;
-	double beta;
+	double beta, mu;
 
-	std::vector<Matrix_d> slices;
+	std::vector<Matrix_d> slices_up;
+	std::vector<Matrix_d> slices_dn;
 
 	public:
 	void setBeta (double b) {
@@ -76,7 +77,7 @@ class V3Simulation {
 			eigenvalues = E;
 		}
 
-	void make_slice (Matrix_d &G,double a, double b) {
+	void make_slice (Matrix_d &G,double a, double b, double s) {
 		auto first = verts.lower_bound(Vertex(a, 0, 0));
 		auto last = verts.lower_bound(Vertex(b, 0, 0));
 		double t = a;
@@ -85,7 +86,7 @@ class V3Simulation {
 				G.array() *= (-(v->tau-t)*eigenvalues.array()).exp();
 				t = v->tau;
 			}
-			G += v->sigma * eigenvectors.row(v->x).transpose() * eigenvectors.row(v->x) * G;
+			G += s * v->sigma * eigenvectors.row(v->x).transpose() * eigenvectors.row(v->x) * G;
 		}
 		if (b>t) {
 			G.array() *= (-(b-t)*eigenvalues.array()).exp();
@@ -93,21 +94,29 @@ class V3Simulation {
 	}
 
 	void make_slices (size_t n) {
-		slices.resize(n);
-		std::fill(slices.begin(), slices.end(), Matrix_d::Identity(V, V));
+		slices_up.resize(n);
+		slices_dn.resize(n);
+		std::fill(slices_up.begin(), slices_up.end(), Matrix_d::Identity(V, V));
+		std::fill(slices_dn.begin(), slices_dn.end(), Matrix_d::Identity(V, V));
 		for (size_t i=0;i<n;i++) {
-			make_slice(slices[i], beta/n*i, beta/n*(i+1));
+			make_slice(slices_up[i], beta/n*i, beta/n*(i+1), +1.0);
+			make_slice(slices_dn[i], beta/n*i, beta/n*(i+1), -1.0);
 		}
 	}
 
 	std::pair<double, double> probability_from_scratch (size_t n) {
 		make_slices(n);
-		SVDMatrix svd;
-		svd.setIdentity(V);
+		SVDMatrix svd_up, svd_dn;
+		svd_up.setIdentity(V);
+		svd_dn.setIdentity(V);
 		for (size_t t=0;t<n;t++) {
-			svd.applyOnTheLeft(slices[t]);
-			svd.absorbU();
+			svd_up.U.applyOnTheLeft(slices_up[t]);
+			svd_up.absorbU();
+			svd_dn.U.applyOnTheLeft(slices_dn[t]);
+			svd_dn.absorbU();
 		}
+		svd_up.add_identity(exp(beta*mu));
+		svd_dn.add_identity(exp(beta*mu));
 	}
 };
 
