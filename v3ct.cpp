@@ -29,9 +29,88 @@ extern "C" {
 #include <Eigen/Eigenvalues>
 #include <Eigen/QR>
 
+#include <set>
+
 #include <csignal>
 
 //#define fftw_execute (void)
+
+using SVDMatrix = SVDHelper;
+
+struct Vertex {
+	double tau;
+	size_t x;
+	double sigma;
+	class Compare {
+		public:
+			constexpr bool operator() (const Vertex& a, const Vertex& b) {
+				return (a.tau<b.tau) || (a.tau==b.tau && a.x<b.x);
+			}
+	};
+	Vertex (double a, size_t b, double c) : tau(a), x(b), sigma(c) {}
+};
+
+class V3Simulation {
+	std::set<Vertex, Vertex::Compare> verts;
+
+	Matrix_d eigenvectors;
+	Vector_d eigenvalues;
+
+	size_t V;
+	double beta;
+
+	std::vector<Matrix_d> slices;
+
+	public:
+	void setBeta (double b) {
+		beta = b;
+	}
+
+	template <typename M>
+		void setEigenvectors (const Eigen::MatrixBase<M> &U) {
+			eigenvectors = U;
+		}
+
+	template <typename M>
+		void setEigenvalues (const Eigen::MatrixBase<M> &E) {
+			eigenvalues = E;
+		}
+
+	void make_slice (Matrix_d &G,double a, double b) {
+		auto first = verts.lower_bound(Vertex(a, 0, 0));
+		auto last = verts.lower_bound(Vertex(b, 0, 0));
+		double t = a;
+		for (auto v=first;v!=last;v++) {
+			if (v->tau>t) {
+				G.array() *= (-(v->tau-t)*eigenvalues.array()).exp();
+				t = v->tau;
+			}
+			G += v->sigma * eigenvectors.row(v->x).transpose() * eigenvectors.row(v->x) * G;
+		}
+		if (b>t) {
+			G.array() *= (-(b-t)*eigenvalues.array()).exp();
+		}
+	}
+
+	void make_slices (size_t n) {
+		slices.resize(n);
+		std::fill(slices.begin(), slices.end(), Matrix_d::Identity(V, V));
+		for (size_t i=0;i<n;i++) {
+			make_slice(slices[i], beta/n*i, beta/n*(i+1));
+		}
+	}
+
+	std::pair<double, double> probability_from_scratch (size_t n) {
+		make_slices(n);
+		SVDMatrix svd;
+		svd.setIdentity(V);
+		for (size_t t=0;t<n;t++) {
+			svd.applyOnTheLeft(slices[t]);
+			svd.absorbU();
+		}
+	}
+};
+
 
 using namespace std;
 using namespace std::chrono;
