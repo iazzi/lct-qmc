@@ -93,7 +93,7 @@ class V3Simulation {
 		Matrix_d cache;
 		for (auto v=first;v!=last;) {
 			if (v->tau>t) {
-				G.array() *= (-(v->tau-t)*eigenvalues.array()).exp();
+				G.array().colwise() *= (-(v->tau-t)*eigenvalues.array()).exp();
 				t = v->tau;
 			}
 			auto w = v;
@@ -108,10 +108,13 @@ class V3Simulation {
 				G += cache;
 			}
 			v = w;
+			//std::cerr << "vertex!" << std::endl;
 		}
 		if (b>t) {
-			G.array() *= (-(b-t)*eigenvalues.array()).exp();
+			G.array().colwise() *= (-(b-t)*eigenvalues.array()).exp();
 		}
+		//std::cerr << (-(b-t)*eigenvalues.array()).exp().transpose() << std::endl << std::endl;
+		//std::cerr << G << std::endl << std::endl;
 	}
 
 	void make_slices (size_t n) {
@@ -376,10 +379,11 @@ int main (int argc, char **argv) {
 	Logger log(cout);
 	log << "using" << nthreads << "threads";
 
+	double beta = 5.0, mu = 0.0;
 	V3Simulation simulation;
 
-	simulation.setBeta(5.0);
-	simulation.setMu(0.0);
+	simulation.setBeta(beta);
+	simulation.setMu(mu);
 
 	SquareLattice lattice;
 	lattice.setSize(4, 4, 1);
@@ -388,6 +392,9 @@ int main (int argc, char **argv) {
 	simulation.setEigenvalues(lattice.eigenvalues());
 
 	cerr << lattice.eigenvalues().transpose() << endl << endl << lattice.eigenvectors() << endl << endl;
+
+	cerr << "base probability " << ((-beta*lattice.eigenvalues().array()).exp()+1.0).log().sum()*2.0 << endl;
+	cerr << "computed probability " << simulation.probability_from_scratch(10).first << endl;
 
 	lua_close(L);
 	fftw_cleanup_threads();
