@@ -48,6 +48,9 @@ struct Vertex {
 			}
 	};
 	Vertex (double a, size_t b, double c) : tau(a), x(b), sigma(c) {}
+	constexpr Vertex (): tau(0.0), x(0), sigma(0.0) {}
+	constexpr Vertex (double t): tau(t), x(0), sigma(0.0) {}
+	constexpr bool is_valid () const { return sigma!=0.0; }
 };
 
 class V3Simulation {
@@ -77,7 +80,7 @@ class V3Simulation {
 			eigenvalues = E;
 		}
 
-	void make_slice (Matrix_d &G,double a, double b, double s) {
+	void make_slice (Matrix_d &G, double a, double b, double s) {
 		auto first = verts.lower_bound(Vertex(a, 0, 0));
 		auto last = verts.lower_bound(Vertex(b, 0, 0));
 		double t = a;
@@ -117,6 +120,10 @@ class V3Simulation {
 		}
 		svd_up.add_identity(exp(beta*mu));
 		svd_dn.add_identity(exp(beta*mu));
+		std::pair<double, double> ret;
+		ret.first = svd_up.S.array().log().sum() + svd_dn.S.array().log().sum();
+		ret.second = (svd_up.U*svd_up.Vt*svd_dn.U*svd_dn.Vt).determinant()>0.0?1.0:-1.0;
+		return ret;
 	}
 };
 

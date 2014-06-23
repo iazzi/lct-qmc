@@ -2,7 +2,7 @@
 
 local conf, dir = ...
 local t = dofile(conf)
-dir = os.getenv('HOME')..'/'..dir..'/'
+dir = '/mnt/lnec/iazzi/'..dir..'/'
 --dir = '/cluster/scratch_xl/public/miazzi/'..dir..'/'
 local prog = io.popen('pwd'):read('*l')..'/main'
 

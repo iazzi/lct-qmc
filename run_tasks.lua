@@ -1,7 +1,7 @@
 #!/usr/bin/lua
 
 local name, time = ...
-dir = os.getenv('HOME')..'/'..name..'/'
+dir = '/mnt/lnec/iazzi/'..name..'/'
 --dir = '/cluster/scratch_xl/public/miazzi/'..name..'/'
 time = time or '1:00'
 
