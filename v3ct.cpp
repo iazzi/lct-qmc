@@ -70,26 +70,44 @@ class V3Simulation {
 		beta = b;
 	}
 
+	void setMu (double m) {
+		mu = m;
+	}
+
 	template <typename M>
 		void setEigenvectors (const Eigen::MatrixBase<M> &U) {
 			eigenvectors = U;
+			V = U.rows();
 		}
 
 	template <typename M>
 		void setEigenvalues (const Eigen::MatrixBase<M> &E) {
 			eigenvalues = E;
+			V = E.size();
 		}
 
 	void make_slice (Matrix_d &G, double a, double b, double s) {
 		auto first = verts.lower_bound(Vertex(a, 0, 0));
 		auto last = verts.lower_bound(Vertex(b, 0, 0));
 		double t = a;
-		for (auto v=first;v!=last;v++) {
+		Matrix_d cache;
+		for (auto v=first;v!=last;) {
 			if (v->tau>t) {
 				G.array() *= (-(v->tau-t)*eigenvalues.array()).exp();
 				t = v->tau;
 			}
-			G += s * v->sigma * eigenvectors.row(v->x).transpose() * eigenvectors.row(v->x) * G;
+			auto w = v;
+			while (++w!=last && w->tau==t) {}
+			if (std::distance(v, w)==1) {
+				G += s * v->sigma * eigenvectors.row(v->x).transpose() * eigenvectors.row(v->x) * G;
+			} else {
+				cache.setZero(V, V);
+				for (auto u=v;u!=w;u++) {
+					cache += s * v->sigma * eigenvectors.row(v->x).transpose() * eigenvectors.row(v->x) * G;
+				}
+				G += cache;
+			}
+			v = w;
 		}
 		if (b>t) {
 			G.array() *= (-(b-t)*eigenvalues.array()).exp();
@@ -290,6 +308,58 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 	}
 }
 
+class SquareLattice {
+	size_t Lx, Ly, Lz;
+	size_t V;
+	double tx, ty, tz;
+
+	Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> solver;
+
+	bool computed;
+
+	public:
+
+	void setSize (size_t a, size_t b, size_t c) {
+		Lx = a;
+		Ly = b;
+		Lz = c;
+		V = a*b*c;
+		computed = false;
+	}
+
+	void setTunnelling (double a, double b, double c) {
+		tx = a;
+		ty = b;
+		tz = c;
+		computed = false;
+	}
+
+	void compute () {
+		if (computed) return;
+		Eigen::MatrixXd H = Eigen::MatrixXd::Zero(V, V);
+		for (size_t x=0;x<Lx;x++) {
+			for (size_t y=0;y<Ly;y++) {
+				for (size_t z=0;z<Lz;z++) {
+					size_t a = x*Ly*Lz + y*Lz + z;
+					size_t b = ((x+1)%Lx)*Ly*Lz + y*Lz + z;
+					size_t c = x*Ly*Lz + ((y+1)%Ly)*Lz + z;
+					size_t d = x*Ly*Lz + y*Lz + (z+1)%Lz;
+					if (Lx>1 && x!=Lx-0) H(a, b) = H(b, a) = -tx;
+					if (Ly>1 && y!=Ly-0) H(a, c) = H(c, a) = -ty;
+					if (Lz>1 && z!=Lz-0) H(a, d) = H(d, a) = -tz;
+				}
+			}
+		}
+		solver.compute(H);
+		if (solver.info()==Eigen::Success) computed = true;
+	}
+
+	const typename Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd>::RealVectorType & eigenvalues () const { return solver.eigenvalues(); }
+	const typename Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd>::MatrixType & eigenvectors () const { return solver.eigenvectors(); }
+
+	SquareLattice (): Lx(2), Ly(2), Lz(1), V(4), tx(1.0), ty(1.0), tz(1.0), computed(false) {}
+};
+
 int main (int argc, char **argv) {
 	lua_State *L = luaL_newstate();
 	luaL_openlibs(L);
@@ -304,27 +374,20 @@ int main (int argc, char **argv) {
 
 	int nthreads = 1;
 	Logger log(cout);
-	//log.setVerbosity(5);
 	log << "using" << nthreads << "threads";
 
-	std::vector<std::thread> threads(nthreads);
-	std::mutex lock;
-	std::atomic<int> failed;
-	failed = 0;
-	std::atomic<int> current;
-	current = 1;
-	for (int j=0;j<nthreads;j++) {
-		threads[j] = std::thread(run_thread, j, L, std::ref(log), std::ref(lock), std::ref(current), std::ref(failed));
-	}
-	for (std::thread& t : threads) t.join();
-	log << "joined threads";
-	lua_getglobal(L, "serialize");
-	lua_insert(L, -2);
-	lua_pushstring(L, "stablefast_out.lua");
-	lua_insert(L, -2);
-	lua_pcall(L, 2, 0, 0);
+	V3Simulation simulation;
 
-	std::cout << failed << " tasks failed" << std::endl;
+	simulation.setBeta(5.0);
+	simulation.setMu(0.0);
+
+	SquareLattice lattice;
+	lattice.setSize(4, 4, 1);
+	lattice.compute();
+	simulation.setEigenvectors(lattice.eigenvectors());
+	simulation.setEigenvalues(lattice.eigenvalues());
+
+	cerr << lattice.eigenvalues().transpose() << endl << endl << lattice.eigenvectors() << endl << endl;
 
 	lua_close(L);
 	fftw_cleanup_threads();
