@@ -53,6 +53,34 @@ struct Vertex {
 	constexpr bool is_valid () const { return sigma!=0.0; }
 };
 
+class VertexFactory {
+	std::mt19937_64 &generator;
+
+	// RNG distributions
+	std::bernoulli_distribution coin_flip;
+	std::uniform_int_distribution<size_t> randomPosition;
+	std::uniform_real_distribution<double> randomTime;
+
+	public:
+	void setBeta (double b) {
+		randomTime = std::uniform_real_distribution<double>(0.0, b);
+	}
+
+	void setVolume (size_t v) {
+		randomPosition = std::uniform_int_distribution<size_t>(0, v-1);
+	}
+
+	VertexFactory (std::mt19937_64& g): generator(g) {
+		coin_flip = std::bernoulli_distribution(0.5);
+		randomPosition = std::uniform_int_distribution<size_t>(0, 0);
+		randomTime = std::uniform_real_distribution<double>(0.0, 1.0);
+	}
+
+	Vertex generate (double a = 1.0) {
+		return Vertex(randomTime(generator), randomPosition(generator), coin_flip(generator)?a:-a);
+	}
+};
+
 class V3Simulation {
 	std::set<Vertex, Vertex::Compare> verts;
 
@@ -231,7 +259,7 @@ int main (int argc, char **argv) {
 	Logger log(cout);
 	log << "using" << nthreads << "threads";
 
-	double beta = 5.0, mu = 0.0;
+	double beta = 5.0, mu = 2.0;
 	V3Simulation simulation;
 
 	simulation.setBeta(beta);
@@ -245,7 +273,7 @@ int main (int argc, char **argv) {
 
 	cerr << lattice.eigenvalues().transpose() << endl << endl << lattice.eigenvectors() << endl << endl;
 
-	cerr << "base probability " << ((-beta*lattice.eigenvalues().array()).exp()+1.0).log().sum()*2.0 << endl;
+	cerr << "base probability " << ((-beta*lattice.eigenvalues().array()+beta*mu).exp()+1.0).log().sum()*2.0 << endl;
 	cerr << "computed probability " << simulation.probability_from_scratch(10).first << endl;
 
 	lua_close(L);
