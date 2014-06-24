@@ -1,5 +1,3 @@
-#include "ct_simulation.hpp"
-
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
@@ -81,7 +79,7 @@ class VertexFactory {
 	}
 };
 
-class V3Simulation {
+class V3Configuration {
 	std::set<Vertex, Vertex::Compare> verts;
 
 	Matrix_d eigenvectors;
@@ -244,6 +242,7 @@ class SquareLattice {
 };
 
 int main (int argc, char **argv) {
+	std::mt19937_64 generator;
 	lua_State *L = luaL_newstate();
 	luaL_openlibs(L);
 	if (luaL_dofile(L, argv[1])) {
@@ -260,21 +259,21 @@ int main (int argc, char **argv) {
 	log << "using" << nthreads << "threads";
 
 	double beta = 5.0, mu = 2.0;
-	V3Simulation simulation;
+	V3Configuration configuration;
 
-	simulation.setBeta(beta);
-	simulation.setMu(mu);
+	configuration.setBeta(beta);
+	configuration.setMu(mu);
 
 	SquareLattice lattice;
 	lattice.setSize(4, 4, 1);
 	lattice.compute();
-	simulation.setEigenvectors(lattice.eigenvectors());
-	simulation.setEigenvalues(lattice.eigenvalues());
+	configuration.setEigenvectors(lattice.eigenvectors());
+	configuration.setEigenvalues(lattice.eigenvalues());
 
 	cerr << lattice.eigenvalues().transpose() << endl << endl << lattice.eigenvectors() << endl << endl;
 
 	cerr << "base probability " << ((-beta*lattice.eigenvalues().array()+beta*mu).exp()+1.0).log().sum()*2.0 << endl;
-	cerr << "computed probability " << simulation.probability_from_scratch(10).first << endl;
+	cerr << "computed probability " << configuration.probability_from_scratch(10).first << endl;
 
 	lua_close(L);
 	fftw_cleanup_threads();
