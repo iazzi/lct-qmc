@@ -133,7 +133,7 @@ class V3Configuration {
 			} else {
 				cache.setZero(V, V);
 				for (auto u=v;u!=w;u++) {
-					cache += s * v->sigma * eigenvectors.row(v->x).transpose() * (eigenvectors.row(v->x) * G);
+					cache += s * u->sigma * eigenvectors.row(u->x).transpose() * (eigenvectors.row(u->x) * G);
 				}
 				G += cache;
 			}
