@@ -82,8 +82,8 @@ class VertexFactory {
 class V3Configuration {
 	std::set<Vertex, Vertex::Compare> verts;
 
-	Matrix_d eigenvectors;
-	Vector_d eigenvalues;
+	Eigen::MatrixXd eigenvectors;
+	Eigen::VectorXd eigenvalues;
 
 	size_t V;
 	double beta, mu;
@@ -103,7 +103,7 @@ class V3Configuration {
 	template <typename M>
 		void setEigenvectors (const Eigen::MatrixBase<M> &U) {
 			eigenvectors = U;
-			V = U.rows();
+			V = eigenvectors.rows();
 		}
 
 	template <typename M>
@@ -111,6 +111,10 @@ class V3Configuration {
 			eigenvalues = E;
 			V = E.size();
 		}
+
+	size_t volume () const { return V; }
+
+	void addVertex (const Vertex& v) { verts.insert(v); }
 
 	void make_slice (Matrix_d &G, double a, double b, double s) {
 		auto first = verts.lower_bound(Vertex(a, 0, 0));
@@ -125,11 +129,11 @@ class V3Configuration {
 			auto w = v;
 			while (++w!=last && w->tau==t) {}
 			if (std::distance(v, w)==1) {
-				G += s * v->sigma * eigenvectors.row(v->x).transpose() * eigenvectors.row(v->x) * G;
+				G += s * v->sigma * eigenvectors.row(v->x).transpose() * (eigenvectors.row(v->x) * G);
 			} else {
 				cache.setZero(V, V);
 				for (auto u=v;u!=w;u++) {
-					cache += s * v->sigma * eigenvectors.row(v->x).transpose() * eigenvectors.row(v->x) * G;
+					cache += s * v->sigma * eigenvectors.row(v->x).transpose() * (eigenvectors.row(v->x) * G);
 				}
 				G += cache;
 			}
@@ -242,7 +246,6 @@ class SquareLattice {
 };
 
 int main (int argc, char **argv) {
-	std::mt19937_64 generator;
 	lua_State *L = luaL_newstate();
 	luaL_openlibs(L);
 	if (luaL_dofile(L, argv[1])) {
@@ -270,10 +273,23 @@ int main (int argc, char **argv) {
 	configuration.setEigenvectors(lattice.eigenvectors());
 	configuration.setEigenvalues(lattice.eigenvalues());
 
+	std::mt19937_64 generator;
+	VertexFactory factory(generator);
+	factory.setVolume(configuration.volume());
+	factory.setBeta(beta);
+
 	cerr << lattice.eigenvalues().transpose() << endl << endl << lattice.eigenvectors() << endl << endl;
 
 	cerr << "base probability " << ((-beta*lattice.eigenvalues().array()+beta*mu).exp()+1.0).log().sum()*2.0 << endl;
 	cerr << "computed probability " << configuration.probability_from_scratch(10).first << endl;
+
+	for (int n=0;n<beta*configuration.volume()*5;n++) {
+		configuration.addVertex(factory.generate(0.5));
+		cerr << (n+1) << " vertices" << endl;
+		for (int i=0;i<30;i+=5)
+			cerr << (i+1) << " svds probability " << configuration.probability_from_scratch(i+1).first << endl;
+		cerr << endl;
+	}
 
 	lua_close(L);
 	fftw_cleanup_threads();
