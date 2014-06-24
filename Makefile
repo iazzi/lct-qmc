@@ -33,6 +33,6 @@ optimized:
 	$(MAKE) all MYCXXFLAGS="-O3 -march=native -DNDEBUG -DEIGEN_NO_DEBUG $(MYCXXFLAGS)" MYLDFLAGS=""
 
 debug:
-	$(MAKE) all MYCXXFLAGS="-g" MYLDFLAGS=""
+	$(MAKE) all MYCXXFLAGS="-g -ggdb -O0" MYLDFLAGS="-g -ggdb -O0"
 
 

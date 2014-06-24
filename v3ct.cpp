@@ -28,6 +28,7 @@ extern "C" {
 #include <Eigen/QR>
 
 #include <set>
+#include <iterator>
 
 #include <csignal>
 
@@ -115,6 +116,79 @@ class V3Configuration {
 	size_t volume () const { return V; }
 
 	void addVertex (const Vertex& v) { verts.insert(v); }
+
+	void updateVectors (const Vertex& w, double s) {
+		size_t n = slices_up.size();
+		double dtau = beta/n;
+		size_t index = size_t(w.tau/dtau);
+		double t0 = beta/n*index, t1 = beta/n*(index+1);
+		auto first = verts.lower_bound(Vertex(t0, 0, 0));
+		auto last = verts.lower_bound(Vertex(t1, 0, 0));
+		auto now = verts.lower_bound(Vertex(w.tau, 0, 0));
+		Eigen::VectorXd u, v;
+		u = eigenvectors.row(w.x).transpose();
+		v = eigenvectors.row(w.x).transpose();
+		Eigen::VectorXd cache;
+
+		double t = w.tau;
+		for (auto i=now;i!=last;) {
+			if (i->tau==w.tau) {
+				i++;
+				continue;
+			}
+			if (i->tau>t) {
+				u.array() *= (-(i->tau-t)*eigenvalues.array()).exp();
+				t = i->tau;
+			}
+			auto j = i;
+			while (++j!=last && j->tau==t) {}
+			if (std::distance(i, j)==1) {
+				u += s * i->sigma * eigenvectors.row(i->x).transpose() * (eigenvectors.row(i->x) * u);
+			} else {
+				cache.setZero(V);
+				for (auto k=i;k!=j;k++) {
+					cache += s * k->sigma * eigenvectors.row(k->x).transpose() * (eigenvectors.row(k->x) * u);
+				}
+				u += cache;
+			}
+			i = j;
+		}
+		if (t1>t) {
+			u.array() *= (-(t1-t)*eigenvalues.array()).exp();
+		}
+
+		t = w.tau;
+		for (auto i=now;i!=verts.end();) {
+			if (i->tau<t) {
+				v.array() *= (-(t-i->tau)*eigenvalues.array()).exp();
+				t = i->tau;
+			}
+			auto j = i;
+			while (j!=first && std::prev(j)->tau==t) { j--; }
+			if (std::distance(j, i)==0 && t!=w.tau) {
+				v += s * i->sigma * eigenvectors.row(i->x).transpose() * (eigenvectors.row(i->x) * v);
+			} else if (t!=w.tau) {
+				cache.setZero(V);
+				for (auto k=i;std::prev(k)!=j;k--) {
+					cache += s * k->sigma * eigenvectors.row(k->x).transpose() * (eigenvectors.row(k->x) * v);
+				}
+				v += cache;
+			}
+			if (j==first) {
+				break;
+			} else {
+				i = std::prev(j);
+			}
+		}
+		if (t0<t) {
+			v.array() *= (-(t-t0)*eigenvalues.array()).exp();
+		}
+
+		Eigen::MatrixXd A = slices_up[index] + w.sigma * u * v.transpose();
+		addVertex(w);
+		make_slices(n);
+		std::cerr << (A-slices_up[index]).norm() << std::endl;
+	}
 
 	void make_slice (Matrix_d &G, double a, double b, double s) {
 		auto first = verts.lower_bound(Vertex(a, 0, 0));
@@ -284,10 +358,10 @@ int main (int argc, char **argv) {
 	cerr << "computed probability " << configuration.probability_from_scratch(10).first << endl;
 
 	for (int n=0;n<beta*configuration.volume()*5;n++) {
-		configuration.addVertex(factory.generate(0.5));
 		cerr << (n+1) << " vertices" << endl;
-		for (int i=0;i<30;i+=5)
-			cerr << (i+1) << " svds probability " << configuration.probability_from_scratch(i+1).first << endl;
+		configuration.updateVectors(factory.generate(0.5), 1.0);
+		//for (int i=0;i<30;i+=5)
+			//cerr << (i+1) << " svds probability " << configuration.probability_from_scratch(i+1).first << endl;
 		cerr << endl;
 	}
 
