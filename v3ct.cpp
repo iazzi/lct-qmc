@@ -109,7 +109,6 @@ class V3Configuration {
 	size_t volume () const { return V; }
 
 	void insertVertex (const Vertex& v) { verts.insert(v); }
-	void addVertex (const Vertex& v) { verts.insert(v); }
 
 	void computeUpdateVectors (Eigen::VectorXd &u, Eigen::VectorXd &v, const Vertex& w, double s) {
 		size_t n = slices_up.size();
@@ -180,7 +179,7 @@ class V3Configuration {
 		u *= s * w.sigma;
 	}
 
-	void updateVectors (const Vertex& w) {
+	void addRank1Vertex (const Vertex& w) {
 		size_t n = slices_up.size();
 		double dtau = beta/n;
 		size_t index = size_t(w.tau/dtau);
@@ -189,15 +188,25 @@ class V3Configuration {
 		computeUpdateVectors(u_up, v_up, w, 1.0);
 		computeUpdateVectors(u_dn, v_dn, w, -1.0);
 
-		Eigen::MatrixXd A = slices_up[index] + u_up * v_up.transpose();
-		Eigen::MatrixXd B = slices_dn[index] + u_dn * v_dn.transpose();
+		slices_up[index] += u_up * v_up.transpose();
+		slices_dn[index] += u_dn * v_dn.transpose();
 		insertVertex(w);
-		make_slices(n);
-		std::cerr << (A-slices_up[index]).norm() << std::endl;
-		std::cerr << (B-slices_dn[index]).norm() << std::endl;
+		damage[index]++;
 	}
 
-	void make_slice (Matrix_d &G, double a, double b, double s) {
+	void addVertex (const Vertex& w, int threshold = 10) {
+		size_t n = slices_up.size();
+		double dtau = beta/n;
+		size_t index = size_t(w.tau/dtau);
+		if (damage[index]<threshold) {
+			addRank1Vertex(w);
+		} else {
+			insertVertex(w);
+			reset_slice(index);
+		}
+	}
+
+	void compute_slice (Matrix_d &G, double a, double b, double s) {
 		auto first = verts.lower_bound(Vertex(a, 0, 0));
 		auto last = verts.lower_bound(Vertex(b, 0, 0));
 		double t = a;
@@ -228,16 +237,29 @@ class V3Configuration {
 		//std::cerr << G << std::endl << std::endl;
 	}
 
+	void reset_slice (size_t index) {
+		size_t n = slices_up.size();
+		slices_up[index].setIdentity(V, V);
+		slices_dn[index].setIdentity(V, V);
+		compute_slice(slices_up[index], beta/n*index, beta/n*(index+1), +1.0);
+		compute_slice(slices_dn[index], beta/n*index, beta/n*(index+1), -1.0);
+		damage[index] = 0;
+	}
+
+	void recheck_slice (size_t index) {
+		if (damage[index]==0) return;
+		Eigen::MatrixXd A = slices_up[index];
+		Eigen::MatrixXd B = slices_dn[index];
+		reset_slice(index);
+		std::cerr << (A - slices_up[index]).norm() << ' ' << (B - slices_dn[index]).norm() << std::endl;
+	}
+
 	void make_slices (size_t n) {
 		slices_up.resize(n);
 		slices_dn.resize(n);
 		damage.resize(n);
-		std::fill(slices_up.begin(), slices_up.end(), Matrix_d::Identity(V, V));
-		std::fill(slices_dn.begin(), slices_dn.end(), Matrix_d::Identity(V, V));
 		for (size_t i=0;i<n;i++) {
-			make_slice(slices_up[i], beta/n*i, beta/n*(i+1), +1.0);
-			make_slice(slices_dn[i], beta/n*i, beta/n*(i+1), -1.0);
-			damage[i] = 0;
+			reset_slice(i);
 		}
 	}
 
@@ -355,14 +377,15 @@ int main (int argc, char **argv) {
 
 	for (int n=0;n<beta*configuration.volume()*5;n++) {
 		cerr << (n+1) << " vertices" << endl;
-		configuration.updateVectors(factory.generate(0.5));
+		configuration.addVertex(factory.generate(0.5));
 		//for (int i=0;i<30;i+=5)
 			//cerr << (i+1) << " svds probability " << configuration.probability_from_scratch(i+1).first << endl;
+		if ((n+1)%10==0)
+			for (int k=0;k<10;k++)
+				configuration.recheck_slice(k);
 		cerr << endl;
 	}
 
 	return 0;
 }
-
-
 
