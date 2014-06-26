@@ -117,7 +117,7 @@ class V3Configuration {
 
 	void addVertex (const Vertex& v) { verts.insert(v); }
 
-	void updateVectors (const Vertex& w, double s) {
+	void computeUpdateVectors (Eigen::VectorXd &u, Eigen::VectorXd &v, const Vertex& w, double s) {
 		size_t n = slices_up.size();
 		double dtau = beta/n;
 		size_t index = size_t(w.tau/dtau);
@@ -125,7 +125,6 @@ class V3Configuration {
 		auto first = verts.lower_bound(Vertex(t0, 0, 0));
 		auto last = verts.lower_bound(Vertex(t1, 0, 0));
 		auto now = verts.lower_bound(Vertex(w.tau, 0, 0));
-		Eigen::VectorXd u, v;
 		u = eigenvectors.row(w.x).transpose();
 		v = eigenvectors.row(w.x).transpose();
 		Eigen::VectorXd cache;
@@ -184,10 +183,24 @@ class V3Configuration {
 			v.array() *= (-(t-t0)*eigenvalues.array()).exp();
 		}
 
-		Eigen::MatrixXd A = slices_up[index] + w.sigma * u * v.transpose();
+		u *= s * w.sigma;
+	}
+
+	void updateVectors (const Vertex& w) {
+		size_t n = slices_up.size();
+		double dtau = beta/n;
+		size_t index = size_t(w.tau/dtau);
+		Eigen::VectorXd u_up, v_up;
+		Eigen::VectorXd u_dn, v_dn;
+		computeUpdateVectors(u_up, v_up, w, 1.0);
+		computeUpdateVectors(u_dn, v_dn, w, -1.0);
+
+		Eigen::MatrixXd A = slices_up[index] + u_up * v_up.transpose();
+		Eigen::MatrixXd B = slices_dn[index] + u_dn * v_dn.transpose();
 		addVertex(w);
 		make_slices(n);
 		std::cerr << (A-slices_up[index]).norm() << std::endl;
+		std::cerr << (B-slices_dn[index]).norm() << std::endl;
 	}
 
 	void make_slice (Matrix_d &G, double a, double b, double s) {
@@ -359,7 +372,7 @@ int main (int argc, char **argv) {
 
 	for (int n=0;n<beta*configuration.volume()*5;n++) {
 		cerr << (n+1) << " vertices" << endl;
-		configuration.updateVectors(factory.generate(0.5), 1.0);
+		configuration.updateVectors(factory.generate(0.5));
 		//for (int i=0;i<30;i+=5)
 			//cerr << (i+1) << " svds probability " << configuration.probability_from_scratch(i+1).first << endl;
 		cerr << endl;
