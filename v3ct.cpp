@@ -15,14 +15,6 @@
 #include "logger.hpp"
 #include "svd.hpp"
 
-extern "C" {
-#include <fftw3.h>
-
-#include <lua.h>
-#include <lualib.h>
-#include <lauxlib.h>
-}
-
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
 #include <Eigen/QR>
@@ -91,6 +83,7 @@ class V3Configuration {
 
 	std::vector<Matrix_d> slices_up;
 	std::vector<Matrix_d> slices_dn;
+	std::vector<int> damage;
 
 	public:
 	void setBeta (double b) {
@@ -115,6 +108,7 @@ class V3Configuration {
 
 	size_t volume () const { return V; }
 
+	void insertVertex (const Vertex& v) { verts.insert(v); }
 	void addVertex (const Vertex& v) { verts.insert(v); }
 
 	void computeUpdateVectors (Eigen::VectorXd &u, Eigen::VectorXd &v, const Vertex& w, double s) {
@@ -197,7 +191,7 @@ class V3Configuration {
 
 		Eigen::MatrixXd A = slices_up[index] + u_up * v_up.transpose();
 		Eigen::MatrixXd B = slices_dn[index] + u_dn * v_dn.transpose();
-		addVertex(w);
+		insertVertex(w);
 		make_slices(n);
 		std::cerr << (A-slices_up[index]).norm() << std::endl;
 		std::cerr << (B-slices_dn[index]).norm() << std::endl;
@@ -237,11 +231,13 @@ class V3Configuration {
 	void make_slices (size_t n) {
 		slices_up.resize(n);
 		slices_dn.resize(n);
+		damage.resize(n);
 		std::fill(slices_up.begin(), slices_up.end(), Matrix_d::Identity(V, V));
 		std::fill(slices_dn.begin(), slices_dn.end(), Matrix_d::Identity(V, V));
 		for (size_t i=0;i<n;i++) {
 			make_slice(slices_up[i], beta/n*i, beta/n*(i+1), +1.0);
 			make_slice(slices_dn[i], beta/n*i, beta/n*(i+1), -1.0);
+			damage[i] = 0;
 		}
 	}
 
@@ -333,20 +329,7 @@ class SquareLattice {
 };
 
 int main (int argc, char **argv) {
-	lua_State *L = luaL_newstate();
-	luaL_openlibs(L);
-	if (luaL_dofile(L, argv[1])) {
-		std::cerr << "Error loading configuration file \"" << argv[1] << "\":" << std::endl;
-		std::cerr << '\t' << lua_tostring(L, -1) << std::endl;
-		return -1;
-	}
-
-	fftw_init_threads();
-	fftw_plan_with_nthreads(1);
-
-	int nthreads = 1;
 	Logger log(cout);
-	log << "using" << nthreads << "threads";
 
 	double beta = 5.0, mu = 2.0;
 	V3Configuration configuration;
@@ -378,8 +361,6 @@ int main (int argc, char **argv) {
 		cerr << endl;
 	}
 
-	lua_close(L);
-	fftw_cleanup_threads();
 	return 0;
 }
 
