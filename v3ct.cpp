@@ -247,11 +247,12 @@ class V3Configuration {
 	}
 
 	void recheck_slice (size_t index) {
-		if (damage[index]==0) return;
+		if (index<0 || index>=damage.size() || damage[index]==0) return;
+		int d = damage[index];
 		Eigen::MatrixXd A = slices_up[index];
 		Eigen::MatrixXd B = slices_dn[index];
 		reset_slice(index);
-		std::cerr << (A - slices_up[index]).norm() << ' ' << (B - slices_dn[index]).norm() << std::endl;
+		std::cerr << d << ' ' <<(A - slices_up[index]).norm() << ' ' << (B - slices_dn[index]).norm() << std::endl;
 	}
 
 	void make_slices (size_t n) {
@@ -263,15 +264,15 @@ class V3Configuration {
 		}
 	}
 
-	std::pair<double, double> probability_from_scratch (size_t n) {
-		make_slices(n);
+	std::pair<double, double> probability (size_t m) {
+		size_t n = damage.size();
 		SVDMatrix svd_up, svd_dn;
 		svd_up.setIdentity(V);
 		svd_dn.setIdentity(V);
 		for (size_t t=0;t<n;t++) {
-			svd_up.U.applyOnTheLeft(slices_up[t]);
+			svd_up.U.applyOnTheLeft(slices_up[(t+m)%n]);
 			svd_up.absorbU();
-			svd_dn.U.applyOnTheLeft(slices_dn[t]);
+			svd_dn.U.applyOnTheLeft(slices_dn[(t+m)%n]);
 			svd_dn.absorbU();
 		}
 		svd_up.add_identity(exp(beta*mu));
@@ -280,6 +281,11 @@ class V3Configuration {
 		ret.first = svd_up.S.array().log().sum() + svd_dn.S.array().log().sum();
 		ret.second = (svd_up.U*svd_up.Vt*svd_dn.U*svd_dn.Vt).determinant()>0.0?1.0:-1.0;
 		return ret;
+	}
+
+	std::pair<double, double> probability_from_scratch (size_t n) {
+		make_slices(n);
+		return probability(0);
 	}
 };
 
@@ -380,7 +386,7 @@ int main (int argc, char **argv) {
 		configuration.addVertex(factory.generate(0.5));
 		//for (int i=0;i<30;i+=5)
 			//cerr << (i+1) << " svds probability " << configuration.probability_from_scratch(i+1).first << endl;
-		if ((n+1)%10==0)
+		if ((n+1)%40==0)
 			for (int k=0;k<10;k++)
 				configuration.recheck_slice(k);
 		cerr << endl;
