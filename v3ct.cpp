@@ -150,14 +150,14 @@ class V3Configuration {
 		}
 
 		t = w.tau;
-		for (auto i=now;i!=verts.end();) {
-			if (i->tau<t) {
+		for (auto i=now;first!=verts.end();) {
+			if (i!=verts.end() && i->tau<t) {
 				v.array() *= (-(t-i->tau)*eigenvalues.array()).exp();
 				t = i->tau;
 			}
 			auto j = i;
 			while (j!=first && std::prev(j)->tau==t) { j--; }
-			if (std::distance(j, i)==0 && t!=w.tau) {
+			if (std::distance(j, i)==0 && t<w.tau) {
 				v += s * i->sigma * eigenvectors.row(i->x).transpose() * (eigenvectors.row(i->x) * v);
 			} else if (t!=w.tau) {
 				cache.setZero(V);
@@ -252,7 +252,7 @@ class V3Configuration {
 		Eigen::MatrixXd A = slices_up[index];
 		Eigen::MatrixXd B = slices_dn[index];
 		reset_slice(index);
-		std::cerr << d << ' ' <<(A - slices_up[index]).norm() << ' ' << (B - slices_dn[index]).norm() << std::endl;
+		std::cerr << index << " (damage=" << d << ") " <<(A - slices_up[index]).norm() << ' ' << (B - slices_dn[index]).norm() << std::endl;
 	}
 
 	void make_slices (size_t n) {
@@ -386,9 +386,10 @@ int main (int argc, char **argv) {
 		configuration.addVertex(factory.generate(0.5));
 		//for (int i=0;i<30;i+=5)
 			//cerr << (i+1) << " svds probability " << configuration.probability_from_scratch(i+1).first << endl;
-		if ((n+1)%40==0)
+		if ((n+1)%40==0) {
 			for (int k=0;k<10;k++)
 				configuration.recheck_slice(k);
+		}
 		cerr << endl;
 	}
 
