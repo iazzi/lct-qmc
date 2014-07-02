@@ -256,23 +256,36 @@ class V3Configuration {
 		computeUpdateVectors(u, r, w, +1.0);
 		computeUpdateVectors(u, z, w, -1.0);
 		std::cerr << "test " << index << " (" << w.tau << ", " << w.x << ", " << w.sigma << ") = " << (v-slices_up[index].inverse().transpose()*r).norm();
-		std::cerr << "; " << (v-slices_dn[index].inverse()*z).norm();
+		std::cerr << "; " << (v-slices_dn[index].inverse().transpose()*z).norm();
 		std::cerr << "; " << (slices_up[index]-slices_dn[index]).norm() << std::endl;
+	}
 
-		if ((v-slices_up[index].inverse().transpose()*r).norm()>1.0e-10) {
-			std::cerr << v.transpose() << std::endl;
-			std::cerr << (slices_up[index].inverse().transpose()*r).transpose() << std::endl;
-			std::cerr << (slices_up[index].inverse()*r).transpose() << std::endl;
-			std::cerr << (r.transpose() * slices_up[index].inverse()) << std::endl;
-			std::cerr << (r.transpose() * slices_up[index].inverse()).array()/v.transpose().array() << std::endl << std::endl;
-			Eigen::MatrixXd F = Eigen::MatrixXd::Identity(V, V);
-			Eigen::MatrixXd G = Eigen::MatrixXd::Identity(V, V);
-			compute_slice(F, t0, t1, +1.0);
-			compute_slice_inverse(G, t0, t1, +1.0);
-			std::cerr << F*G << std::endl << std::endl;
-			std::cerr << G*F << std::endl << std::endl;
-			throw -1;
+	double testRank1Update (const Vertex &w) {
+		size_t n = slices_up.size();
+		double dtau = beta/n;
+		size_t index = size_t(w.tau/dtau);
+		Eigen::VectorXd u_up, u_dn;
+		Eigen::VectorXd v_up, v_dn;
+		computeUpdateVectors(u_up, v_up, w, +1.0);
+		computeUpdateVectors(u_dn, v_dn, w, -1.0);
+		computeReversedVector(v_up, w, +1.0);
+		computeReversedVector(v_dn, w, -1.0);
+		SVDHelper svd_up, svd_dn;
+		svd_up.setIdentity(V);
+		svd_dn.setIdentity(V);
+		size_t m = index+1;
+		for (size_t t=0;t<n;t++) {
+			svd_up.U.applyOnTheLeft(slices_up[(t+m)%n]);
+			svd_up.absorbU();
+			svd_dn.U.applyOnTheLeft(slices_dn[(t+m)%n]);
+			svd_dn.absorbU();
 		}
+		svd_up.invertInPlace();
+		svd_dn.invertInPlace();
+		svd_up.add_identity(exp(-beta*mu));
+		svd_dn.add_identity(exp(-beta*mu));
+		return (1.0 + v_up.transpose() * svd_up.inverse() * u_up)
+			* (1.0 + v_dn.transpose() * svd_dn.inverse() * u_dn);
 	}
 
 	void addVertex (const Vertex& w, int threshold = 10) {
@@ -497,8 +510,9 @@ int main (int argc, char **argv) {
 	for (int n=0;n<beta*configuration.volume()*1;n++) {
 		cerr << (n+1) << " vertices" << endl;
 		Vertex w = factory.generate(0.5);
-		configuration.computeReversedVector(v, w, +1.0);
+		std::cerr << configuration.probability(0).first+std::log(fabs(configuration.testRank1Update(w))) << std::endl;
 		configuration.addVertex(w);
+		std::cerr << configuration.probability(0).first << std::endl;
 		//for (int i=0;i<30;i+=5)
 			//cerr << (i+1) << " svds probability " << configuration.probability_from_scratch(i+1).first << endl;
 		if ((n+1)%40==0) {
