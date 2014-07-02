@@ -188,9 +188,30 @@ class V3Configuration {
 		computeUpdateVectors(u_up, v_up, w, 1.0);
 		computeUpdateVectors(u_dn, v_dn, w, -1.0);
 
+		insertVertex(w);
+
+		double t0 = beta/n*index, t1 = beta/n*(index+1);
+		Eigen::MatrixXd G = Eigen::MatrixXd::Identity(V, V);
+		Eigen::MatrixXd F = Eigen::MatrixXd::Identity(V, V);
+		compute_slice(G, t0, t1, +1.0);
+		compute_slice_inverse(F, t0, t1, +1.0);
+		if ((F-G.inverse()).norm()>1.0e-10) {
+			std::cerr << F << std::endl << std::endl;
+			std::cerr << G.inverse() << std::endl << std::endl;
+			std::cerr << F.array()/G.inverse().array() << std::endl << std::endl;
+			throw -1;
+		}
+		if ((slices_up[index]+u_up * v_up.transpose()-G).norm()>1e-10) {
+			std::cerr << u_up.transpose() << std::endl;
+			std::cerr << v_up.transpose() << std::endl << std::endl;
+			std::cerr << (G-slices_up[index]) << std::endl << std::endl;
+			std::cerr << u_up.array().inverse().matrix().asDiagonal()*(G-slices_up[index]) << std::endl;
+			std::cerr << std::endl;
+			throw -1;
+		}
+
 		slices_up[index] += u_up * v_up.transpose();
 		slices_dn[index] += u_dn * v_dn.transpose();
-		insertVertex(w);
 		damage[index]++;
 	}
 
@@ -232,6 +253,37 @@ class V3Configuration {
 		}
 		if (b>t) {
 			G.array().colwise() *= (-(b-t)*eigenvalues.array()).exp();
+		}
+		//std::cerr << (-(b-t)*eigenvalues.array()).exp().transpose() << std::endl << std::endl;
+		//std::cerr << G << std::endl << std::endl;
+	}
+
+	void compute_slice_inverse (Matrix_d &G, double a, double b, double s) {
+		auto first = verts.lower_bound(Vertex(a, 0, 0));
+		auto last = verts.lower_bound(Vertex(b, 0, 0));
+		double t = a;
+		Matrix_d cache;
+		for (auto v=first;v!=last;) {
+			if (v->tau>t) {
+				G.array().rowwise() *= (+(v->tau-t)*eigenvalues.array()).exp().transpose();
+				t = v->tau;
+			}
+			auto w = v;
+			while (++w!=last && w->tau==t) {}
+			if (std::distance(v, w)==1) {
+				G -= s * v->sigma / (1.0+v->sigma) * (G * eigenvectors.row(v->x).transpose()) * eigenvectors.row(v->x);
+			} else {
+				cache.setZero(V, V);
+				for (auto u=v;u!=w;u++) {
+					cache += s * u->sigma * eigenvectors.row(u->x).transpose() * (eigenvectors.row(u->x) * G);
+				}
+				G += cache;
+			}
+			v = w;
+			//std::cerr << "vertex!" << std::endl;
+		}
+		if (b>t) {
+			G.array().rowwise() *= (+(b-t)*eigenvalues.array()).exp().transpose();
 		}
 		//std::cerr << (-(b-t)*eigenvalues.array()).exp().transpose() << std::endl << std::endl;
 		//std::cerr << G << std::endl << std::endl;
