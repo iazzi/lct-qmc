@@ -10,7 +10,7 @@ main: main.o simulation.o mpfr.o
 
 ct_main: ct_main.o ct_simulation.o
 
-v3ct: v3ct.o ct_simulation.o
+v3ct: v3ct.o
 
 simulation.o: simulation.cpp simulation.hpp
 

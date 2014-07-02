@@ -215,6 +215,66 @@ class V3Configuration {
 		damage[index]++;
 	}
 
+	void computeReversedVector (Eigen::VectorXd &v, const Vertex& w, double s) {
+		size_t n = slices_up.size();
+		double dtau = beta/n;
+		size_t index = size_t(w.tau/dtau);
+		double t0 = beta/n*index, t1 = beta/n*(index+1);
+		auto first = verts.lower_bound(Vertex(t0, 0, 0));
+		auto last = verts.lower_bound(Vertex(t1, 0, 0));
+		auto now = verts.lower_bound(Vertex(w.tau, 0, 0));
+		v = eigenvectors.row(w.x).transpose();
+		Eigen::VectorXd cache;
+
+		double t = w.tau;
+		for (auto i=now;i!=last;) {
+			if (i->tau==w.tau) {
+				i++;
+				continue;
+			}
+			if (i->tau>t) {
+				v.array() *= (+(i->tau-t)*eigenvalues.array()).exp();
+				t = i->tau;
+			}
+			auto j = i;
+			while (++j!=last && j->tau==t) {}
+			if (std::distance(i, j)==1) {
+				v -= s * i->sigma / (1.0+i->sigma) * eigenvectors.row(i->x).transpose() * (eigenvectors.row(i->x) * v);
+			} else {
+				cache.setZero(V);
+				for (auto k=i;k!=j;k++) {
+					cache -= s * k->sigma / (1.0+k->sigma) * eigenvectors.row(k->x).transpose() * (eigenvectors.row(k->x) * v);
+				}
+				v += cache;
+			}
+			i = j;
+		}
+		if (t1>t) {
+			v.array() *= (+(t1-t)*eigenvalues.array()).exp();
+		}
+		Eigen::VectorXd u, r, z;
+		computeUpdateVectors(u, r, w, +1.0);
+		computeUpdateVectors(u, z, w, -1.0);
+		std::cerr << "test " << index << " (" << w.tau << ", " << w.x << ", " << w.sigma << ") = " << (v-slices_up[index].inverse().transpose()*r).norm();
+		std::cerr << "; " << (v-slices_dn[index].inverse()*z).norm();
+		std::cerr << "; " << (slices_up[index]-slices_dn[index]).norm() << std::endl;
+
+		if ((v-slices_up[index].inverse().transpose()*r).norm()>1.0e-10) {
+			std::cerr << v.transpose() << std::endl;
+			std::cerr << (slices_up[index].inverse().transpose()*r).transpose() << std::endl;
+			std::cerr << (slices_up[index].inverse()*r).transpose() << std::endl;
+			std::cerr << (r.transpose() * slices_up[index].inverse()) << std::endl;
+			std::cerr << (r.transpose() * slices_up[index].inverse()).array()/v.transpose().array() << std::endl << std::endl;
+			Eigen::MatrixXd F = Eigen::MatrixXd::Identity(V, V);
+			Eigen::MatrixXd G = Eigen::MatrixXd::Identity(V, V);
+			compute_slice(F, t0, t1, +1.0);
+			compute_slice_inverse(G, t0, t1, +1.0);
+			std::cerr << F*G << std::endl << std::endl;
+			std::cerr << G*F << std::endl << std::endl;
+			throw -1;
+		}
+	}
+
 	void addVertex (const Vertex& w, int threshold = 10) {
 		size_t n = slices_up.size();
 		double dtau = beta/n;
@@ -275,7 +335,7 @@ class V3Configuration {
 			} else {
 				cache.setZero(V, V);
 				for (auto u=v;u!=w;u++) {
-					cache += s * u->sigma * eigenvectors.row(u->x).transpose() * (eigenvectors.row(u->x) * G);
+					cache += s * u->sigma / (1.0+u->sigma) * eigenvectors.row(u->x).transpose() * (eigenvectors.row(u->x) * G);
 				}
 				G += cache;
 			}
@@ -433,9 +493,12 @@ int main (int argc, char **argv) {
 	cerr << "base probability " << ((-beta*lattice.eigenvalues().array()+beta*mu).exp()+1.0).log().sum()*2.0 << endl;
 	cerr << "computed probability " << configuration.probability_from_scratch(10).first << endl;
 
-	for (int n=0;n<beta*configuration.volume()*5;n++) {
+	Eigen::VectorXd v;
+	for (int n=0;n<beta*configuration.volume()*1;n++) {
 		cerr << (n+1) << " vertices" << endl;
-		configuration.addVertex(factory.generate(0.5));
+		Vertex w = factory.generate(0.5);
+		configuration.computeReversedVector(v, w, +1.0);
+		configuration.addVertex(w);
 		//for (int i=0;i<30;i+=5)
 			//cerr << (i+1) << " svds probability " << configuration.probability_from_scratch(i+1).first << endl;
 		if ((n+1)%40==0) {
