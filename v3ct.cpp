@@ -239,11 +239,11 @@ class V3Configuration {
 			auto j = i;
 			while (++j!=last && j->tau==t) {}
 			if (std::distance(i, j)==1) {
-				v -= s * i->sigma / (1.0+i->sigma) * eigenvectors.row(i->x).transpose() * (eigenvectors.row(i->x) * v);
+				v -= s * i->sigma / (1.0+s*i->sigma) * eigenvectors.row(i->x).transpose() * (eigenvectors.row(i->x) * v);
 			} else {
 				cache.setZero(V);
 				for (auto k=i;k!=j;k++) {
-					cache -= s * k->sigma / (1.0+k->sigma) * eigenvectors.row(k->x).transpose() * (eigenvectors.row(k->x) * v);
+					cache -= s * k->sigma / (1.0+s*k->sigma) * eigenvectors.row(k->x).transpose() * (eigenvectors.row(k->x) * v);
 				}
 				v += cache;
 			}
@@ -331,11 +331,11 @@ class V3Configuration {
 			auto w = v;
 			while (++w!=last && w->tau==t) {}
 			if (std::distance(v, w)==1) {
-				G -= s * v->sigma / (1.0+v->sigma) * (G * eigenvectors.row(v->x).transpose()) * eigenvectors.row(v->x);
+				G -= s * v->sigma / (1.0+s*v->sigma) * (G * eigenvectors.row(v->x).transpose()) * eigenvectors.row(v->x);
 			} else {
 				cache.setZero(V, V);
 				for (auto u=v;u!=w;u++) {
-					cache += s * u->sigma / (1.0+u->sigma) * eigenvectors.row(u->x).transpose() * (eigenvectors.row(u->x) * G);
+					cache -= s * u->sigma / (1.0+s*u->sigma) * eigenvectors.row(u->x).transpose() * (eigenvectors.row(u->x) * G);
 				}
 				G += cache;
 			}
