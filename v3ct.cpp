@@ -196,9 +196,10 @@ class V3Configuration {
 		compute_slice(G, t0, t1, +1.0);
 		compute_slice_inverse(F, t0, t1, +1.0);
 		if ((F-G.inverse()).norm()>1.0e-10) {
+			std::cerr << damage[index] << " ==> " << (F-G.inverse()).norm() << std::endl << std::endl;
 			std::cerr << F << std::endl << std::endl;
 			std::cerr << G.inverse() << std::endl << std::endl;
-			std::cerr << F.array()/G.inverse().array() << std::endl << std::endl;
+			std::cerr << (F-G.inverse())*1.0e10 << std::endl << std::endl;
 			throw -1;
 		}
 		if ((slices_up[index]+u_up * v_up.transpose()-G).norm()>1e-10) {
@@ -286,6 +287,55 @@ class V3Configuration {
 		svd_dn.add_identity(exp(-beta*mu));
 		return (1.0 + v_up.transpose() * svd_up.inverse() * u_up)
 			* (1.0 + v_dn.transpose() * svd_dn.inverse() * u_dn);
+	}
+
+	double testRank2Update (const Vertex &w1, const Vertex &w2) {
+		size_t n = slices_up.size();
+		double dtau = beta/n;
+		size_t index = size_t(w1.tau/dtau);
+		Eigen::MatrixXd U_up, U_dn;
+		Eigen::MatrixXd V_up, V_dn;
+		U_up.resize(V, 2);
+		U_dn.resize(V, 2);
+		V_up.resize(V, 2);
+		V_dn.resize(V, 2);
+		Eigen::VectorXd u_up, u_dn;
+		Eigen::VectorXd v_up, v_dn;
+		computeUpdateVectors(u_up, v_up, w1, +1.0);
+		computeUpdateVectors(u_dn, v_dn, w1, -1.0);
+		//computeReversedVector(v_up, w1, +1.0);
+		//computeReversedVector(v_dn, w1, -1.0);
+		U_up.col(0) = u_up;
+		U_dn.col(0) = u_dn;
+		V_up.col(0) = v_up;
+		V_dn.col(0) = v_dn;
+		SVDHelper svd_up, svd_dn;
+		svd_up.setIdentity(V);
+		svd_dn.setIdentity(V);
+		size_t m = index+1;
+		for (size_t t=0;t<n;t++) {
+			svd_up.U.applyOnTheLeft(slices_up[(t+m)%n]);
+			svd_up.absorbU();
+			svd_dn.U.applyOnTheLeft(slices_dn[(t+m)%n]);
+			svd_dn.absorbU();
+		}
+		svd_up.invertInPlace();
+		svd_dn.invertInPlace();
+		svd_up.add_identity(exp(-beta*mu));
+		svd_dn.add_identity(exp(-beta*mu));
+		Eigen::MatrixXd update_matrix_up = slices_up[index].inverse() * svd_up.inverse();
+		Eigen::MatrixXd update_matrix_dn = slices_dn[index].inverse() * svd_dn.inverse();
+		addVertex(w1);
+		computeUpdateVectors(u_up, v_up, w2, +1.0);
+		computeUpdateVectors(u_dn, v_dn, w2, -1.0);
+		//computeReversedVector(v_up, w2, +1.0);
+		//computeReversedVector(v_dn, w2, -1.0);
+		U_up.col(1) = u_up;
+		U_dn.col(1) = u_dn;
+		V_up.col(1) = v_up;
+		V_dn.col(1) = v_dn;
+		return ( (Eigen::MatrixXd::Identity(2, 2) + V_up.transpose() * update_matrix_up * U_up).determinant()
+			* (Eigen::MatrixXd::Identity(2, 2) + V_dn.transpose() * update_matrix_dn * U_dn).determinant() );
 	}
 
 	void addVertex (const Vertex& w, int threshold = 10) {
@@ -409,6 +459,7 @@ class V3Configuration {
 	}
 
 	std::pair<double, double> probability_from_scratch (size_t n) {
+		n = n==0?slices_up.size():n;
 		make_slices(n);
 		return probability(0);
 	}
@@ -484,7 +535,7 @@ class SquareLattice {
 int main (int argc, char **argv) {
 	Logger log(cout);
 
-	double beta = 5.0, mu = 2.0;
+	double beta = 10.0, mu = 2.0;
 	V3Configuration configuration;
 
 	configuration.setBeta(beta);
@@ -504,15 +555,20 @@ int main (int argc, char **argv) {
 	cerr << lattice.eigenvalues().transpose() << endl << endl << lattice.eigenvectors() << endl << endl;
 
 	cerr << "base probability " << ((-beta*lattice.eigenvalues().array()+beta*mu).exp()+1.0).log().sum()*2.0 << endl;
-	cerr << "computed probability " << configuration.probability_from_scratch(10).first << endl;
+	cerr << "computed probability " << configuration.probability_from_scratch(14).first << endl;
 
 	Eigen::VectorXd v;
-	for (int n=0;n<beta*configuration.volume()*1;n++) {
-		cerr << (n+1) << " vertices" << endl;
-		Vertex w = factory.generate(0.5);
-		std::cerr << configuration.probability(0).first+std::log(fabs(configuration.testRank1Update(w))) << std::endl;
-		configuration.addVertex(w);
-		std::cerr << configuration.probability(0).first << std::endl;
+	double dtau = beta / 14;
+	for (int n=0;n<beta*configuration.volume()*5;n++) {
+		cerr << (n+2) << " vertices" << endl;
+		Vertex w1 = factory.generate(0.5), w2 = factory.generate(0.5);
+		size_t index = w1.tau/dtau;
+		while (w2.tau>=(index+1)*dtau) w2.tau-=dtau;
+		while (w2.tau<index*dtau) w2.tau+=dtau;
+		double p = configuration.probability(0).first;
+		std::cerr << std::log(fabs(configuration.testRank2Update(w1, w2))) << std::endl;
+		configuration.addVertex(w2);
+		std::cerr << configuration.probability(0).first-p << std::endl;
 		//for (int i=0;i<30;i+=5)
 			//cerr << (i+1) << " svds probability " << configuration.probability_from_scratch(i+1).first << endl;
 		if ((n+1)%40==0) {
