@@ -271,7 +271,7 @@ class V3Configuration {
 		computeUpdateVectors(u_dn, v_dn, w, -1.0);
 		computeReversedVector(v_up, w, +1.0);
 		computeReversedVector(v_dn, w, -1.0);
-		SVDHelper svd_up, svd_dn;
+		SVDMatrix svd_up, svd_dn;
 		svd_up.setIdentity(V);
 		svd_dn.setIdentity(V);
 		size_t m = index+1;
@@ -309,7 +309,7 @@ class V3Configuration {
 		U_dn.col(0) = u_dn;
 		V_up.col(0) = v_up;
 		V_dn.col(0) = v_dn;
-		SVDHelper svd_up, svd_dn;
+		SVDMatrix svd_up, svd_dn;
 		svd_up.setIdentity(V);
 		svd_dn.setIdentity(V);
 		size_t m = index+1;
@@ -463,6 +463,18 @@ class V3Configuration {
 		make_slices(n);
 		return probability(0);
 	}
+
+	size_t sliceNumber () const {
+		return slices_up.size();
+	}
+
+	const Eigen::MatrixXd& slice_up (size_t i) const {
+		return slices_up[i];
+	}
+
+	const Eigen::MatrixXd& slice_dn (size_t i) const {
+		return slices_dn[i];
+	}
 };
 
 
@@ -530,6 +542,12 @@ class SquareLattice {
 	const typename Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd>::MatrixType & eigenvectors () const { return solver.eigenvectors(); }
 
 	SquareLattice (): Lx(2), Ly(2), Lz(1), V(4), tx(1.0), ty(1.0), tz(1.0), computed(false) {}
+};
+
+
+class V3Probability {
+	private:
+	public:
 };
 
 int main (int argc, char **argv) {
