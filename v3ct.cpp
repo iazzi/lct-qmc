@@ -345,7 +345,7 @@ class V3Configuration {
 		if (damage[index]<threshold) {
 			addRank1Vertex(w);
 		} else {
-			insertVertex(w);
+				insertVertex(w);
 			reset_slice(index);
 		}
 	}
@@ -475,6 +475,9 @@ class V3Configuration {
 	const Eigen::MatrixXd& slice_dn (size_t i) const {
 		return slices_dn[i];
 	}
+
+	double inverseTemperture () const { return beta; }
+	double chemicalPotential () const { return mu; }
 };
 
 
@@ -547,7 +550,44 @@ class SquareLattice {
 
 class V3Probability {
 	private:
+		SVDMatrix svd_up, svd_dn;
+		SVDMatrix G_up, G_dn;
+		Eigen::MatrixXd update_matrix_up, update_matrix_dn;
 	public:
+		void collectSlices (const V3Configuration &conf, size_t index) {
+			size_t V = conf.volume();
+			size_t n = conf.sliceNumber();
+			size_t m = index+1;
+			svd_up.setIdentity(V);
+			svd_dn.setIdentity(V);
+			for (size_t t=0;t<n;t++) {
+				svd_up.U.applyOnTheLeft(conf.slice_up((t+m)%n));
+				svd_up.absorbU();
+				svd_dn.U.applyOnTheLeft(conf.slice_dn((t+m)%n));
+				svd_dn.absorbU();
+			}
+		}
+
+		void shiftLeft (const V3Configuration &conf, size_t index) {}
+		void shiftRight (const V3Configuration &conf, size_t index) {}
+
+		void makeGreenFunction (const V3Configuration &conf) {
+			double beta = conf.inverseTemperture();
+			double mu = conf.chemicalPotential();
+			G_up = svd_up;
+			G_dn = svd_dn;
+			G_up.invertInPlace();
+			G_dn.invertInPlace();
+			G_up.add_identity(exp(-beta*mu));
+			G_dn.add_identity(exp(-beta*mu));
+			G_up.invertInPlace();
+			G_dn.invertInPlace();
+		}
+
+		void prepareUpdateMatrices (const V3Configuration &conf, size_t index) {
+			Eigen::MatrixXd update_matrix_up = conf.slice_up(index).inverse() * G_up.matrix();
+			Eigen::MatrixXd update_matrix_dn = conf.slice_dn(index).inverse() * G_dn.matrix();
+		}
 };
 
 int main (int argc, char **argv) {
