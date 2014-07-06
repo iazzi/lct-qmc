@@ -707,6 +707,8 @@ int main (int argc, char **argv) {
 
 	double beta = 10.0, mu = 2.0;
 	V3Configuration configuration;
+	V3Probability prob;
+	V3Updater updater;
 
 	configuration.setBeta(beta);
 	configuration.setMu(mu);
@@ -727,6 +729,11 @@ int main (int argc, char **argv) {
 	cerr << "base probability " << ((-beta*lattice.eigenvalues().array()+beta*mu).exp()+1.0).log().sum()*2.0 << endl;
 	cerr << "computed probability " << configuration.probability_from_scratch(14).first << endl;
 
+	prob.collectSlices(configuration, 0);
+	prob.makeGreenFunction(configuration);
+	prob.prepareUpdateMatrices(configuration, 0);
+	cerr << "other probability " << prob.probability(configuration).first << endl;
+
 	Eigen::VectorXd v;
 	double dtau = beta / 14;
 	for (int n=0;n<beta*configuration.volume()*5;n++) {
@@ -742,7 +749,7 @@ int main (int argc, char **argv) {
 		//for (int i=0;i<30;i+=5)
 			//cerr << (i+1) << " svds probability " << configuration.probability_from_scratch(i+1).first << endl;
 		if ((n+1)%40==0) {
-			for (int k=0;k<10;k++)
+			for (int k=0;k<configuration.sliceNumber();k++)
 				configuration.recheck_slice(k);
 		}
 		cerr << endl;
