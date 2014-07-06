@@ -476,8 +476,9 @@ class V3Configuration {
 		return slices_dn[i];
 	}
 
-	double inverseTemperture () const { return beta; }
+	double inverseTemperature () const { return beta; }
 	double chemicalPotential () const { return mu; }
+	size_t verticesNumber () const { return verts.size(); }
 };
 
 
@@ -572,7 +573,7 @@ class V3Probability {
 		void shiftRight (const V3Configuration &conf, size_t index) {}
 
 		void makeGreenFunction (const V3Configuration &conf) {
-			double beta = conf.inverseTemperture();
+			double beta = conf.inverseTemperature();
 			double mu = conf.chemicalPotential();
 			G_up = svd_up;
 			G_dn = svd_dn;
@@ -588,6 +589,117 @@ class V3Probability {
 			Eigen::MatrixXd update_matrix_up = conf.slice_up(index).inverse() * G_up.matrix();
 			Eigen::MatrixXd update_matrix_dn = conf.slice_dn(index).inverse() * G_dn.matrix();
 		}
+
+		std::pair<double, double> probability (const V3Configuration &conf) {
+			double beta = conf.inverseTemperature();
+			double mu = conf.chemicalPotential();
+			SVDMatrix A_up, A_dn;
+			A_up = svd_up;
+			A_dn = svd_dn;
+			A_up.add_identity(exp(beta*mu));
+			A_dn.add_identity(exp(beta*mu));
+			std::pair<double, double> ret;
+			ret.first = A_up.S.array().log().sum() + A_dn.S.array().log().sum();
+			ret.second = (A_up.U*A_up.Vt*A_dn.U*A_dn.Vt).determinant()>0.0?1.0:-1.0;
+			return ret;
+		}
+
+		const Eigen::MatrixXd& updateMatrixUp () const { return update_matrix_up; }
+		const Eigen::MatrixXd& updateMatrixDn () const { return update_matrix_dn; }
+};
+
+class V3Updater {
+	private:
+	std::mt19937_64 generator;
+	std::bernoulli_distribution coin_flip;
+	std::uniform_int_distribution<size_t> randomPosition;
+	std::uniform_int_distribution<size_t> randomSlice;
+	std::uniform_real_distribution<double> randomTime;
+	std::exponential_distribution<double> trialDistribution;
+
+	double K, U;
+	double dtau;
+	std::pair<double, double> p;
+	std::pair<double, double> update_p;
+
+	Eigen::MatrixXd U_up, U_dn;
+	Eigen::MatrixXd V_up, V_dn;
+	Eigen::VectorXd u_up, u_dn;
+	Eigen::VectorXd v_up, v_dn;
+
+	size_t updates;
+	size_t slice;
+	public:
+	void setK (double k) { K = k; }
+
+	void setup (const V3Configuration &conf, V3Probability &prob) {
+		size_t n = conf.sliceNumber();
+		dtau = conf.inverseTemperature()/n;
+		setBeta(conf.inverseTemperature()/n);
+		setSliceNumber(n);
+		setVolume(conf.volume());
+		prepare(conf, prob, 0);
+		p = prob.probability(conf);
+	}
+
+	void setBeta (double b) {
+		randomTime = std::uniform_real_distribution<double>(0.0, b);
+	}
+
+	void setVolume (size_t v) {
+		randomPosition = std::uniform_int_distribution<size_t>(0, v-1);
+		U_up.resize(v, v);
+		U_dn.resize(v, v);
+		V_up.resize(v, v);
+		V_dn.resize(v, v);
+	}
+
+	void setSliceNumber (size_t n) {
+		randomPosition = std::uniform_int_distribution<size_t>(0, n-1);
+	}
+
+	V3Updater () : trialDistribution(1.0) {
+		updates = 0;
+		update_p = std::pair<double, double>(0.0, 1.0);
+		coin_flip = std::bernoulli_distribution(0.5);
+		randomPosition = std::uniform_int_distribution<size_t>(0, 0);
+		randomTime = std::uniform_real_distribution<double>(0.0, 1.0);
+	}
+
+	Vertex generate () {
+		return Vertex(randomTime(generator) + slice*dtau, randomPosition(generator), coin_flip(generator)?U/K:-U/K);
+	}
+
+	void prepare (const V3Configuration &conf, V3Probability &prob, size_t index) {
+		prob.collectSlices(conf, index);
+		prob.makeGreenFunction(conf);
+		prob.prepareUpdateMatrices(conf, index);
+		slice = index;
+	}
+
+	bool tryInsert (V3Configuration &conf, V3Probability &prob) {
+		Vertex v = generate();
+		conf.computeUpdateVectors(u_up, v_up, v, +1.0);
+		conf.computeUpdateVectors(u_dn, v_dn, v, -1.0);
+		U_up.col(updates) = u_up;
+		U_dn.col(updates) = u_dn;
+		V_up.col(updates) = v_up;
+		V_dn.col(updates) = v_dn;
+		double d1, d2;
+		d1 = (Eigen::MatrixXd::Identity(updates+1, updates+1) + V_up.leftCols(updates+1).transpose() * prob.updateMatrixUp() * U_up.leftCols(updates+1)).determinant();
+		d2 = (Eigen::MatrixXd::Identity(updates+1, updates+1) + V_dn.leftCols(updates+1).transpose() * prob.updateMatrixDn() * U_dn.leftCols(updates+1)).determinant();
+		double new_p = std::log(std::fabs(d1)) + std::log(std::fabs(d2));
+		double new_s = d1*d2<0?-1.0:1.0;
+
+		bool ret = -trialDistribution(generator)<new_p-update_p.first+log(conf.inverseTemperature())-log(conf.verticesNumber()+1)+log(K);
+		if (ret) {
+			conf.insertVertex(v);
+			update_p = std::pair<double, double>(new_p, new_s);
+			updates++;
+		} else {
+		}
+		return ret;
+	}
 };
 
 int main (int argc, char **argv) {
