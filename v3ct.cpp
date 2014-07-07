@@ -28,6 +28,8 @@
 
 using SVDMatrix = SVDHelper;
 
+Logger debug(std::cerr);
+
 struct Vertex {
 	double tau;
 	size_t x;
@@ -200,6 +202,8 @@ class V3Configuration {
 			std::cerr << F << std::endl << std::endl;
 			std::cerr << G.inverse() << std::endl << std::endl;
 			std::cerr << (F-G.inverse())*1.0e10 << std::endl << std::endl;
+			std::cerr << (F*G-Eigen::MatrixXd::Identity(V, V)).norm() << std::endl;
+			std::cerr << (G.inverse()*G-Eigen::MatrixXd::Identity(V, V)).norm() << std::endl << std::endl;
 			throw -1;
 		}
 		if ((slices_up[index]+u_up * v_up.transpose()-G).norm()>1e-10) {
@@ -345,7 +349,7 @@ class V3Configuration {
 		if (damage[index]<threshold) {
 			addRank1Vertex(w);
 		} else {
-				insertVertex(w);
+			insertVertex(w);
 			reset_slice(index);
 		}
 	}
@@ -410,6 +414,13 @@ class V3Configuration {
 		}
 		//std::cerr << (-(b-t)*eigenvalues.array()).exp().transpose() << std::endl << std::endl;
 		//std::cerr << G << std::endl << std::endl;
+	}
+
+	size_t sliceSize (size_t i) const {
+		size_t n = slices_up.size();
+		auto first = verts.lower_bound(Vertex(beta/n*i, 0, 0));
+		auto last = verts.lower_bound(Vertex(beta/n*(i+1), 0, 0));
+		return std::distance(first, last);
 	}
 
 	void reset_slice (size_t index) {
@@ -479,6 +490,29 @@ class V3Configuration {
 	double inverseTemperature () const { return beta; }
 	double chemicalPotential () const { return mu; }
 	size_t verticesNumber () const { return verts.size(); }
+
+	void removeVertex (size_t slice, size_t index) {
+		size_t n = slices_up.size();
+		auto first = verts.lower_bound(Vertex(beta/n*slice, 0, 0));
+		auto last = verts.lower_bound(Vertex(beta/n*(slice+1), 0, 0));
+		for (auto i=first;i!=last;i++) {
+			if (index==0) {
+				verts.erase(i);
+				break;
+			}
+			index--;
+		}
+	}
+
+	Vertex pickVertex (size_t slice, size_t index) const {
+		size_t n = slices_up.size();
+		auto first = verts.lower_bound(Vertex(beta/n*slice, 0, 0));
+		auto last = verts.lower_bound(Vertex(beta/n*(slice+1), 0, 0));
+		for (auto i=first;i!=last;i++) {
+			if (index==0) return *i;
+			index--;
+		}
+	}
 };
 
 
@@ -586,8 +620,8 @@ class V3Probability {
 		}
 
 		void prepareUpdateMatrices (const V3Configuration &conf, size_t index) {
-			Eigen::MatrixXd update_matrix_up = conf.slice_up(index).inverse() * G_up.matrix();
-			Eigen::MatrixXd update_matrix_dn = conf.slice_dn(index).inverse() * G_dn.matrix();
+			update_matrix_up = conf.slice_up(index).inverse() * G_up.matrix();
+			update_matrix_dn = conf.slice_dn(index).inverse() * G_dn.matrix();
 		}
 
 		std::pair<double, double> probability (const V3Configuration &conf) {
@@ -615,6 +649,7 @@ class V3Updater {
 	std::uniform_int_distribution<size_t> randomPosition;
 	std::uniform_int_distribution<size_t> randomSlice;
 	std::uniform_real_distribution<double> randomTime;
+	std::uniform_real_distribution<double> random;
 	std::exponential_distribution<double> trialDistribution;
 
 	double K, U;
@@ -631,6 +666,7 @@ class V3Updater {
 	size_t slice;
 	public:
 	void setK (double k) { K = k; }
+	void setU (double u) { U = u; }
 
 	void setup (const V3Configuration &conf, V3Probability &prob) {
 		size_t n = conf.sliceNumber();
@@ -658,7 +694,7 @@ class V3Updater {
 		randomPosition = std::uniform_int_distribution<size_t>(0, n-1);
 	}
 
-	V3Updater () : trialDistribution(1.0) {
+	V3Updater () : random(0.0, 1.0), trialDistribution(1.0) {
 		updates = 0;
 		update_p = std::pair<double, double>(0.0, 1.0);
 		coin_flip = std::bernoulli_distribution(0.5);
@@ -678,6 +714,15 @@ class V3Updater {
 	}
 
 	bool tryInsert (V3Configuration &conf, V3Probability &prob) {
+		if (updates>=V_dn.cols()) {
+			debug << "resetting updates" << updates;
+			debug << p.first+update_p.first << p.second*update_p.second;
+			prepare(conf, prob, slice);
+			updates = 0;
+			update_p = std::pair<double, double>(0.0, 1.0);
+			p = prob.probability(conf);
+			debug << p.first << p.second;
+		}
 		Vertex v = generate();
 		conf.computeUpdateVectors(u_up, v_up, v, +1.0);
 		conf.computeUpdateVectors(u_dn, v_dn, v, -1.0);
@@ -689,11 +734,47 @@ class V3Updater {
 		d1 = (Eigen::MatrixXd::Identity(updates+1, updates+1) + V_up.leftCols(updates+1).transpose() * prob.updateMatrixUp() * U_up.leftCols(updates+1)).determinant();
 		d2 = (Eigen::MatrixXd::Identity(updates+1, updates+1) + V_dn.leftCols(updates+1).transpose() * prob.updateMatrixDn() * U_dn.leftCols(updates+1)).determinant();
 		double new_p = std::log(std::fabs(d1)) + std::log(std::fabs(d2));
-		double new_s = d1*d2<0?-1.0:1.0;
+		double new_s = d1*d2<0.0?-1.0:1.0;
 
 		bool ret = -trialDistribution(generator)<new_p-update_p.first+log(conf.inverseTemperature())-log(conf.verticesNumber()+1)+log(K);
+		std::cerr << new_p-update_p.first+log(conf.inverseTemperature())-log(conf.sliceSize(slice)+1)+log(K) << endl;
 		if (ret) {
-			conf.insertVertex(v);
+			conf.addVertex(v);
+			update_p = std::pair<double, double>(new_p, new_s);
+			updates++;
+		} else {
+		}
+		return ret;
+	}
+
+	bool tryRemove (V3Configuration &conf, V3Probability &prob) {
+		if (updates>=V_dn.cols()) {
+			debug << "resetting updates" << updates;
+			debug << p.first+update_p.first << p.second*update_p.second;
+			prepare(conf, prob, slice);
+			updates = 0;
+			update_p = std::pair<double, double>(0.0, 1.0);
+			p = prob.probability(conf);
+			debug << p.first << p.second;
+		}
+		size_t vert_index = random(generator)*conf.sliceSize(slice);
+		Vertex v = conf.pickVertex(slice, vert_index);
+		conf.computeUpdateVectors(u_up, v_up, v, +1.0);
+		conf.computeUpdateVectors(u_dn, v_dn, v, -1.0);
+		U_up.col(updates) = -u_up;
+		U_dn.col(updates) = -u_dn;
+		V_up.col(updates) = v_up;
+		V_dn.col(updates) = v_dn;
+		double d1, d2;
+		d1 = (Eigen::MatrixXd::Identity(updates+1, updates+1) + V_up.leftCols(updates+1).transpose() * prob.updateMatrixUp() * U_up.leftCols(updates+1)).determinant();
+		d2 = (Eigen::MatrixXd::Identity(updates+1, updates+1) + V_dn.leftCols(updates+1).transpose() * prob.updateMatrixDn() * U_dn.leftCols(updates+1)).determinant();
+		double new_p = std::log(std::fabs(d1)) + std::log(std::fabs(d2));
+		double new_s = d1*d2<0.0?-1.0:1.0;
+
+		bool ret = -trialDistribution(generator)<new_p-update_p.first-log(conf.inverseTemperature())+log(conf.verticesNumber()+1)-log(K);
+		std::cerr << new_p-update_p.first-log(conf.inverseTemperature())+log(conf.verticesNumber()+1)-log(K) << endl;
+		if (ret) {
+			conf.removeVertex(slice, vert_index);
 			update_p = std::pair<double, double>(new_p, new_s);
 			updates++;
 		} else {
@@ -712,6 +793,9 @@ int main (int argc, char **argv) {
 
 	configuration.setBeta(beta);
 	configuration.setMu(mu);
+
+	updater.setU(2.0);
+	updater.setK(4.0);
 
 	SquareLattice lattice;
 	lattice.setSize(4, 4, 1);
@@ -734,18 +818,13 @@ int main (int argc, char **argv) {
 	prob.prepareUpdateMatrices(configuration, 0);
 	cerr << "other probability " << prob.probability(configuration).first << endl;
 
-	Eigen::VectorXd v;
-	double dtau = beta / 14;
+	updater.setup(configuration, prob);
+
 	for (int n=0;n<beta*configuration.volume()*5;n++) {
-		cerr << (n+2) << " vertices" << endl;
-		Vertex w1 = factory.generate(0.5), w2 = factory.generate(0.5);
-		size_t index = w1.tau/dtau;
-		while (w2.tau>=(index+1)*dtau) w2.tau-=dtau;
-		while (w2.tau<index*dtau) w2.tau+=dtau;
+		cerr << configuration.verticesNumber() << " vertices" << endl;
 		double p = configuration.probability(0).first;
-		std::cerr << std::log(fabs(configuration.testRank2Update(w1, w2))) << std::endl;
-		configuration.addVertex(w2);
-		std::cerr << configuration.probability(0).first-p << std::endl;
+		cerr << "vertex " << (updater.tryInsert(configuration, prob)?"accepted":"rejected") << endl;
+		//std::cerr << configuration.probability(0).first-p << std::endl;
 		//for (int i=0;i<30;i+=5)
 			//cerr << (i+1) << " svds probability " << configuration.probability_from_scratch(i+1).first << endl;
 		if ((n+1)%40==0) {
