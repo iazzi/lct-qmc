@@ -37,7 +37,7 @@ struct Vertex {
 	class Compare {
 		public:
 			constexpr bool operator() (const Vertex& a, const Vertex& b) {
-				return (a.tau<b.tau) || (a.tau==b.tau && a.x<b.x);
+				return (a.tau<b.tau) || (a.tau==b.tau && a.x<b.x) || (a.tau==b.tau && a.x==b.x && a.sigma<b.sigma);
 			}
 	};
 	Vertex (double a, size_t b, double c) : tau(a), x(b), sigma(c) {}
