@@ -9,9 +9,7 @@
 #include <atomic>
 #include <functional>
 
-#include "helpers.hpp"
 #include "measurements.hpp"
-#include "weighted_measurements.hpp"
 #include "logger.hpp"
 #include "svd.hpp"
 
@@ -83,8 +81,8 @@ class V3Configuration {
 	size_t V;
 	double beta, mu;
 
-	std::vector<Matrix_d> slices_up;
-	std::vector<Matrix_d> slices_dn;
+	std::vector<Eigen::MatrixXd> slices_up;
+	std::vector<Eigen::MatrixXd> slices_dn;
 	std::vector<int> damage;
 
 	public:
@@ -354,11 +352,11 @@ class V3Configuration {
 		}
 	}
 
-	void compute_slice (Matrix_d &G, double a, double b, double s) {
+	void compute_slice (Eigen::MatrixXd &G, double a, double b, double s) {
 		auto first = verts.lower_bound(Vertex(a, 0, 0));
 		auto last = verts.lower_bound(Vertex(b, 0, 0));
 		double t = a;
-		Matrix_d cache;
+		Eigen::MatrixXd cache;
 		for (auto v=first;v!=last;) {
 			if (v->tau>t) {
 				G.array().colwise() *= (-(v->tau-t)*eigenvalues.array()).exp();
@@ -385,11 +383,11 @@ class V3Configuration {
 		//std::cerr << G << std::endl << std::endl;
 	}
 
-	void compute_slice_inverse (Matrix_d &G, double a, double b, double s) {
+	void compute_slice_inverse (Eigen::MatrixXd &G, double a, double b, double s) {
 		auto first = verts.lower_bound(Vertex(a, 0, 0));
 		auto last = verts.lower_bound(Vertex(b, 0, 0));
 		double t = a;
-		Matrix_d cache;
+		Eigen::MatrixXd cache;
 		for (auto v=first;v!=last;) {
 			if (v->tau>t) {
 				G.array().rowwise() *= (+(v->tau-t)*eigenvalues.array()).exp().transpose();
