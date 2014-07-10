@@ -495,6 +495,12 @@ class V3Configuration {
 		auto last = verts.lower_bound(Vertex(beta/n*(slice+1), 0, 0));
 		for (auto i=first;i!=last;i++) {
 			if (index==0) {
+				Eigen::VectorXd u_up, v_up;
+				Eigen::VectorXd u_dn, v_dn;
+				computeUpdateVectors(u_up, v_up, *i, 1.0);
+				computeUpdateVectors(u_dn, v_dn, *i, -1.0);
+				slices_up[slice] -= u_up*v_up.transpose();
+				slices_dn[slice] -= u_dn*v_dn.transpose();
 				verts.erase(i);
 				break;
 			}
