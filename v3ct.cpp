@@ -761,6 +761,7 @@ class V3Updater {
 			p = prob.probability(conf);
 			debug << p.first << p.second;
 		}
+		if (conf.sliceSize(slice)==0) return false;
 		size_t vert_index = random(generator)*conf.sliceSize(slice);
 		Vertex v = conf.pickVertex(slice, vert_index);
 		conf.computeUpdateVectors(u_up, v_up, v, +1.0);
@@ -784,6 +785,16 @@ class V3Updater {
 		} else {
 		}
 		return ret;
+	}
+
+	bool tryStep (V3Configuration &conf, V3Probability &prob) {
+		if (coin_flip(generator)) {
+			debug << "try insert";
+			return tryInsert(conf, prob);
+		} else {
+			debug << "try remove";
+			return tryRemove(conf, prob);
+		}
 	}
 };
 
@@ -827,13 +838,14 @@ int main (int argc, char **argv) {
 	for (int n=0;n<beta*configuration.volume()*5;n++) {
 		cerr << configuration.verticesNumber() << " vertices" << endl;
 		double p = configuration.probability(0).first;
-		cerr << "vertex " << (updater.tryInsert(configuration, prob)?"accepted":"rejected") << endl;
+		cerr << "vertex " << (updater.tryStep(configuration, prob)?"accepted":"rejected") << endl;
 		//std::cerr << configuration.probability(0).first-p << std::endl;
 		//for (int i=0;i<30;i+=5)
 			//cerr << (i+1) << " svds probability " << configuration.probability_from_scratch(i+1).first << endl;
 		if ((n+1)%40==0) {
-			for (int k=0;k<configuration.sliceNumber();k++)
-				configuration.recheck_slice(k);
+			for (int k=0;k<configuration.sliceNumber();k++) {
+				//configuration.recheck_slice(k);
+			}
 		}
 		cerr << endl;
 	}
