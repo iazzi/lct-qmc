@@ -800,12 +800,21 @@ class V3Updater {
 			flush_updates(conf, prob);
 		}
 		if (coin_flip(generator)) {
-			debug << "try insert";
+			//debug << "try insert";
 			return tryInsert(conf, prob);
 		} else {
-			debug << "try remove";
+			//debug << "try remove";
 			return tryRemove(conf, prob);
 		}
+	}
+
+	double sweep (V3Configuration &conf, V3Probability &prob) {
+		double ret;
+		size_t N = conf.inverseTemperature()*conf.volume()+1;
+		for (int n=0;n<N;n++) {
+			ret += tryStep(conf, prob)?1.0:0.0;
+		}
+		return ret/N;
 	}
 };
 
@@ -883,10 +892,10 @@ int main (int argc, char **argv) {
 
 	updater.setup(configuration, prob);
 
-	for (int n=0;n<beta*configuration.volume()*500;n++) {
+	for (int n=0;n<500;n++) {
 		cerr << configuration.verticesNumber() << " vertices" << endl;
 		double p = configuration.probability(0).first;
-		cerr << "vertex " << (updater.tryStep(configuration, prob)?"accepted":"rejected") << endl;
+		cerr << "acceptance: " << updater.sweep(configuration, prob) << endl;
 		//std::cerr << configuration.probability(0).first-p << std::endl;
 		//for (int i=0;i<30;i+=5)
 		//cerr << (i+1) << " svds probability " << configuration.probability_from_scratch(i+1).first << endl;
