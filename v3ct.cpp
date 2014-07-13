@@ -110,6 +110,9 @@ class V3Configuration {
 
 	void insertVertex (const Vertex& v) { verts.insert(v); }
 
+	const Eigen::VectorXd eigenValues () const { return eigenvalues; }
+	const Eigen::MatrixXd eigenVectors () const { return eigenvectors; }
+
 	void computeUpdateVectors (Eigen::VectorXd &u, Eigen::VectorXd &v, const Vertex& w, double s) {
 		size_t n = slices_up.size();
 		double dtau = beta/n;
@@ -644,6 +647,9 @@ class V3Probability {
 
 		const Eigen::MatrixXd& updateMatrixUp () const { return update_matrix_up; }
 		const Eigen::MatrixXd& updateMatrixDn () const { return update_matrix_dn; }
+
+		const Eigen::MatrixXd& greenFunctionUp () const { return G_up.matrix(); }
+		const Eigen::MatrixXd& greenFunctionDn () const { return G_dn.matrix(); }
 };
 
 class V3Updater {
@@ -754,6 +760,8 @@ class V3Updater {
 		p = prob.probability(conf);
 		debug << p.first << p.second;
 	}
+
+	double sign () const { return p.second*update_p.second; }
 
 	bool tryRemove (V3Configuration &conf, V3Probability &prob) {
 		if (updates>=V_dn.cols()) {
