@@ -821,10 +821,10 @@ int main (int argc, char **argv) {
 	configuration.setEigenvectors(lattice.eigenvectors());
 	configuration.setEigenvalues(lattice.eigenvalues());
 
-	std::mt19937_64 generator;
-	VertexFactory factory(generator);
-	factory.setVolume(configuration.volume());
-	factory.setBeta(beta);
+	//std::mt19937_64 generator;
+	//VertexFactory factory(generator);
+	//factory.setVolume(configuration.volume());
+	//factory.setBeta(beta);
 
 	cerr << lattice.eigenvalues().transpose() << endl << endl << lattice.eigenvectors() << endl << endl;
 
@@ -838,19 +838,20 @@ int main (int argc, char **argv) {
 
 	updater.setup(configuration, prob);
 
-	for (int n=0;n<beta*configuration.volume()*5;n++) {
+	for (int n=0;n<beta*configuration.volume()*500;n++) {
 		cerr << configuration.verticesNumber() << " vertices" << endl;
 		double p = configuration.probability(0).first;
 		cerr << "vertex " << (updater.tryStep(configuration, prob)?"accepted":"rejected") << endl;
 		//std::cerr << configuration.probability(0).first-p << std::endl;
 		//for (int i=0;i<30;i+=5)
-			//cerr << (i+1) << " svds probability " << configuration.probability_from_scratch(i+1).first << endl;
-		if ((n+1)%40==0) {
-			for (int k=0;k<configuration.sliceNumber();k++) {
-				//configuration.recheck_slice(k);
-			}
-		}
+		//cerr << (i+1) << " svds probability " << configuration.probability_from_scratch(i+1).first << endl;
 		cerr << endl;
+	}
+	for (int k=0;k<configuration.sliceNumber();k++) {
+		configuration.recheck_slice(k);
+	}
+	for (int k=0;k<configuration.sliceNumber();k++) {
+		debug << configuration.sliceSize(k);
 	}
 
 	return 0;
