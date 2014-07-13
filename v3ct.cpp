@@ -925,13 +925,29 @@ int main (int argc, char **argv) {
 
 	updater.setup(configuration, prob);
 
-	for (int n=0;n<500;n++) {
-		cerr << configuration.verticesNumber() << " vertices" << endl;
+	V3Measurements measurements;
+
+	const int thermalization = 10000;
+	const int sweeps = 10000;
+
+	for (int n=0;n<thermalization;n++) {
+		cerr << n << " sweeps, " << configuration.verticesNumber() << " vertices" << endl;
 		double p = configuration.probability(0).first;
 		cerr << "acceptance: " << updater.sweep(configuration, prob) << endl;
 		//std::cerr << configuration.probability(0).first-p << std::endl;
 		//for (int i=0;i<30;i+=5)
 		//cerr << (i+1) << " svds probability " << configuration.probability_from_scratch(i+1).first << endl;
+		cerr << endl;
+	}
+	for (int n=0;n<sweeps;n++) {
+		cerr << n << " sweeps, " << configuration.verticesNumber() << " vertices" << endl;
+		double p = configuration.probability(0).first;
+		cerr << "acceptance: " << updater.sweep(configuration, prob) << endl;
+		measurements.measure(configuration, prob, updater);
+		//std::cerr << configuration.probability(0).first-p << std::endl;
+		//for (int i=0;i<30;i+=5)
+		//cerr << (i+1) << " svds probability " << configuration.probability_from_scratch(i+1).first << endl;
+		measurements.report(std::cerr);
 		cerr << endl;
 	}
 	for (int k=0;k<configuration.sliceNumber();k++) {
