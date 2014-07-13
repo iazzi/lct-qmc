@@ -642,14 +642,15 @@ class V3Probability {
 			std::pair<double, double> ret;
 			ret.first = A_up.S.array().log().sum() + A_dn.S.array().log().sum();
 			ret.second = (A_up.U*A_up.Vt*A_dn.U*A_dn.Vt).determinant()>0.0?1.0:-1.0;
+			if ((A_up.U*A_up.Vt).determinant()<0.0 || (A_dn.U*A_dn.Vt).determinant()<0.0) throw -1;
 			return ret;
 		}
 
 		const Eigen::MatrixXd& updateMatrixUp () const { return update_matrix_up; }
 		const Eigen::MatrixXd& updateMatrixDn () const { return update_matrix_dn; }
 
-		const Eigen::MatrixXd& greenFunctionUp () const { return G_up.matrix(); }
-		const Eigen::MatrixXd& greenFunctionDn () const { return G_dn.matrix(); }
+		Eigen::MatrixXd greenFunctionUp () const { return G_up.matrix(); }
+		Eigen::MatrixXd greenFunctionDn () const { return G_dn.matrix(); }
 };
 
 class V3Updater {
