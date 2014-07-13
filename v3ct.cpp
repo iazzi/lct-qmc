@@ -719,13 +719,7 @@ class V3Updater {
 
 	bool tryInsert (V3Configuration &conf, V3Probability &prob) {
 		if (updates>=V_dn.cols()) {
-			debug << "resetting updates" << updates;
-			debug << p.first+update_p.first << p.second*update_p.second;
-			prepare(conf, prob, slice);
-			updates = 0;
-			update_p = std::pair<double, double>(0.0, 1.0);
-			p = prob.probability(conf);
-			debug << p.first << p.second;
+			flush_updates(conf, prob);
 		}
 		Vertex v = generate();
 		conf.computeUpdateVectors(u_up, v_up, v, +1.0);
@@ -751,15 +745,19 @@ class V3Updater {
 		return ret;
 	}
 
+	bool flush_updates (V3Configuration &conf, V3Probability &prob) {
+		debug << "resetting updates" << updates;
+		debug << p.first+update_p.first << p.second*update_p.second;
+		prepare(conf, prob, slice);
+		updates = 0;
+		update_p = std::pair<double, double>(0.0, 1.0);
+		p = prob.probability(conf);
+		debug << p.first << p.second;
+	}
+
 	bool tryRemove (V3Configuration &conf, V3Probability &prob) {
 		if (updates>=V_dn.cols()) {
-			debug << "resetting updates" << updates;
-			debug << p.first+update_p.first << p.second*update_p.second;
-			prepare(conf, prob, slice);
-			updates = 0;
-			update_p = std::pair<double, double>(0.0, 1.0);
-			p = prob.probability(conf);
-			debug << p.first << p.second;
+			flush_updates(conf, prob);
 		}
 		if (conf.sliceSize(slice)==0) return false;
 		size_t vert_index = random(generator)*conf.sliceSize(slice);
@@ -788,6 +786,11 @@ class V3Updater {
 	}
 
 	bool tryStep (V3Configuration &conf, V3Probability &prob) {
+		if (random(generator)<0.005) {
+			slice = conf.sliceNumber() * random(generator);
+			debug << "jumping to slice" << slice;
+			flush_updates(conf, prob);
+		}
 		if (coin_flip(generator)) {
 			debug << "try insert";
 			return tryInsert(conf, prob);
