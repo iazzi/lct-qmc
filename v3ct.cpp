@@ -717,6 +717,18 @@ class V3Updater {
 		return Vertex(randomTime(generator) + slice*dtau, randomPosition(generator), coin_flip(generator)?U/K:-U/K);
 	}
 
+	void reprepare (const V3Configuration &conf, V3Probability &prob) {
+		p.first += update_p.first;
+		p.second *= update_p.second;
+		updates = 0;
+		update_p = std::pair<double, double>(0.0, 1.0);
+		prepare(conf, prob, conf.sliceNumber() * random(generator));
+	}
+
+	void prepare (const V3Configuration &conf, V3Probability &prob) {
+		prepare(conf, prob, conf.sliceNumber() * random(generator));
+	}
+
 	void prepare (const V3Configuration &conf, V3Probability &prob, size_t index) {
 		prob.collectSlices(conf, index);
 		prob.makeGreenFunction(conf);
@@ -836,6 +848,7 @@ class V3Measurements {
 		measurement<Eigen::ArrayXd> density_distribution_dn;
 	public:
 		void measure (V3Configuration &conf, V3Probability &prob, V3Updater &updater) {
+			updater.reprepare(conf, prob);
 			double beta = conf.inverseTemperature();
 			double mu = conf.chemicalPotential();
 			double s = updater.sign();
