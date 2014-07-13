@@ -853,6 +853,16 @@ class V3Measurements {
 			density_distribution_up.add(s*Eigen::ArrayXd::Zero(conf.volume()));
 			density_distribution_dn.add(s*Eigen::ArrayXd::Zero(conf.volume()));
 		}
+
+		template <typename T>
+		void report (T &out) const {
+			out << "sign = " << sign.mean() << " +- " << sign.error() << '\n';
+			out << "order = " << order.mean() << " +- " << order.error() << '\n';
+			out << "density = " << sign.mean() << " +- " << density.error() << '\n';
+			out << "magnetization = " << magnetization.mean() << " +- " << magnetization.error() << '\n';
+			out << "kinetic_energy = " << kinetic_energy.mean() << " +- " << kinetic_energy.error() << '\n';
+			out << "double_occupancy = " << double_occupancy.mean() << " +- " << double_occupancy.error() << '\n';
+		}
 };
 
 int main (int argc, char **argv) {
@@ -866,8 +876,8 @@ int main (int argc, char **argv) {
 	configuration.setBeta(beta);
 	configuration.setMu(mu);
 
-	updater.setU(2.0);
-	updater.setK(4.0);
+	updater.setU(4.0);
+	updater.setK(6.0);
 
 	SquareLattice lattice;
 	lattice.setSize(4, 4, 1);
