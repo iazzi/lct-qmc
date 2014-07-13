@@ -198,7 +198,7 @@ class V3Configuration {
 		Eigen::MatrixXd F = Eigen::MatrixXd::Identity(V, V);
 		compute_slice(G, t0, t1, +1.0);
 		compute_slice_inverse(F, t0, t1, +1.0);
-		if ((F-G.inverse()).norm()>1.0e-10) {
+		if ((F-G.inverse()).norm()>1.0e-10 && false) {
 			std::cerr << damage[index] << " ==> " << (F-G.inverse()).norm() << std::endl << std::endl;
 			std::cerr << F << std::endl << std::endl;
 			std::cerr << G.inverse() << std::endl << std::endl;
@@ -741,7 +741,7 @@ class V3Updater {
 		double new_s = d1*d2<0.0?-1.0:1.0;
 
 		bool ret = -trialDistribution(generator)<new_p-update_p.first+log(conf.inverseTemperature())-log(conf.verticesNumber()+1)+log(K);
-		std::cerr << new_p-update_p.first+log(conf.inverseTemperature())-log(conf.sliceSize(slice)+1)+log(K) << endl;
+		//std::cerr << new_p-update_p.first+log(conf.inverseTemperature())-log(conf.sliceSize(slice)+1)+log(K) << endl;
 		if (ret) {
 			conf.addVertex(v);
 			update_p = std::pair<double, double>(new_p, new_s);
@@ -783,7 +783,7 @@ class V3Updater {
 		double new_s = d1*d2<0.0?-1.0:1.0;
 
 		bool ret = -trialDistribution(generator)<new_p-update_p.first-log(conf.inverseTemperature())+log(conf.verticesNumber()+1)-log(K);
-		std::cerr << new_p-update_p.first-log(conf.inverseTemperature())+log(conf.verticesNumber()+1)-log(K) << endl;
+		//std::cerr << new_p-update_p.first-log(conf.inverseTemperature())+log(conf.verticesNumber()+1)-log(K) << endl;
 		if (ret) {
 			conf.removeVertex(slice, vert_index);
 			update_p = std::pair<double, double>(new_p, new_s);
