@@ -809,6 +809,43 @@ class V3Updater {
 	}
 };
 
+class V3Measurements {
+	private:
+		measurement<double> sign;
+		measurement<double> order;
+		measurement<double> density;
+		measurement<double> magnetization;
+		measurement<double> kinetic_energy;
+		measurement<double> double_occupancy;
+		measurement<Eigen::ArrayXd> density_distribution_up;
+		measurement<Eigen::ArrayXd> density_distribution_dn;
+	public:
+		void measure (V3Configuration &conf, V3Probability &prob, V3Updater &updater) {
+			double beta = conf.inverseTemperature();
+			double mu = conf.chemicalPotential();
+			double s = updater.sign();
+			Eigen::MatrixXd rho_up = prob.greenFunctionUp();
+			Eigen::MatrixXd rho_dn = prob.greenFunctionDn();
+			double K = (rho_up.diagonal() + rho_dn.diagonal()).transpose() * conf.eigenValues();
+			double n_up = rho_up.diagonal().array().sum();
+			double n_dn = rho_dn.diagonal().array().sum();
+			K -= (n_up+n_dn) * mu;
+			rho_up = conf.eigenVectors() * rho_up * conf.eigenVectors().transpose();
+			rho_dn = conf.eigenVectors() * rho_dn * conf.eigenVectors().transpose();
+			double op = (rho_up.diagonal().array()-rho_dn.diagonal().array()).square().sum();
+			double n2 = (rho_up.diagonal().array()*rho_dn.diagonal().array()).sum();
+			// add to measurements
+			sign.add(s);
+			order.add(conf.verticesNumber());
+			density.add(s*(n_up+n_dn)/conf.volume());
+			magnetization.add(s*.0);
+			kinetic_energy.add(s*K);
+			double_occupancy.add(s*n2);
+			density_distribution_up.add(s*Eigen::ArrayXd::Zero(conf.volume()));
+			density_distribution_dn.add(s*Eigen::ArrayXd::Zero(conf.volume()));
+		}
+};
+
 int main (int argc, char **argv) {
 	Logger log(cout);
 
