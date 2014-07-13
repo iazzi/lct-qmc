@@ -753,13 +753,18 @@ class V3Updater {
 	}
 
 	bool flush_updates (V3Configuration &conf, V3Probability &prob) {
-		debug << "resetting updates" << updates;
-		debug << p.first+update_p.first << p.second*update_p.second;
+		//debug << "resetting updates" << updates;
+		//debug << p.first+update_p.first << p.second*update_p.second;
+		double old_p = p.first+update_p.first;
+		double old_s = p.second*update_p.second;
 		prepare(conf, prob, slice);
 		updates = 0;
 		update_p = std::pair<double, double>(0.0, 1.0);
 		p = prob.probability(conf);
-		debug << p.first << p.second;
+		//debug << p.first << p.second;
+		if (fabs(old_p-p.first)>1e-6 || old_s!=p.second) {
+			throw -1;
+		}
 	}
 
 	double sign () const { return p.second*update_p.second; }
@@ -839,18 +844,22 @@ class V3Measurements {
 			double K = (rho_up.diagonal() + rho_dn.diagonal()).transpose() * conf.eigenValues();
 			double n_up = rho_up.diagonal().array().sum();
 			double n_dn = rho_dn.diagonal().array().sum();
+			//std::cerr << rho_up.diagonal().transpose() << " -> " << n_up/conf.volume() << std::endl;
+			//std::cerr << rho_dn.diagonal().transpose() << " -> " << n_dn/conf.volume() << std::endl;
 			K -= (n_up+n_dn) * mu;
 			rho_up = conf.eigenVectors() * rho_up * conf.eigenVectors().transpose();
 			rho_dn = conf.eigenVectors() * rho_dn * conf.eigenVectors().transpose();
+			//std::cerr << rho_up.diagonal().transpose() << " -> " << n_up << std::endl;
+			//std::cerr << rho_dn.diagonal().transpose() << " -> " << n_dn << std::endl;
 			double op = (rho_up.diagonal().array()-rho_dn.diagonal().array()).square().sum();
 			double n2 = (rho_up.diagonal().array()*rho_dn.diagonal().array()).sum();
 			// add to measurements
 			sign.add(s);
 			order.add(conf.verticesNumber());
 			density.add(s*(n_up+n_dn)/conf.volume());
-			magnetization.add(s*.0);
-			kinetic_energy.add(s*K);
-			double_occupancy.add(s*n2);
+			magnetization.add(s*(n_up-n_dn)/conf.volume());
+			kinetic_energy.add(s*K/conf.volume());
+			double_occupancy.add(s*n2/conf.volume());
 			density_distribution_up.add(s*Eigen::ArrayXd::Zero(conf.volume()));
 			density_distribution_dn.add(s*Eigen::ArrayXd::Zero(conf.volume()));
 		}
@@ -859,7 +868,7 @@ class V3Measurements {
 		void report (T &out) const {
 			out << "sign = " << sign.mean() << " +- " << sign.error() << '\n';
 			out << "order = " << order.mean() << " +- " << order.error() << '\n';
-			out << "density = " << sign.mean() << " +- " << density.error() << '\n';
+			out << "density = " << density.mean() << " +- " << density.error() << '\n';
 			out << "magnetization = " << magnetization.mean() << " +- " << magnetization.error() << '\n';
 			out << "kinetic_energy = " << kinetic_energy.mean() << " +- " << kinetic_energy.error() << '\n';
 			out << "double_occupancy = " << double_occupancy.mean() << " +- " << double_occupancy.error() << '\n';
