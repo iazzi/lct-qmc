@@ -234,11 +234,11 @@ struct SVDHelper {
 		Vt.applyOnTheRight(B);
 	}
 
-	Matrix matrix () {
+	Matrix matrix () const {
 		return U.block(0, 0, U.rows(), S.size()) * S.asDiagonal() * Vt.block(0, 0, S.size(), Vt.cols());
 	}
 
-	Matrix inverse () {
+	Matrix inverse () const {
 		return Vt.transpose() * S.array().inverse().matrix().asDiagonal() * U.transpose();
 	}
 
