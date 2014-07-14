@@ -467,6 +467,7 @@ class V3Configuration {
 		std::pair<double, double> ret;
 		ret.first = svd_up.S.array().log().sum() + svd_dn.S.array().log().sum();
 		ret.second = (svd_up.U*svd_up.Vt*svd_dn.U*svd_dn.Vt).determinant()>0.0?1.0:-1.0;
+		if ((svd_up.U*svd_up.Vt).determinant()<0.0 || (svd_dn.U*svd_dn.Vt).determinant()<0.0) throw -1;
 		return ret;
 	}
 
@@ -879,28 +880,43 @@ class V3Measurements {
 
 		template <typename T>
 		void report (T &out) const {
-			out << "sign = " << sign.mean() << " +- " << sign.error() << '\n';
-			out << "order = " << order.mean() << " +- " << order.error() << '\n';
-			out << "density = " << density.mean() << " +- " << density.error() << '\n';
-			out << "magnetization = " << magnetization.mean() << " +- " << magnetization.error() << '\n';
-			out << "kinetic_energy = " << kinetic_energy.mean() << " +- " << kinetic_energy.error() << '\n';
-			out << "double_occupancy = " << double_occupancy.mean() << " +- " << double_occupancy.error() << '\n';
+			out << "sign = " << sign.mean() << " +- " << sign.error() << ",\n";
+			out << "order = " << order.mean() << " +- " << order.error() << ",\n";
+			out << "density = " << density.mean() << " +- " << density.error() << ",\n";
+			out << "magnetization = " << magnetization.mean() << " +- " << magnetization.error() << ",\n";
+			out << "kinetic_energy = " << kinetic_energy.mean() << " +- " << kinetic_energy.error() << ",\n";
+			out << "double_occupancy = " << double_occupancy.mean() << " +- " << double_occupancy.error() << ",\n";
 		}
 };
+
+typedef std::chrono::duration<double> seconds_type;
 
 int main (int argc, char **argv) {
 	Logger log(cout);
 
-	double beta = 10.0, mu = 2.0;
+	double beta = 5.0, mu = 0.5, U = 4.0, K = 5.0;
+	string outfile = "data.out";
+
 	V3Configuration configuration;
 	V3Probability prob;
 	V3Updater updater;
 
+	if (argc<6) {
+		std::cerr << argv[0] << " $beta $mu $U $K $outfile" << std::endl;
+		return -1;
+	}
+
+	beta = atof(argv[1]);
+	mu = atof(argv[2]);
+	U = atof(argv[3]);
+	K = atof(argv[4]);
+	outfile = argv[5];
+
 	configuration.setBeta(beta);
 	configuration.setMu(mu);
 
-	updater.setU(4.0);
-	updater.setK(6.0);
+	updater.setU(U);
+	updater.setK(K);
 
 	SquareLattice lattice;
 	lattice.setSize(4, 4, 1);
@@ -916,7 +932,7 @@ int main (int argc, char **argv) {
 	cerr << lattice.eigenvalues().transpose() << endl << endl << lattice.eigenvectors() << endl << endl;
 
 	cerr << "base probability " << ((-beta*lattice.eigenvalues().array()+beta*mu).exp()+1.0).log().sum()*2.0 << endl;
-	cerr << "computed probability " << configuration.probability_from_scratch(14).first << endl;
+	cerr << "computed probability " << configuration.probability_from_scratch(10).first << endl;
 
 	prob.collectSlices(configuration, 0);
 	prob.makeGreenFunction(configuration);
@@ -927,8 +943,8 @@ int main (int argc, char **argv) {
 
 	V3Measurements measurements;
 
-	const int thermalization = 10000;
-	const int sweeps = 10000;
+	const int thermalization = 10;
+	const int sweeps = 10;
 
 	for (int n=0;n<thermalization;n++) {
 		cerr << n << " sweeps, " << configuration.verticesNumber() << " vertices" << endl;
@@ -956,6 +972,15 @@ int main (int argc, char **argv) {
 	for (int k=0;k<configuration.sliceNumber();k++) {
 		debug << configuration.sliceSize(k);
 	}
+
+	std::ofstream out(outfile);
+
+	out << "beta = " << beta << ",\n";
+	out << "mu = " << mu << ",\n";
+	out << "U = " << U << ",\n";
+	out << "K = " << K << ",\n";
+
+	measurements.report(out);
 
 	return 0;
 }
