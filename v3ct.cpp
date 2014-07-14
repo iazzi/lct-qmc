@@ -679,6 +679,7 @@ class V3Updater {
 	public:
 	void setK (double k) { K = k; }
 	void setU (double u) { U = u; }
+	void setSeed (unsigned int s) { generator.seed(s); }
 
 	void setup (const V3Configuration &conf, V3Probability &prob) {
 		size_t n = conf.sliceNumber();
@@ -892,7 +893,11 @@ class V3Measurements {
 typedef std::chrono::duration<double> seconds_type;
 
 int main (int argc, char **argv) {
-	Logger log(cout);
+	steady_clock::time_point t0 = steady_clock::now();
+	unsigned int seed;
+	std::ifstream seedfile("/dev/random");
+	seedfile.read(reinterpret_cast<char*>(&seed), sizeof(unsigned int));
+	seedfile.close();
 
 	double beta = 5.0, mu = 0.5, U = 4.0, K = 5.0;
 	string outfile = "data.out";
@@ -917,6 +922,7 @@ int main (int argc, char **argv) {
 
 	updater.setU(U);
 	updater.setK(K);
+	updater.setSeed(seed);
 
 	SquareLattice lattice;
 	lattice.setSize(4, 4, 1);
@@ -943,8 +949,8 @@ int main (int argc, char **argv) {
 
 	V3Measurements measurements;
 
-	const int thermalization = 10;
-	const int sweeps = 10;
+	const int thermalization = 10000;
+	const int sweeps = 10000;
 
 	for (int n=0;n<thermalization;n++) {
 		cerr << n << " sweeps, " << configuration.verticesNumber() << " vertices" << endl;
@@ -965,6 +971,7 @@ int main (int argc, char **argv) {
 		//cerr << (i+1) << " svds probability " << configuration.probability_from_scratch(i+1).first << endl;
 		measurements.report(std::cerr);
 		cerr << endl;
+		if (duration_cast<seconds_type>(steady_clock::now()-t0).count()>3600) break;
 	}
 	for (int k=0;k<configuration.sliceNumber();k++) {
 		configuration.recheck_slice(k);
@@ -979,6 +986,7 @@ int main (int argc, char **argv) {
 	out << "mu = " << mu << ",\n";
 	out << "U = " << U << ",\n";
 	out << "K = " << K << ",\n";
+	out << "seed = " << seed << ",\n";
 
 	measurements.report(out);
 
