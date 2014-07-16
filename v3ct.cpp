@@ -848,6 +848,7 @@ class V3Measurements {
 		measurement<double> magnetization;
 		measurement<double> kinetic_energy;
 		measurement<double> double_occupancy;
+		measurement<double> chi_af;
 		measurement<Eigen::ArrayXd> density_distribution_up;
 		measurement<Eigen::ArrayXd> density_distribution_dn;
 	public:
@@ -879,6 +880,12 @@ class V3Measurements {
 			double_occupancy.add(s*n2/conf.volume());
 			density_distribution_up.add(s*Eigen::ArrayXd::Zero(conf.volume()));
 			density_distribution_dn.add(s*Eigen::ArrayXd::Zero(conf.volume()));
+			double af = 0.0;
+			for (int i=0;i<rho_up.diagonal().size();i++) {
+				af += (rho_up.diagonal().array()-rho_dn.diagonal().array())[i]*(i%2?1:-1);
+			}
+			af /= conf.volume();
+			chi_af.add(s*beta*af*af);
 		}
 
 		template <typename T>
@@ -889,6 +896,7 @@ class V3Measurements {
 			out << "magnetization = " << magnetization.mean() << " +- " << magnetization.error() << ",\n";
 			out << "kinetic_energy = " << kinetic_energy.mean() << " +- " << kinetic_energy.error() << ",\n";
 			out << "double_occupancy = " << double_occupancy.mean() << " +- " << double_occupancy.error() << ",\n";
+			out << "chi_af = " << chi_af.mean() << " +- " << chi_af.error() << ",\n";
 		}
 };
 
