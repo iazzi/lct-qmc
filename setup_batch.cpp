@@ -144,7 +144,7 @@ int main (int argc, char **argv) {
 		"#SBATCH --error=errtest.%j.err\n";
 	//out <<  "#SBATCH --time=24:00:00\n";
 	out <<  "#SBATCH --time=" << time_str(1.2*eta) << "\n";
-	out << "./main " << argv[1] << "\n";
+	out << "srun ./main " << argv[1] << "\n";
 	return 0;
 }
 
