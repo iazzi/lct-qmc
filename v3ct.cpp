@@ -905,8 +905,10 @@ typedef std::chrono::duration<double> seconds_type;
 int main (int argc, char **argv) {
 	steady_clock::time_point t0 = steady_clock::now();
 	unsigned int seed;
-	std::ifstream seedfile("/dev/random");
+	std::ifstream seedfile("/dev/urandom");
+	debug << "reading random seed";
 	seedfile.read(reinterpret_cast<char*>(&seed), sizeof(unsigned int));
+	debug << "read random seed";
 	seedfile.close();
 
 	double beta = 5.0, mu = 0.5, U = 4.0, K = 5.0;
@@ -945,10 +947,10 @@ int main (int argc, char **argv) {
 	//factory.setVolume(configuration.volume());
 	//factory.setBeta(beta);
 
-	cerr << lattice.eigenvalues().transpose() << endl << endl << lattice.eigenvectors() << endl << endl;
+	//cerr << lattice.eigenvalues().transpose() << endl << endl << lattice.eigenvectors() << endl << endl;
 
 	cerr << "base probability " << ((-beta*lattice.eigenvalues().array()+beta*mu).exp()+1.0).log().sum()*2.0 << endl;
-	cerr << "computed probability " << configuration.probability_from_scratch(10).first << endl;
+	cerr << "computed probability " << configuration.probability_from_scratch(20).first << endl;
 
 	prob.collectSlices(configuration, 0);
 	prob.makeGreenFunction(configuration);
