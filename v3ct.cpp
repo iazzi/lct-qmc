@@ -793,7 +793,7 @@ class V3Updater {
 		double new_p = std::log(std::fabs(d1)) + std::log(std::fabs(d2));
 		double new_s = d1*d2<0.0?-1.0:1.0;
 
-		bool ret = -trialDistribution(generator)<new_p-update_p.first+log(conf.inverseTemperature())-log(conf.verticesNumber()+1)+log(K);
+		bool ret = -trialDistribution(generator)<new_p-update_p.first+log(conf.inverseTemperature())-log(conf.verticesNumber()+1)+std::log(K*conf.volume());
 		//std::cerr << new_p-update_p.first+log(conf.inverseTemperature())-log(conf.sliceSize(slice)+1)+log(K) << endl;
 		if (ret) {
 			conf.addVertex(v);
@@ -840,7 +840,7 @@ class V3Updater {
 		double new_p = std::log(std::fabs(d1)) + std::log(std::fabs(d2));
 		double new_s = d1*d2<0.0?-1.0:1.0;
 
-		bool ret = -trialDistribution(generator)<new_p-update_p.first-log(conf.inverseTemperature())+log(conf.verticesNumber()+1)-log(K);
+		bool ret = -trialDistribution(generator)<new_p-update_p.first-log(conf.inverseTemperature())+log(conf.verticesNumber()+1)-std::log(K*conf.volume());
 		//std::cerr << new_p-update_p.first-log(conf.inverseTemperature())+log(conf.verticesNumber()+1)-log(K) << endl;
 		if (ret) {
 			conf.removeVertex(slice, vert_index);
