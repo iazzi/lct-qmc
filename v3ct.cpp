@@ -626,7 +626,7 @@ class V3Probability {
 		void collectSlices (const V3Configuration &conf, size_t index) {
 			size_t V = conf.volume();
 			size_t n = conf.sliceNumber();
-			size_t m = index+1;
+			size_t m = index;
 			svd_up.setIdentity(V);
 			svd_dn.setIdentity(V);
 			for (size_t t=0;t<n;t++) {
@@ -654,8 +654,8 @@ class V3Probability {
 		}
 
 		void prepareUpdateMatrices (const V3Configuration &conf, size_t index) {
-			update_matrix_up = conf.slice_up(index).inverse() * G_up.matrix();
-			update_matrix_dn = conf.slice_dn(index).inverse() * G_dn.matrix();
+			update_matrix_up = G_up.matrix() * conf.slice_up(index).inverse();
+			update_matrix_dn = G_dn.matrix() * conf.slice_dn(index).inverse();
 		}
 
 		std::pair<double, double> probability (const V3Configuration &conf) {
