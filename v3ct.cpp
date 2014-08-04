@@ -38,8 +38,8 @@ struct Vertex {
 		public:
 			constexpr bool operator() (const Vertex& a, const Vertex& b) {
 				return (a.tau<b.tau) || (a.tau==b.tau && a.x<b.x)
-					|| (a.tau==b.tau && a.x==b.x && (std::fabs(a.sigma)<std::fabs(b.sigma))
-					|| (a.tau==b.tau && a.x==b.x && std::fabs(a.sigma)==std::fabs(b.sigma)) && a.sigma<b.sigma);
+					|| (a.tau==b.tau && a.x==b.x && (std::fabs(a.sigma)<std::fabs(b.sigma)))
+					|| (a.tau==b.tau && a.x==b.x && std::fabs(a.sigma)==std::fabs(b.sigma) && a.sigma<b.sigma);
 			}
 	};
 	Vertex (double a, size_t b, double c) : tau(a), x(b), sigma(c) {}
@@ -47,6 +47,11 @@ struct Vertex {
 	constexpr Vertex (double t): tau(t), x(0), sigma(0.0) {}
 	constexpr bool is_valid () const { return sigma!=0.0; }
 };
+
+std::ostream & operator<< (std::ostream &out, const Vertex& v) {
+	out << "(" << v.tau << ", " << v.x << ", " << v.sigma << ")";
+	return out;
+}
 
 class VertexFactory {
 	std::mt19937_64 &generator;
