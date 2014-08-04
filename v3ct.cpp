@@ -221,12 +221,14 @@ class V3Configuration {
 			throw -1;
 		}
 		if ((slices_up[index]+u_up * v_up.transpose()-G).norm()>1e-10) {
+			std::cerr << "error updating slice\n";
+			std::cerr << (slices_up[index]+u_up * v_up.transpose()-G).norm() << '\n';
 			std::cerr << u_up.transpose() << std::endl;
 			std::cerr << v_up.transpose() << std::endl << std::endl;
 			std::cerr << (G-slices_up[index]) << std::endl << std::endl;
 			std::cerr << u_up.array().inverse().matrix().asDiagonal()*(G-slices_up[index]) << std::endl;
 			std::cerr << std::endl;
-			throw -1;
+			//throw -1;
 		}
 
 		slices_up[index] += u_up * v_up.transpose();
@@ -480,7 +482,7 @@ class V3Configuration {
 		std::pair<double, double> ret;
 		ret.first = svd_up.S.array().log().sum() + svd_dn.S.array().log().sum();
 		ret.second = (svd_up.U*svd_up.Vt*svd_dn.U*svd_dn.Vt).determinant()>0.0?1.0:-1.0;
-		if ((svd_up.U*svd_up.Vt).determinant()<0.0 || (svd_dn.U*svd_dn.Vt).determinant()<0.0) throw -1;
+		//if ((svd_up.U*svd_up.Vt).determinant()<0.0 || (svd_dn.U*svd_dn.Vt).determinant()<0.0) throw -1;
 		return ret;
 	}
 
