@@ -662,6 +662,23 @@ class V3Probability {
 			G_dn.invertInPlace();
 		}
 
+		void makeGreenFunction_alt (const V3Configuration &conf) {
+			double beta = conf.inverseTemperature();
+			double mu = conf.chemicalPotential();
+			G_up = svd_up;
+			G_dn = svd_dn;
+			G_up.invertInPlace();
+			G_dn.invertInPlace();
+			G_up.add_identity(exp(-beta*mu));
+			G_dn.add_identity(exp(-beta*mu));
+			G_up.invertInPlace();
+			G_dn.invertInPlace();
+			G_up.U.applyOnTheLeft(R);
+			G_up.Vt.applyOnTheRight(R_inverse);
+			G_dn.U.applyOnTheLeft(R);
+			G_dn.Vt.applyOnTheRight(R_inverse);
+		}
+
 		void prepareUpdateMatrices (const V3Configuration &conf, size_t index) {
 			update_matrix_up = G_up.matrix() * conf.slice_up(index).inverse();
 			update_matrix_dn = G_dn.matrix() * conf.slice_dn(index).inverse();
@@ -679,6 +696,112 @@ class V3Probability {
 			ret.first = A_up.S.array().log().sum() + A_dn.S.array().log().sum();
 			ret.second = (A_up.U*A_up.Vt*A_dn.U*A_dn.Vt).determinant()>0.0?1.0:-1.0;
 			if ((A_up.U*A_up.Vt).determinant()<0.0 || (A_dn.U*A_dn.Vt).determinant()<0.0) throw -1;
+			return ret;
+		}
+
+		void evolve (Accumulator &acc, const V3Configuration &conf, double t, double dtau) {
+			while (t>0.0) {
+				double step = std::min(t, dtau-acc.distance());
+				acc.matrixU().array().colwise() *= (-step*conf.eigenValues().array()).exp();
+				acc.increase_distance(step);
+				t -= step;
+				if (acc.distance()>=dtau) acc.decomposeU();
+			}
+		}
+
+		void accumulate (Accumulator &acc, const V3Configuration &conf, double t0, double s) {
+			acc.start(R);
+			double dtau = conf.inverseTemperature()/50;
+			auto first = conf.vertices().lower_bound(Vertex(t0, 0, 0));
+			auto last = conf.vertices().lower_bound(Vertex(conf.inverseTemperature(), 0, 0));
+			double t = t0;
+			for (auto v=first;v!=last;v++) {
+				evolve(acc, conf, v->tau-t, dtau);
+				t = v->tau;
+				acc.matrixU() += s * v->sigma * conf.eigenVectors().row(v->x).transpose() * (conf.eigenVectors().row(v->x) * acc.matrixU());
+				acc.increase_logdet(std::log(std::fabs(1.0+s*v->sigma)));
+				if (std::fabs(acc.logdet())>15.0) acc.decomposeU();
+			}
+			evolve(acc, conf, conf.inverseTemperature()-t, dtau);
+			// wrap around
+			last = first;
+			first = conf.vertices().begin();
+			t = 0;
+			for (auto v=first;v!=last;v++) {
+				evolve(acc, conf, v->tau-t, dtau);
+				t = v->tau;
+				acc.matrixU() += s * v->sigma * conf.eigenVectors().row(v->x).transpose() * (conf.eigenVectors().row(v->x) * acc.matrixU());
+				acc.increase_logdet(std::log(std::fabs(1.0+s*v->sigma)));
+				if (std::fabs(acc.logdet())>15.0) acc.decomposeU();
+			}
+			evolve(acc, conf, t0-t, dtau);
+			acc.matrixU().applyOnTheLeft(R_inverse);
+			acc.decomposeU();
+			//std::cerr << (-(b-t)*eigenvalues.array()).exp().transpose() << std::endl << std::endl;
+			//std::cerr << G << std::endl << std::endl;
+		}
+
+		std::pair<double, double> collect_alt (const V3Configuration &conf, size_t index) {
+			double beta = conf.inverseTemperature();
+			double mu = conf.chemicalPotential();
+			double t0 = conf.inverseTemperature()/conf.sliceNumber()*index;
+			if (R.rows()!=R.cols() || R.rows()!=conf.volume()) {
+				prepare_random_matrix(conf);
+			}
+			Accumulator acc_up, acc_dn;
+			accumulate(acc_up, conf, t0, +1.0);
+			accumulate(acc_dn, conf, t0, -1.0);
+			acc_up.assertLogDet();
+			acc_dn.assertLogDet();
+			svd_up = acc_up.SVD();
+			svd_dn = acc_dn.SVD();
+		}
+
+		void dumb_test (const V3Configuration &conf, size_t index = 0) {
+			Eigen::MatrixXd A, B;
+			size_t n = conf.sliceNumber();
+			A = B = Eigen::MatrixXd::Identity(conf.volume(), conf.volume());
+			for (size_t t=0;t<n;t++) {
+				A.applyOnTheLeft(conf.slice_up((t+index)%n));
+			}
+			auto first = conf.vertices().begin();
+			auto last = conf.vertices().end();
+			const double t0 = conf.inverseTemperature()/n*index;
+			double t = t0;
+			for (auto v=conf.vertices().lower_bound(Vertex(t0, 0, 0));v!=conf.vertices().end();v++) {
+				B.array().colwise() *= (-(v->tau-t)*conf.eigenValues().array()).exp();
+				t = v->tau;
+				B += v->sigma * conf.eigenVectors().row(v->x).transpose() * (conf.eigenVectors().row(v->x) * B);
+			}
+			B.array().colwise() *= (-(conf.inverseTemperature()-t)*conf.eigenValues().array()).exp();
+			t = 0.0;
+			for (auto v=conf.vertices().begin();v!=conf.vertices().lower_bound(Vertex(t0, 0, 0));v++) {
+				B.array().colwise() *= (-(v->tau-t)*conf.eigenValues().array()).exp();
+				t = v->tau;
+				B += v->sigma * conf.eigenVectors().row(v->x).transpose() * (conf.eigenVectors().row(v->x) * B);
+			}
+			B.array().colwise() *= (-(t0-t)*conf.eigenValues().array()).exp();
+			debug << "dumb=" << (A-B).norm() << '\n';
+			//debug << A << '\n';
+			//debug << B << '\n';
+		}
+
+		std::pair<double, double> probability_alt (const V3Configuration &conf) {
+			double beta = conf.inverseTemperature();
+			double mu = conf.chemicalPotential();
+			//collect_alt(conf, 0);
+			SVDMatrix A_up, A_dn;
+			A_up = svd_up;
+			A_dn = svd_dn;
+			A_up.add_identity(exp(beta*mu));
+			A_dn.add_identity(exp(beta*mu));
+			std::pair<double, double> ret;
+			ret.first = A_up.S.array().log().sum() + A_dn.S.array().log().sum();
+			ret.second = (A_up.U*A_up.Vt*A_dn.U*A_dn.Vt).determinant()>0.0?1.0:-1.0;
+			if ((A_up.U*A_up.Vt).determinant()<0.0 || (A_dn.U*A_dn.Vt).determinant()<0.0) {
+				debug << (A_up.U*A_up.Vt).determinant() << (A_dn.U*A_dn.Vt).determinant() << ret.second;
+				//throw -1;
+			}
 			return ret;
 		}
 
@@ -703,6 +826,7 @@ class V3Updater {
 	std::exponential_distribution<double> trialDistribution;
 
 	double K, U;
+	double A, B;
 	double dtau;
 	std::pair<double, double> p;
 	std::pair<double, double> update_p;
@@ -712,11 +836,14 @@ class V3Updater {
 	Eigen::VectorXd u_up, u_dn;
 	Eigen::VectorXd v_up, v_dn;
 
+	std::ofstream dump;
+
 	size_t updates;
 	size_t slice;
 	public:
-	void setK (double k) { K = k; }
-	void setU (double u) { U = u; }
+	void setK (double k) { K = k; prepare_AB(); }
+	void setU (double u) { U = u; prepare_AB(); }
+	void prepare_AB () { A = U/2.0/K; B = sqrt(U/K+A*A); debug << (A+B) << (A-B); }
 	void setSeed (unsigned int s) { generator.seed(s); }
 
 	void setup (const V3Configuration &conf, V3Probability &prob) {
@@ -725,8 +852,13 @@ class V3Updater {
 		setBeta(conf.inverseTemperature()/n);
 		setSliceNumber(n);
 		setVolume(conf.volume());
-		prepare(conf, prob, 0);
+		prepare_alt(conf, prob, 0);
 		p = prob.probability(conf);
+		Eigen::ArrayXd Rd = 0.0*Eigen::ArrayXd::Random(conf.volume());
+		Rd -= Rd.sum()/conf.volume();
+		R = conf.eigenVectors().transpose() * Rd.exp().matrix().asDiagonal() * conf.eigenVectors();
+		R_inverse = conf.eigenVectors().transpose() * (-Rd).exp().matrix().asDiagonal() * conf.eigenVectors();
+		dump.open("dump.dat");
 	}
 
 	void setBeta (double b) {
@@ -754,7 +886,7 @@ class V3Updater {
 	}
 
 	Vertex generate () {
-		return Vertex(randomTime(generator) + slice*dtau, randomPosition(generator), coin_flip(generator)?U/K:-U/K);
+		return Vertex(randomTime(generator) + slice*dtau, randomPosition(generator), coin_flip(generator)?(A+B):(A-B));
 	}
 
 	void reprepare (const V3Configuration &conf, V3Probability &prob) {
@@ -762,11 +894,11 @@ class V3Updater {
 		p.second *= update_p.second;
 		updates = 0;
 		update_p = std::pair<double, double>(0.0, 1.0);
-		prepare(conf, prob, conf.sliceNumber() * random(generator));
+		prepare_alt(conf, prob, conf.sliceNumber() * random(generator));
 	}
 
 	void prepare (const V3Configuration &conf, V3Probability &prob) {
-		prepare(conf, prob, conf.sliceNumber() * random(generator));
+		prepare_alt(conf, prob, conf.sliceNumber() * random(generator));
 	}
 
 	void prepare (const V3Configuration &conf, V3Probability &prob, size_t index) {
@@ -774,6 +906,28 @@ class V3Updater {
 		prob.makeGreenFunction(conf);
 		prob.prepareUpdateMatrices(conf, index);
 		slice = index;
+	}
+
+	void prepare_alt (const V3Configuration &conf, V3Probability &prob, size_t index) {
+		//Eigen::MatrixXd J;
+		//prepare(conf, prob, index);
+		//J = prob.updateMatrixUp();
+		prob.collect_alt(conf, index);
+		prob.makeGreenFunction_alt(conf);
+		prob.prepareUpdateMatrices(conf, index);
+		slice = index;
+		//if ((J-prob.updateMatrixUp()).norm()>1.0e-6) {
+			//debug << J << '\n';
+			//debug << prob.updateMatrixUp() << '\n';
+			//debug << J.determinant() << prob.propagatorUp().determinant();
+			//prob.dumb_test(conf, index);
+			//debug << slice;
+			//for (auto v : conf.vertices()) {
+				//std::cerr << v << ' ';
+			//}
+			//std::cerr << std::endl;
+			//throw;
+		//}
 	}
 
 	bool tryInsert (V3Configuration &conf, V3Probability &prob) {
@@ -805,17 +959,20 @@ class V3Updater {
 	}
 
 	bool flush_updates (V3Configuration &conf, V3Probability &prob) {
-		//debug << "resetting updates" << updates;
-		//debug << p.first+update_p.first << p.second*update_p.second;
+		//debug << "flushing";
+		//debug << p.first << p.second;
+		//debug << update_p.first << update_p.second;
 		double old_p = p.first+update_p.first;
 		double old_s = p.second*update_p.second;
-		prepare(conf, prob, slice);
+		prepare_alt(conf, prob, slice);
+		p = prob.probability_alt(conf);
 		updates = 0;
 		update_p = std::pair<double, double>(0.0, 1.0);
-		p = prob.probability(conf);
-		//debug << p.first << p.second;
 		if (fabs(old_p-p.first)>1e-6 || old_s!=p.second) {
-			throw -1;
+			debug << p.first << p.second;
+			debug << old_p << old_s;
+			debug << (conf.inverseTemperature()/conf.sliceNumber());
+			conf.show_verts(dump);
 		}
 	}
 
@@ -873,6 +1030,26 @@ class V3Updater {
 			ret += tryStep(conf, prob)?1.0:0.0;
 		}
 		return ret/N;
+	}
+
+	void single_vertex_test (const V3Configuration &conf) {
+		Accumulator acc;
+		acc.start(R);
+		size_t N = 50;
+		double dtau = conf.inverseTemperature()/N;
+		for (size_t i=0;i<N;i++) {
+			acc.matrixU().array().colwise() *= (-dtau*conf.eigenValues().array()).exp();
+			acc.decomposeU();
+		}
+		Vertex v = generate();
+		size_t x = v.x;
+		double sigma = v.sigma;
+		acc.matrixU().array().colwise() *= (-dtau*conf.eigenValues().array()).exp();
+		acc.matrixU() += sigma * conf.eigenVectors().row(x).transpose() * (conf.eigenVectors().row(x) * acc.matrixU());
+		acc.matrixU().array().colwise() *= (-dtau*conf.eigenValues().array()).exp();
+		acc.matrixU().applyOnTheLeft(R);
+		acc.decomposeU();
+		debug << acc.logdet() - std::log(std::fabs(1.0+sigma));
 	}
 };
 
@@ -988,12 +1165,16 @@ int main (int argc, char **argv) {
 	cerr << "base probability " << ((-beta*lattice.eigenvalues().array()+beta*mu).exp()+1.0).log().sum()*2.0 << endl;
 	cerr << "computed probability " << configuration.probability_from_scratch(20).first << endl;
 
-	prob.collectSlices(configuration, 0);
-	prob.makeGreenFunction(configuration);
-	prob.prepareUpdateMatrices(configuration, 0);
-	cerr << "other probability " << prob.probability(configuration).first << endl;
+	//prob.collectSlices(configuration, 0);
+	//prob.makeGreenFunction(configuration);
+	//prob.prepareUpdateMatrices(configuration, 0);
+	//cerr << "other probability " << prob.probability(configuration).first << endl;
 
 	updater.setup(configuration, prob);
+
+	//updater.single_vertex_test(configuration);
+
+	//updater.test_accumulate(configuration);
 
 	V3Measurements measurements;
 
