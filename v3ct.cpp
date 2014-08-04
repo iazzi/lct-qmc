@@ -370,7 +370,7 @@ class V3Configuration {
 		}
 	}
 
-	void compute_slice (Eigen::MatrixXd &G, double a, double b, double s) {
+	void compute_slice (Eigen::MatrixXd &G, double a, double b, double s) const {
 		auto first = verts.lower_bound(Vertex(a, 0, 0));
 		auto last = verts.lower_bound(Vertex(b, 0, 0));
 		double t = a;
@@ -535,6 +535,17 @@ class V3Configuration {
 			if (index==0) return *i;
 			index--;
 		}
+	}
+
+	void show_verts () const {
+		show_verts(std::cerr);
+	}
+
+	void show_verts (std::ostream& out) const {
+		for (auto v : verts) {
+			out << v << ' ';
+		}
+		out << std::endl;
 	}
 };
 
