@@ -95,6 +95,10 @@ class V3Configuration {
 	std::vector<int> damage;
 
 	public:
+
+	const std::set<Vertex, Vertex::Compare>& vertices () const { return verts; }
+	std::set<Vertex, Vertex::Compare>& vertices () { return verts; }
+
 	void setBeta (double b) {
 		beta = b;
 	}
