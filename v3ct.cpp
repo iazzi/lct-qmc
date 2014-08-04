@@ -22,6 +22,8 @@
 
 #include <csignal>
 
+#include "accumulator.hpp"
+
 //#define fftw_execute (void)
 
 using SVDMatrix = SVDHelper;
