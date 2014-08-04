@@ -622,7 +622,16 @@ class V3Probability {
 		SVDMatrix svd_up, svd_dn;
 		SVDMatrix G_up, G_dn;
 		Eigen::MatrixXd update_matrix_up, update_matrix_dn;
+
+		Eigen::MatrixXd R, R_inverse;
 	public:
+		void prepare_random_matrix (const V3Configuration& conf) {
+			Eigen::ArrayXd Rd = 1.0*Eigen::ArrayXd::Random(conf.volume());
+			Rd -= Rd.sum()/Rd.size();
+			R = conf.eigenVectors().transpose() * Rd.exp().matrix().asDiagonal() * conf.eigenVectors();
+			R_inverse = conf.eigenVectors().transpose() * (-Rd).exp().matrix().asDiagonal() * conf.eigenVectors();
+		}
+
 		void collectSlices (const V3Configuration &conf, size_t index) {
 			size_t V = conf.volume();
 			size_t n = conf.sliceNumber();
@@ -678,6 +687,9 @@ class V3Probability {
 
 		Eigen::MatrixXd greenFunctionUp () const { return G_up.matrix(); }
 		Eigen::MatrixXd greenFunctionDn () const { return G_dn.matrix(); }
+
+		Eigen::MatrixXd propagatorUp () const { return svd_up.matrix(); }
+		Eigen::MatrixXd propagatorDn () const { return svd_dn.matrix(); }
 };
 
 class V3Updater {
