@@ -236,8 +236,9 @@ class V3Configuration {
 		size_t n = slices_up.size();
 		double dtau = beta/n;
 		size_t index = size_t(w.tau/dtau);
-		double t0 = beta/n*index, t1 = beta/n*(index+1);
-		auto first = verts.lower_bound(Vertex(t0, 0, 0));
+		//double t0 = beta/n*index;
+		double t1 = beta/n*(index+1);
+		//auto first = verts.lower_bound(Vertex(t0, 0, 0));
 		auto last = verts.lower_bound(Vertex(t1, 0, 0));
 		auto now = verts.lower_bound(Vertex(w.tau, 0, 0));
 		v = eigenvectors.row(w.x).transpose();
@@ -429,6 +430,7 @@ class V3Configuration {
 			if (index==0) return *i;
 			index--;
 		}
+		return Vertex(beta/n*(slice+1), 0, 0);
 	}
 
 	void show_verts () const {
@@ -550,8 +552,8 @@ class V3Probability {
 			G_dn = svd_dn;
 			G_up.invertInPlace();
 			G_dn.invertInPlace();
-			G_up.add_identity(exp(-beta*mu));
-			G_dn.add_identity(exp(-beta*mu));
+			G_up.add_identity(exp(-beta*mu-0.5*beta*0.0));
+			G_dn.add_identity(exp(-beta*mu+0.5*beta*0.0));
 			G_up.invertInPlace();
 			G_dn.invertInPlace();
 		}
@@ -635,11 +637,11 @@ class V3Probability {
 			//std::cerr << G << std::endl << std::endl;
 		}
 
-		std::pair<double, double> collect_alt (const V3Configuration &conf, size_t index) {
-			double beta = conf.inverseTemperature();
-			double mu = conf.chemicalPotential();
+		void collect_alt (const V3Configuration &conf, size_t index) {
+			//double beta = conf.inverseTemperature();
+			//double mu = conf.chemicalPotential();
 			double t0 = conf.inverseTemperature()/conf.sliceNumber()*index;
-			if (R.rows()!=R.cols() || R.rows()!=conf.volume()) {
+			if (R.rows()!=R.cols() || R.rows()!=int(conf.volume())) {
 				prepare_random_matrix(conf);
 			}
 			Accumulator acc_up, acc_dn;
@@ -658,8 +660,8 @@ class V3Probability {
 			for (size_t t=0;t<n;t++) {
 				A.applyOnTheLeft(conf.slice_up((t+index)%n));
 			}
-			auto first = conf.vertices().begin();
-			auto last = conf.vertices().end();
+			//auto first = conf.vertices().begin();
+			//auto last = conf.vertices().end();
 			const double t0 = conf.inverseTemperature()/n*index;
 			double t = t0;
 			for (auto v=conf.vertices().lower_bound(Vertex(t0, 0, 0));v!=conf.vertices().end();v++) {
@@ -707,6 +709,26 @@ class V3Probability {
 
 		Eigen::MatrixXd propagatorUp () const { return svd_up.matrix(); }
 		Eigen::MatrixXd propagatorDn () const { return svd_dn.matrix(); }
+
+		void single_vertex_test (const V3Configuration &conf) {
+			Accumulator acc;
+			acc.start(R);
+			size_t N = 50;
+			double dtau = conf.inverseTemperature()/N;
+			for (size_t i=0;i<N;i++) {
+				acc.matrixU().array().colwise() *= (-dtau*conf.eigenValues().array()).exp();
+				acc.decomposeU();
+			}
+			//Vertex v = generate();
+			//size_t x = v.x;
+			//double sigma = v.sigma;
+			//acc.matrixU().array().colwise() *= (-dtau*conf.eigenValues().array()).exp();
+			//acc.matrixU() += sigma * conf.eigenVectors().row(x).transpose() * (conf.eigenVectors().row(x) * acc.matrixU());
+			//acc.matrixU().array().colwise() *= (-dtau*conf.eigenValues().array()).exp();
+			//acc.matrixU().applyOnTheLeft(R);
+			//acc.decomposeU();
+			//debug << acc.logdet() - std::log(std::fabs(1.0+sigma));
+		}
 };
 
 class V3Updater {
@@ -822,7 +844,7 @@ class V3Updater {
 	}
 
 	bool tryInsert (V3Configuration &conf, V3Probability &prob) {
-		if (updates>=V_dn.cols()) {
+		if (int(updates)>=V_dn.cols()) {
 			flush_updates(conf, prob);
 		}
 		Vertex v = generate();
@@ -849,7 +871,7 @@ class V3Updater {
 		return ret;
 	}
 
-	bool flush_updates (V3Configuration &conf, V3Probability &prob) {
+	void flush_updates (V3Configuration &conf, V3Probability &prob) {
 		//debug << "flushing";
 		//debug << p.first << p.second;
 		//debug << update_p.first << update_p.second;
@@ -870,7 +892,7 @@ class V3Updater {
 	double sign () const { return p.second*update_p.second; }
 
 	bool tryRemove (V3Configuration &conf, V3Probability &prob) {
-		if (updates>=V_dn.cols()) {
+		if (int(updates)>=V_dn.cols()) {
 			flush_updates(conf, prob);
 		}
 		if (conf.sliceSize(slice)==0) return false;
@@ -917,30 +939,10 @@ class V3Updater {
 	double sweep (V3Configuration &conf, V3Probability &prob) {
 		double ret;
 		size_t N = conf.inverseTemperature()*conf.volume()+1;
-		for (int n=0;n<N;n++) {
+		for (size_t n=0;n<N;n++) {
 			ret += tryStep(conf, prob)?1.0:0.0;
 		}
 		return ret/N;
-	}
-
-	void single_vertex_test (const V3Configuration &conf) {
-		Accumulator acc;
-		acc.start(R);
-		size_t N = 50;
-		double dtau = conf.inverseTemperature()/N;
-		for (size_t i=0;i<N;i++) {
-			acc.matrixU().array().colwise() *= (-dtau*conf.eigenValues().array()).exp();
-			acc.decomposeU();
-		}
-		Vertex v = generate();
-		size_t x = v.x;
-		double sigma = v.sigma;
-		acc.matrixU().array().colwise() *= (-dtau*conf.eigenValues().array()).exp();
-		acc.matrixU() += sigma * conf.eigenVectors().row(x).transpose() * (conf.eigenVectors().row(x) * acc.matrixU());
-		acc.matrixU().array().colwise() *= (-dtau*conf.eigenValues().array()).exp();
-		acc.matrixU().applyOnTheLeft(R);
-		acc.decomposeU();
-		debug << acc.logdet() - std::log(std::fabs(1.0+sigma));
 	}
 };
 
@@ -973,7 +975,7 @@ class V3Measurements {
 			rho_dn = conf.eigenVectors() * rho_dn * conf.eigenVectors().transpose();
 			//std::cerr << rho_up.diagonal().transpose() << " -> " << n_up << std::endl;
 			//std::cerr << rho_dn.diagonal().transpose() << " -> " << n_dn << std::endl;
-			double op = (rho_up.diagonal().array()-rho_dn.diagonal().array()).square().sum();
+			//double op = (rho_up.diagonal().array()-rho_dn.diagonal().array()).square().sum();
 			double n2 = (rho_up.diagonal().array()*rho_dn.diagonal().array()).sum();
 			// add to measurements
 			sign.add(s);
@@ -1072,7 +1074,7 @@ int main (int argc, char **argv) {
 
 	for (int n=0;n<thermalization;n++) {
 		cerr << n << " sweeps, " << configuration.verticesNumber() << " vertices" << endl;
-		double p = configuration.probability(0).first;
+		//double p = configuration.probability(0).first;
 		cerr << "acceptance: " << updater.sweep(configuration, prob) << endl;
 		//std::cerr << configuration.probability(0).first-p << std::endl;
 		//for (int i=0;i<30;i+=5)
@@ -1081,7 +1083,7 @@ int main (int argc, char **argv) {
 	}
 	for (int n=0;n<sweeps;n++) {
 		cerr << n << " sweeps, " << configuration.verticesNumber() << " vertices" << endl;
-		double p = configuration.probability(0).first;
+		//double p = configuration.probability(0).first;
 		cerr << "acceptance: " << updater.sweep(configuration, prob) << endl;
 		measurements.measure(configuration, prob, updater);
 		//std::cerr << configuration.probability(0).first-p << std::endl;
@@ -1091,10 +1093,10 @@ int main (int argc, char **argv) {
 		cerr << endl;
 		if (duration_cast<seconds_type>(steady_clock::now()-t0).count()>3600) break;
 	}
-	for (int k=0;k<configuration.sliceNumber();k++) {
+	for (size_t k=0;k<configuration.sliceNumber();k++) {
 		configuration.recheck_slice(k);
 	}
-	for (int k=0;k<configuration.sliceNumber();k++) {
+	for (size_t k=0;k<configuration.sliceNumber();k++) {
 		debug << configuration.sliceSize(k);
 	}
 
