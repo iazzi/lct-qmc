@@ -88,7 +88,7 @@ class V3Configuration {
 	Eigen::VectorXd eigenvalues;
 
 	size_t V;
-	double beta, mu;
+	double beta, mu, B;
 
 	std::vector<Eigen::MatrixXd> slices_up;
 	std::vector<Eigen::MatrixXd> slices_dn;
@@ -99,13 +99,9 @@ class V3Configuration {
 	const std::set<Vertex, Vertex::Compare>& vertices () const { return verts; }
 	std::set<Vertex, Vertex::Compare>& vertices () { return verts; }
 
-	void setBeta (double b) {
-		beta = b;
-	}
-
-	void setMu (double m) {
-		mu = m;
-	}
+	void setBeta (double b) { beta = b; }
+	void setMu (double m) { mu = m; }
+	void setB (double b) { B = b; }
 
 	template <typename M>
 		void setEigenvectors (const Eigen::MatrixBase<M> &U) {
