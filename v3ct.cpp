@@ -277,83 +277,6 @@ class V3Configuration {
 		std::cerr << "; " << (slices_up[index]-slices_dn[index]).norm() << std::endl;
 	}
 
-	double testRank1Update (const Vertex &w) {
-		size_t n = slices_up.size();
-		double dtau = beta/n;
-		size_t index = size_t(w.tau/dtau);
-		Eigen::VectorXd u_up, u_dn;
-		Eigen::VectorXd v_up, v_dn;
-		computeUpdateVectors(u_up, v_up, w, +1.0);
-		computeUpdateVectors(u_dn, v_dn, w, -1.0);
-		computeReversedVector(v_up, w, +1.0);
-		computeReversedVector(v_dn, w, -1.0);
-		SVDMatrix svd_up, svd_dn;
-		svd_up.setIdentity(V);
-		svd_dn.setIdentity(V);
-		size_t m = index+1;
-		for (size_t t=0;t<n;t++) {
-			svd_up.U.applyOnTheLeft(slices_up[(t+m)%n]);
-			svd_up.absorbU();
-			svd_dn.U.applyOnTheLeft(slices_dn[(t+m)%n]);
-			svd_dn.absorbU();
-		}
-		svd_up.invertInPlace();
-		svd_dn.invertInPlace();
-		svd_up.add_identity(exp(-beta*mu));
-		svd_dn.add_identity(exp(-beta*mu));
-		return (1.0 + v_up.transpose() * svd_up.inverse() * u_up)
-			* (1.0 + v_dn.transpose() * svd_dn.inverse() * u_dn);
-	}
-
-	double testRank2Update (const Vertex &w1, const Vertex &w2) {
-		size_t n = slices_up.size();
-		double dtau = beta/n;
-		size_t index = size_t(w1.tau/dtau);
-		Eigen::MatrixXd U_up, U_dn;
-		Eigen::MatrixXd V_up, V_dn;
-		U_up.resize(V, 2);
-		U_dn.resize(V, 2);
-		V_up.resize(V, 2);
-		V_dn.resize(V, 2);
-		Eigen::VectorXd u_up, u_dn;
-		Eigen::VectorXd v_up, v_dn;
-		computeUpdateVectors(u_up, v_up, w1, +1.0);
-		computeUpdateVectors(u_dn, v_dn, w1, -1.0);
-		//computeReversedVector(v_up, w1, +1.0);
-		//computeReversedVector(v_dn, w1, -1.0);
-		U_up.col(0) = u_up;
-		U_dn.col(0) = u_dn;
-		V_up.col(0) = v_up;
-		V_dn.col(0) = v_dn;
-		SVDMatrix svd_up, svd_dn;
-		svd_up.setIdentity(V);
-		svd_dn.setIdentity(V);
-		size_t m = index+1;
-		for (size_t t=0;t<n;t++) {
-			svd_up.U.applyOnTheLeft(slices_up[(t+m)%n]);
-			svd_up.absorbU();
-			svd_dn.U.applyOnTheLeft(slices_dn[(t+m)%n]);
-			svd_dn.absorbU();
-		}
-		svd_up.invertInPlace();
-		svd_dn.invertInPlace();
-		svd_up.add_identity(exp(-beta*mu));
-		svd_dn.add_identity(exp(-beta*mu));
-		Eigen::MatrixXd update_matrix_up = slices_up[index].inverse() * svd_up.inverse();
-		Eigen::MatrixXd update_matrix_dn = slices_dn[index].inverse() * svd_dn.inverse();
-		addVertex(w1);
-		computeUpdateVectors(u_up, v_up, w2, +1.0);
-		computeUpdateVectors(u_dn, v_dn, w2, -1.0);
-		//computeReversedVector(v_up, w2, +1.0);
-		//computeReversedVector(v_dn, w2, -1.0);
-		U_up.col(1) = u_up;
-		U_dn.col(1) = u_dn;
-		V_up.col(1) = v_up;
-		V_dn.col(1) = v_dn;
-		return ( (Eigen::MatrixXd::Identity(2, 2) + V_up.transpose() * update_matrix_up * U_up).determinant()
-			* (Eigen::MatrixXd::Identity(2, 2) + V_dn.transpose() * update_matrix_dn * U_dn).determinant() );
-	}
-
 	void addVertex (const Vertex& w, int threshold = 10) {
 		size_t n = slices_up.size();
 		double dtau = beta/n;
@@ -462,32 +385,6 @@ class V3Configuration {
 		}
 	}
 
-	std::pair<double, double> probability (size_t m) {
-		size_t n = damage.size();
-		SVDMatrix svd_up, svd_dn;
-		svd_up.setIdentity(V);
-		svd_dn.setIdentity(V);
-		for (size_t t=0;t<n;t++) {
-			svd_up.U.applyOnTheLeft(slices_up[(t+m)%n]);
-			svd_up.absorbU();
-			svd_dn.U.applyOnTheLeft(slices_dn[(t+m)%n]);
-			svd_dn.absorbU();
-		}
-		svd_up.add_identity(exp(beta*mu));
-		svd_dn.add_identity(exp(beta*mu));
-		std::pair<double, double> ret;
-		ret.first = svd_up.S.array().log().sum() + svd_dn.S.array().log().sum();
-		ret.second = (svd_up.U*svd_up.Vt*svd_dn.U*svd_dn.Vt).determinant()>0.0?1.0:-1.0;
-		//if ((svd_up.U*svd_up.Vt).determinant()<0.0 || (svd_dn.U*svd_dn.Vt).determinant()<0.0) throw -1;
-		return ret;
-	}
-
-	std::pair<double, double> probability_from_scratch (size_t n) {
-		n = n==0?slices_up.size():n;
-		make_slices(n);
-		return probability(0);
-	}
-
 	size_t sliceNumber () const {
 		return slices_up.size();
 	}
@@ -502,6 +399,7 @@ class V3Configuration {
 
 	double inverseTemperature () const { return beta; }
 	double chemicalPotential () const { return mu; }
+	double magneticField () const { return B; }
 	size_t verticesNumber () const { return verts.size(); }
 
 	void removeVertex (size_t slice, size_t index) {
@@ -848,12 +746,9 @@ class V3Updater {
 		setBeta(conf.inverseTemperature()/n);
 		setSliceNumber(n);
 		setVolume(conf.volume());
+		prepare(conf, prob, 0);
 		prepare_alt(conf, prob, 0);
 		p = prob.probability(conf);
-		Eigen::ArrayXd Rd = 0.0*Eigen::ArrayXd::Random(conf.volume());
-		Rd -= Rd.sum()/conf.volume();
-		R = conf.eigenVectors().transpose() * Rd.exp().matrix().asDiagonal() * conf.eigenVectors();
-		R_inverse = conf.eigenVectors().transpose() * (-Rd).exp().matrix().asDiagonal() * conf.eigenVectors();
 		dump.open("dump.dat");
 	}
 
@@ -1150,6 +1045,7 @@ int main (int argc, char **argv) {
 	lattice.compute();
 	configuration.setEigenvectors(lattice.eigenvectors());
 	configuration.setEigenvalues(lattice.eigenvalues());
+	configuration.make_slices(2.0*beta);
 
 	//std::mt19937_64 generator;
 	//VertexFactory factory(generator);
@@ -1157,9 +1053,6 @@ int main (int argc, char **argv) {
 	//factory.setBeta(beta);
 
 	//cerr << lattice.eigenvalues().transpose() << endl << endl << lattice.eigenvectors() << endl << endl;
-
-	cerr << "base probability " << ((-beta*lattice.eigenvalues().array()+beta*mu).exp()+1.0).log().sum()*2.0 << endl;
-	cerr << "computed probability " << configuration.probability_from_scratch(20).first << endl;
 
 	//prob.collectSlices(configuration, 0);
 	//prob.makeGreenFunction(configuration);
