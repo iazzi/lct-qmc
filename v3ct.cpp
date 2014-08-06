@@ -581,13 +581,17 @@ class V3Probability {
 		}
 
 		std::pair<double, double> probability (const V3Configuration &conf) {
-			double beta = conf.inverseTemperature();
 			double mu = conf.chemicalPotential();
+			return probability(conf, mu, mu);
+		}
+
+		std::pair<double, double> probability (const V3Configuration &conf, double mu_up, double mu_dn) {
+			double beta = conf.inverseTemperature();
 			SVDMatrix A_up, A_dn;
 			A_up = svd_up;
 			A_dn = svd_dn;
-			A_up.add_identity(exp(beta*mu));
-			A_dn.add_identity(exp(beta*mu));
+			A_up.add_identity(exp(beta*mu_up));
+			A_dn.add_identity(exp(beta*mu_dn));
 			std::pair<double, double> ret;
 			ret.first = A_up.S.array().log().sum() + A_dn.S.array().log().sum();
 			ret.second = (A_up.U*A_up.Vt*A_dn.U*A_dn.Vt).determinant()>0.0?1.0:-1.0;
