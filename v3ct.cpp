@@ -401,6 +401,8 @@ class V3Configuration {
 	double inverseTemperature () const { return beta; }
 	double chemicalPotential () const { return mu; }
 	double magneticField () const { return B; }
+	double mu_up () const { return mu+0.5*B; }
+	double mu_dn () const { return mu-0.5*B; }
 	size_t verticesNumber () const { return verts.size(); }
 
 	void removeVertex (size_t slice, size_t index) {
@@ -537,9 +539,10 @@ class V3Probability {
 			for (size_t t=0;t<n;t++) {
 				svd_up.U.applyOnTheLeft(conf.slice_up((t+m)%n));
 				svd_up.absorbU();
-				svd_dn.U.applyOnTheLeft(conf.slice_dn((t+m)%n));
-				svd_dn.absorbU();
+				//svd_dn.U.applyOnTheLeft(conf.slice_dn((t+m)%n));
+				//svd_dn.absorbU();
 			}
+			svd_dn = svd_up;
 		}
 
 		void shiftLeft (const V3Configuration &conf, size_t index) {}
@@ -547,28 +550,20 @@ class V3Probability {
 
 		void makeGreenFunction (const V3Configuration &conf) {
 			double beta = conf.inverseTemperature();
-			double mu = conf.chemicalPotential();
+			//double mu = conf.chemicalPotential();
+			//double B = conf.magneticField();
 			G_up = svd_up;
 			G_dn = svd_dn;
 			G_up.invertInPlace();
 			G_dn.invertInPlace();
-			G_up.add_identity(exp(-beta*mu-0.5*beta*0.0));
-			G_dn.add_identity(exp(-beta*mu+0.5*beta*0.0));
+			G_up.add_identity(exp(-beta*conf.mu_up()));
+			G_dn.add_identity(exp(-beta*conf.mu_dn()));
 			G_up.invertInPlace();
 			G_dn.invertInPlace();
 		}
 
 		void makeGreenFunction_alt (const V3Configuration &conf) {
-			double beta = conf.inverseTemperature();
-			double mu = conf.chemicalPotential();
-			G_up = svd_up;
-			G_dn = svd_dn;
-			G_up.invertInPlace();
-			G_dn.invertInPlace();
-			G_up.add_identity(exp(-beta*mu));
-			G_dn.add_identity(exp(-beta*mu));
-			G_up.invertInPlace();
-			G_dn.invertInPlace();
+			makeGreenFunction(conf);
 			G_up.U.applyOnTheLeft(R);
 			G_up.Vt.applyOnTheRight(R_inverse);
 			G_dn.U.applyOnTheLeft(R);
@@ -577,25 +572,23 @@ class V3Probability {
 
 		void prepareUpdateMatrices (const V3Configuration &conf, size_t index) {
 			update_matrix_up = G_up.matrix() * conf.slice_up(index).inverse();
-			update_matrix_dn = G_dn.matrix() * conf.slice_dn(index).inverse();
+			update_matrix_dn = G_dn.matrix() * conf.slice_up(index).inverse();
 		}
 
 		std::pair<double, double> probability (const V3Configuration &conf) {
-			double mu = conf.chemicalPotential();
-			return probability(conf, mu, mu);
-		}
-
-		std::pair<double, double> probability (const V3Configuration &conf, double mu_up, double mu_dn) {
 			double beta = conf.inverseTemperature();
 			SVDMatrix A_up, A_dn;
 			A_up = svd_up;
 			A_dn = svd_dn;
-			A_up.add_identity(exp(beta*mu_up));
-			A_dn.add_identity(exp(beta*mu_dn));
+			A_up.add_identity(exp(beta*conf.mu_up()));
+			A_dn.add_identity(exp(beta*conf.mu_dn()));
 			std::pair<double, double> ret;
 			ret.first = A_up.S.array().log().sum() + A_dn.S.array().log().sum();
 			ret.second = (A_up.U*A_up.Vt*A_dn.U*A_dn.Vt).determinant()>0.0?1.0:-1.0;
-			if ((A_up.U*A_up.Vt).determinant()<0.0 || (A_dn.U*A_dn.Vt).determinant()<0.0) throw -1;
+			if ((A_up.U*A_up.Vt).determinant()<0.0 || (A_dn.U*A_dn.Vt).determinant()<0.0) {
+				debug << "WTF?";
+				throw -1;
+			}
 			return ret;
 		}
 
@@ -609,18 +602,25 @@ class V3Probability {
 			}
 		}
 
-		void accumulate (Accumulator &acc, const V3Configuration &conf, double t0, double s) {
+		void accumulate (Accumulator &acc, const V3Configuration &conf, double t0, double s, int nt = 10) {
 			acc.start(R);
-			double dtau = conf.inverseTemperature()/50;
+			double dtau = conf.inverseTemperature()/40;
 			auto first = conf.vertices().lower_bound(Vertex(t0, 0, 0));
 			auto last = conf.vertices().lower_bound(Vertex(conf.inverseTemperature(), 0, 0));
+			int nv = 0;
 			double t = t0;
 			for (auto v=first;v!=last;v++) {
 				evolve(acc, conf, v->tau-t, dtau);
 				t = v->tau;
 				acc.matrixU() += s * v->sigma * conf.eigenVectors().row(v->x).transpose() * (conf.eigenVectors().row(v->x) * acc.matrixU());
 				acc.increase_logdet(std::log(std::fabs(1.0+s*v->sigma)));
-				if (std::fabs(acc.logdet())>15.0) acc.decomposeU();
+				nv++;
+				//if (std::fabs(acc.logdet())>15.0) {
+				if (nv>nt) {
+					acc.decomposeU();
+					acc.assertLogDet();
+					nv = 0;
+				}
 			}
 			evolve(acc, conf, conf.inverseTemperature()-t, dtau);
 			// wrap around
@@ -632,7 +632,13 @@ class V3Probability {
 				t = v->tau;
 				acc.matrixU() += s * v->sigma * conf.eigenVectors().row(v->x).transpose() * (conf.eigenVectors().row(v->x) * acc.matrixU());
 				acc.increase_logdet(std::log(std::fabs(1.0+s*v->sigma)));
-				if (std::fabs(acc.logdet())>15.0) acc.decomposeU();
+				nv++;
+				//if (std::fabs(acc.logdet())>15.0) {
+				if (nv>nt) {
+					acc.decomposeU();
+					acc.assertLogDet();
+					nv = 0;
+				}
 			}
 			evolve(acc, conf, t0-t, dtau);
 			acc.matrixU().applyOnTheLeft(R_inverse);
@@ -650,11 +656,14 @@ class V3Probability {
 			}
 			Accumulator acc_up, acc_dn;
 			accumulate(acc_up, conf, t0, +1.0);
-			accumulate(acc_dn, conf, t0, -1.0);
-			acc_up.assertLogDet();
-			acc_dn.assertLogDet();
+			//accumulate(acc_dn, conf, t0, -1.0);
+			//try {
+				acc_up.assertLogDet();
+			//} catch (Accumulator::AssertionFailed ass) {
+			//}
+			//acc_dn.assertLogDet();
 			svd_up = acc_up.SVD();
-			svd_dn = acc_dn.SVD();
+			svd_dn = acc_up.SVD();
 		}
 
 		void dumb_test (const V3Configuration &conf, size_t index = 0) {
@@ -688,13 +697,13 @@ class V3Probability {
 
 		std::pair<double, double> probability_alt (const V3Configuration &conf) {
 			double beta = conf.inverseTemperature();
-			double mu = conf.chemicalPotential();
+			//double mu = conf.chemicalPotential();
 			//collect_alt(conf, 0);
 			SVDMatrix A_up, A_dn;
 			A_up = svd_up;
 			A_dn = svd_dn;
-			A_up.add_identity(exp(beta*mu));
-			A_dn.add_identity(exp(beta*mu));
+			A_up.add_identity(exp(beta*conf.mu_up()));
+			A_dn.add_identity(exp(beta*conf.mu_dn()));
 			std::pair<double, double> ret;
 			ret.first = A_up.S.array().log().sum() + A_dn.S.array().log().sum();
 			ret.second = (A_up.U*A_up.Vt*A_dn.U*A_dn.Vt).determinant()>0.0?1.0:-1.0;
@@ -710,6 +719,15 @@ class V3Probability {
 
 		Eigen::MatrixXd greenFunctionUp () const { return G_up.matrix(); }
 		Eigen::MatrixXd greenFunctionDn () const { return G_dn.matrix(); }
+		Eigen::MatrixXd greenFunctionDn_flipped (const V3Configuration &conf) {
+			double beta = conf.inverseTemperature();
+			G_dn = svd_dn;
+			G_dn.add_identity(exp(beta*conf.mu_dn()));
+			G_dn.invertInPlace();
+			G_dn.U.applyOnTheLeft(R);
+			G_dn.Vt.applyOnTheRight(R_inverse);
+			return G_dn.matrix();
+		}
 
 		Eigen::MatrixXd propagatorUp () const { return svd_up.matrix(); }
 		Eigen::MatrixXd propagatorDn () const { return svd_dn.matrix(); }
@@ -763,7 +781,7 @@ class V3Updater {
 	public:
 	void setK (double k) { K = k; prepare_AB(); }
 	void setU (double u) { U = u; prepare_AB(); }
-	void prepare_AB () { A = U/2.0/K; B = sqrt(U/K+A*A); debug << (A+B) << (A-B); }
+	void prepare_AB () { A = 0.0*U/2.0/K; B = sqrt(U/K+A*A); debug << (A+B) << (A-B); }
 	void setSeed (unsigned int s) { generator.seed(s); }
 
 	void setup (const V3Configuration &conf, V3Probability &prob) {
@@ -853,7 +871,7 @@ class V3Updater {
 		}
 		Vertex v = generate();
 		conf.computeUpdateVectors(u_up, v_up, v, +1.0);
-		conf.computeUpdateVectors(u_dn, v_dn, v, -1.0);
+		conf.computeUpdateVectors(u_dn, v_dn, v, +1.0);
 		U_up.col(updates) = u_up;
 		U_dn.col(updates) = u_dn;
 		V_up.col(updates) = v_up;
@@ -903,7 +921,7 @@ class V3Updater {
 		size_t vert_index = random(generator)*conf.sliceSize(slice);
 		Vertex v = conf.pickVertex(slice, vert_index);
 		conf.computeUpdateVectors(u_up, v_up, v, +1.0);
-		conf.computeUpdateVectors(u_dn, v_dn, v, -1.0);
+		conf.computeUpdateVectors(u_dn, v_dn, v, +1.0);
 		U_up.col(updates) = -u_up;
 		U_dn.col(updates) = -u_dn;
 		V_up.col(updates) = v_up;
@@ -941,7 +959,7 @@ class V3Updater {
 	}
 
 	double sweep (V3Configuration &conf, V3Probability &prob) {
-		double ret;
+		double ret = 0.0;
 		size_t N = conf.inverseTemperature()*conf.volume()+1;
 		for (size_t n=0;n<N;n++) {
 			ret += tryStep(conf, prob)?1.0:0.0;
@@ -964,11 +982,14 @@ class V3Measurements {
 	public:
 		void measure (V3Configuration &conf, V3Probability &prob, V3Updater &updater) {
 			updater.reprepare(conf, prob);
+			size_t V = conf.volume();
 			double beta = conf.inverseTemperature();
 			double mu = conf.chemicalPotential();
 			double s = updater.sign();
 			Eigen::MatrixXd rho_up = prob.greenFunctionUp();
-			Eigen::MatrixXd rho_dn = prob.greenFunctionDn();
+			Eigen::MatrixXd rho_dn = Eigen::MatrixXd::Identity(V, V) - prob.greenFunctionDn(); //_flipped(conf);
+			Eigen::MatrixXd rho_alt = prob.greenFunctionDn_flipped(conf);
+			debug << "n_dn diff =" << rho_dn.diagonal().sum() - rho_alt.diagonal().sum();
 			double K = (rho_up.diagonal() + rho_dn.diagonal()).transpose() * conf.eigenValues();
 			double n_up = rho_up.diagonal().array().sum();
 			double n_dn = rho_dn.diagonal().array().sum();
@@ -988,14 +1009,19 @@ class V3Measurements {
 			magnetization.add(s*(n_up-n_dn)/conf.volume());
 			kinetic_energy.add(s*K/conf.volume());
 			double_occupancy.add(s*n2/conf.volume());
-			density_distribution_up.add(s*Eigen::ArrayXd::Zero(conf.volume()));
-			density_distribution_dn.add(s*Eigen::ArrayXd::Zero(conf.volume()));
+			density_distribution_up.add(s*rho_up.diagonal());
+			density_distribution_dn.add(s*rho_dn.diagonal());
 			double af = 0.0;
 			for (int i=0;i<rho_up.diagonal().size();i++) {
 				af += (rho_up.diagonal().array()-rho_dn.diagonal().array())[i]*(i%2?1:-1);
 			}
 			af /= conf.volume();
 			chi_af.add(s*beta*af*af);
+			std::ofstream out("dens.dat");
+			for (int x=0;x<4;x++) for (int y=0;y<4;y++) {
+				out << x << ' ' << y << ' ' << rho_up(4*x+y, 4*x+y) << ' ' << rho_dn(4*x+y, 4*x+y) << '\n';
+			}
+			out.close();
 		}
 
 		template <typename T>
@@ -1038,9 +1064,11 @@ int main (int argc, char **argv) {
 	U = atof(argv[3]);
 	K = atof(argv[4]);
 	outfile = argv[5];
+	// t.U, t.B, t.mu = -t.U, 2.0*t.mu-t.U, 0.5*(t.B-t.U)
 
-	configuration.setBeta(beta);
-	configuration.setMu(mu);
+	configuration.setBeta(1.0);
+	configuration.setMu(-0.5*U);
+	configuration.setB(2.0*mu-U);
 
 	updater.setU(U);
 	updater.setK(K);
@@ -1051,7 +1079,7 @@ int main (int argc, char **argv) {
 	lattice.compute();
 	configuration.setEigenvectors(lattice.eigenvectors());
 	configuration.setEigenvalues(lattice.eigenvalues());
-	configuration.make_slices(2.0*beta);
+	configuration.make_slices(4.0*beta);
 
 	//std::mt19937_64 generator;
 	//VertexFactory factory(generator);
@@ -1065,26 +1093,33 @@ int main (int argc, char **argv) {
 	//prob.prepareUpdateMatrices(configuration, 0);
 	//cerr << "other probability " << prob.probability(configuration).first << endl;
 
-	updater.setup(configuration, prob);
-
 	//updater.single_vertex_test(configuration);
 
 	//updater.test_accumulate(configuration);
 
 	V3Measurements measurements;
 
-	const int thermalization = 10000;
-	const int sweeps = 10000;
+	const int thermalization = 1000;
+	const int sweeps = 100000;
 
-	for (int n=0;n<thermalization;n++) {
-		cerr << n << " sweeps, " << configuration.verticesNumber() << " vertices" << endl;
-		//double p = configuration.probability(0).first;
-		cerr << "acceptance: " << updater.sweep(configuration, prob) << endl;
-		//std::cerr << configuration.probability(0).first-p << std::endl;
-		//for (int i=0;i<30;i+=5)
-		//cerr << (i+1) << " svds probability " << configuration.probability_from_scratch(i+1).first << endl;
-		cerr << endl;
-	}
+	do {
+		updater.setup(configuration, prob);
+		for (int n=0;n<thermalization;n++) {
+			cerr << "beta =" << configuration.inverseTemperature() << ' ' << n << " sweeps, " << configuration.verticesNumber() << " vertices" << endl;
+			//double p = configuration.probability(0).first;
+			cerr << "acceptance: " << updater.sweep(configuration, prob) << endl;
+			//std::cerr << configuration.probability(0).first-p << std::endl;
+			//for (int i=0;i<30;i+=5)
+			//cerr << (i+1) << " svds probability " << configuration.probability_from_scratch(i+1).first << endl;
+			cerr << endl;
+		}
+		if (beta-configuration.inverseTemperature()<0.5) {
+			configuration.setBeta(beta);
+		} else {
+			configuration.setBeta(configuration.inverseTemperature()+0.45);
+		}
+	} while (configuration.inverseTemperature()<beta);
+	updater.setup(configuration, prob);
 	for (int n=0;n<sweeps;n++) {
 		cerr << n << " sweeps, " << configuration.verticesNumber() << " vertices" << endl;
 		//double p = configuration.probability(0).first;
@@ -1095,7 +1130,7 @@ int main (int argc, char **argv) {
 		//cerr << (i+1) << " svds probability " << configuration.probability_from_scratch(i+1).first << endl;
 		measurements.report(std::cerr);
 		cerr << endl;
-		if (duration_cast<seconds_type>(steady_clock::now()-t0).count()>3600) break;
+		//if (duration_cast<seconds_type>(steady_clock::now()-t0).count()>3600) break;
 	}
 	for (size_t k=0;k<configuration.sliceNumber();k++) {
 		configuration.recheck_slice(k);

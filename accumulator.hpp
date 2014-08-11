@@ -2,6 +2,8 @@
 #define ACCUMULATOR_HPP
 #include "svd.hpp"
 
+#include <iostream>
+
 class Accumulator {
 	using SVDMatrix = SVDHelper;
 	SVDMatrix svd;
@@ -9,11 +11,11 @@ class Accumulator {
 	double current_logdet;
 	double dist;
 
-	class AssertionFailed {};
-
 	typedef typename SVDMatrix::Matrix Matrix;
 
 	public:
+	class AssertionFailed {};
+
 	void start (const Matrix& M) {
 		svd.inPlaceSVD(M);
 		total_logdet = 0.0;
@@ -53,7 +55,10 @@ class Accumulator {
 	}
 
 	void assertLogDet (double prec = 1.0e-6) const {
-		if (!testLogDet(prec)) throw AssertionFailed();
+		if (!testLogDet(prec)) {
+			std::cerr << svd.S.array().log().sum() << '-' << total_logdet << '=' << svd.S.array().log().sum()-total_logdet << std::endl;
+			throw AssertionFailed();
+		}
 	}
 
 	const SVDMatrix& SVD () const { return svd;	}
