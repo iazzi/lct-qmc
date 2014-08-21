@@ -93,8 +93,12 @@ class measurement {
 		size_t bins() const { return n_.size(); }
 		int samples (int i = 0) const { if (n_.size()==0) return 0; else return n_[i]; }
 
-		double time (int i = 0) const {
+		double time (int i) const {
 			return (variance(i)*n_[0]/n_[i]/variance(0)-1.0)*0.5;
+		}
+
+		double time () const {
+			return time(std::max(bins(), size_t(6))-6);
 		}
 
 		measurement () : name_("Result") {}
