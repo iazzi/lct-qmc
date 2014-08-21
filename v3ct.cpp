@@ -30,6 +30,12 @@ using SVDMatrix = SVDHelper;
 
 Logger debug(std::cerr);
 
+volatile int signalled = 0;
+
+void my_signal_handler (int sig) {
+	signalled = sig;
+}
+
 struct Vertex {
 	double tau;
 	size_t x;
@@ -99,7 +105,7 @@ class V3Configuration {
 	const std::set<Vertex, Vertex::Compare>& vertices () const { return verts; }
 	std::set<Vertex, Vertex::Compare>& vertices () { return verts; }
 
-	void setBeta (double b) { beta = b; }
+	void setBeta (double b) { beta = b; verts.erase(verts.lower_bound(Vertex(b, 0, 0)), verts.end());}
 	void setMu (double m) { mu = m; }
 	void setB (double b) { B = b; }
 
@@ -203,11 +209,11 @@ class V3Configuration {
 		insertVertex(w);
 
 		double t0 = beta/n*index, t1 = beta/n*(index+1);
-		Eigen::MatrixXd G = Eigen::MatrixXd::Identity(V, V);
-		Eigen::MatrixXd F = Eigen::MatrixXd::Identity(V, V);
-		compute_slice(G, t0, t1, +1.0);
-		compute_slice_inverse(F, t0, t1, +1.0);
-		if ((F-G.inverse()).norm()>1.0e-10 && false) {
+		Eigen::MatrixXd G; // = Eigen::MatrixXd::Identity(V, V);
+		Eigen::MatrixXd F; // = Eigen::MatrixXd::Identity(V, V);
+		//compute_slice(G, t0, t1, +1.0);
+		//compute_slice_inverse(F, t0, t1, +1.0);
+		if (false && (F-G.inverse()).norm()>1.0e-10 && false) {
 			std::cerr << damage[index] << " ==> " << (F-G.inverse()).norm() << std::endl << std::endl;
 			std::cerr << F << std::endl << std::endl;
 			std::cerr << G.inverse() << std::endl << std::endl;
@@ -216,7 +222,7 @@ class V3Configuration {
 			std::cerr << (G.inverse()*G-Eigen::MatrixXd::Identity(V, V)).norm() << std::endl << std::endl;
 			throw -1;
 		}
-		if ((slices_up[index]+u_up * v_up.transpose()-G).norm()>1e-10) {
+		if (false && (slices_up[index]+u_up * v_up.transpose()-G).norm()>1e-10) {
 			std::cerr << "error updating slice\n";
 			std::cerr << (slices_up[index]+u_up * v_up.transpose()-G).norm() << '\n';
 			std::cerr << u_up.transpose() << std::endl;
@@ -236,52 +242,51 @@ class V3Configuration {
 		size_t n = slices_up.size();
 		double dtau = beta/n;
 		size_t index = size_t(w.tau/dtau);
-		//double t0 = beta/n*index;
+		double t0 = beta/n*index;
 		double t1 = beta/n*(index+1);
-		//auto first = verts.lower_bound(Vertex(t0, 0, 0));
+		auto first = verts.lower_bound(Vertex(t0, 0, 0));
 		auto last = verts.lower_bound(Vertex(t1, 0, 0));
 		auto now = verts.lower_bound(Vertex(w.tau, 0, 0));
 		v = eigenvectors.row(w.x).transpose();
 		Eigen::VectorXd cache;
 
 		double t = w.tau;
-		for (auto i=now;i!=last;) {
+		for (auto i=now;i!=first&&std::prev(i)!=first;) {
+			i = std::prev(i);
 			if (i->tau==w.tau) {
-				i++;
 				continue;
 			}
-			if (i->tau>t) {
-				v.array() *= (+(i->tau-t)*eigenvalues.array()).exp();
+			if (i->tau<t) {
+				v.array() *= (+(t-i->tau)*eigenvalues.array()).exp();
 				t = i->tau;
 			}
-			auto j = i;
-			while (++j!=last && j->tau==t) {}
-			if (std::distance(i, j)==1) {
-				v -= s * i->sigma / (1.0+s*i->sigma) * eigenvectors.row(i->x).transpose() * (eigenvectors.row(i->x) * v);
-			} else {
-				cache.setZero(V);
-				for (auto k=i;k!=j;k++) {
-					cache -= s * k->sigma / (1.0+s*k->sigma) * eigenvectors.row(k->x).transpose() * (eigenvectors.row(k->x) * v);
-				}
-				v += cache;
-			}
-			i = j;
+			v -= s * i->sigma / (1.0+s*i->sigma) * eigenvectors.row(i->x).transpose() * (eigenvectors.row(i->x) * v);
 		}
-		if (t1>t) {
-			v.array() *= (+(t1-t)*eigenvalues.array()).exp();
+		if (t0<t) {
+			v.array() *= (+(t-t0)*eigenvalues.array()).exp();
 		}
+		v *= s * w.sigma;
 		Eigen::VectorXd u, r, z;
 		computeUpdateVectors(u, r, w, +1.0);
-		computeUpdateVectors(u, z, w, -1.0);
-		std::cerr << "test " << index << " (" << w.tau << ", " << w.x << ", " << w.sigma << ") = " << (v-slices_up[index].inverse().transpose()*r).norm();
-		std::cerr << "; " << (v-slices_dn[index].inverse().transpose()*z).norm();
-		std::cerr << "; " << (slices_up[index]-slices_dn[index]).norm() << std::endl;
+		//computeUpdateVectors(u, z, w, -1.0);
+		std::cerr << "test " << index << " (" << w.tau << ", " << w.x << ", " << w.sigma << ") = " << (v-slices_up[index].inverse()*u).norm() << '\n';
+		//std::cerr << v.transpose() << std::endl << (slices_up[index].inverse()*u).transpose() << std::endl;
+		//std::cerr << u.transpose() << std::endl;
+		//std::cerr << slices_up[index].diagonal().transpose() << std::endl;
+		//std::cerr << slices_up[index].inverse().diagonal().transpose() << std::endl;
+		//std::cerr << "; " << (v-slices_dn[index].inverse().transpose()*z).norm();
+		//std::cerr << (+dtau*eigenvalues.array()).exp().transpose() << std::endl;
+		//std::cerr << (+(t1-w.tau)*eigenvalues.array()).exp().transpose() << std::endl;
+		//std::cerr << (+(t0-w.tau)*eigenvalues.array()).exp().transpose() << std::endl;
+		//throw;
 	}
 
 	void addVertex (const Vertex& w, int threshold = 10) {
 		size_t n = slices_up.size();
 		double dtau = beta/n;
 		size_t index = size_t(w.tau/dtau);
+		addRank1Vertex(w);
+		return;
 		if (damage[index]<threshold) {
 			addRank1Vertex(w);
 		} else {
@@ -405,34 +410,30 @@ class V3Configuration {
 	double mu_dn () const { return mu-0.5*B; }
 	size_t verticesNumber () const { return verts.size(); }
 
-	void removeVertex (size_t slice, size_t index) {
+	auto pickVertexIterator (size_t slice, size_t index) const {
 		size_t n = slices_up.size();
 		auto first = verts.lower_bound(Vertex(beta/n*slice, 0, 0));
 		auto last = verts.lower_bound(Vertex(beta/n*(slice+1), 0, 0));
 		for (auto i=first;i!=last;i++) {
-			if (index==0) {
-				Eigen::VectorXd u_up, v_up;
-				Eigen::VectorXd u_dn, v_dn;
-				computeUpdateVectors(u_up, v_up, *i, 1.0);
-				computeUpdateVectors(u_dn, v_dn, *i, -1.0);
-				slices_up[slice] -= u_up*v_up.transpose();
-				slices_dn[slice] -= u_dn*v_dn.transpose();
-				verts.erase(i);
-				break;
-			}
+			if (index==0) return i;
 			index--;
 		}
+		return last;
+	}
+
+	void removeVertex (size_t slice, size_t index) {
+		auto i = pickVertexIterator(slice, index);
+		Eigen::VectorXd u_up, v_up;
+		Eigen::VectorXd u_dn, v_dn;
+		computeUpdateVectors(u_up, v_up, *i, 1.0);
+		computeUpdateVectors(u_dn, v_dn, *i, -1.0);
+		slices_up[slice] -= u_up*v_up.transpose();
+		slices_dn[slice] -= u_dn*v_dn.transpose();
+		verts.erase(i);
 	}
 
 	Vertex pickVertex (size_t slice, size_t index) const {
-		size_t n = slices_up.size();
-		auto first = verts.lower_bound(Vertex(beta/n*slice, 0, 0));
-		auto last = verts.lower_bound(Vertex(beta/n*(slice+1), 0, 0));
-		for (auto i=first;i!=last;i++) {
-			if (index==0) return *i;
-			index--;
-		}
-		return Vertex(beta/n*(slice+1), 0, 0);
+		return *pickVertexIterator(slice, index);
 	}
 
 	void show_verts () const {
@@ -570,7 +571,8 @@ class V3Probability {
 			G_dn.Vt.applyOnTheRight(R_inverse);
 		}
 
-		void prepareUpdateMatrices (const V3Configuration &conf, size_t index) {
+		void prepareUpdateMatrices (V3Configuration conf, size_t index) {
+			conf.reset_slice(index);
 			update_matrix_up = G_up.matrix() * conf.slice_up(index).inverse();
 			update_matrix_dn = G_dn.matrix() * conf.slice_up(index).inverse();
 		}
@@ -586,7 +588,7 @@ class V3Probability {
 			ret.first = A_up.S.array().log().sum() + A_dn.S.array().log().sum();
 			ret.second = (A_up.U*A_up.Vt*A_dn.U*A_dn.Vt).determinant()>0.0?1.0:-1.0;
 			if ((A_up.U*A_up.Vt).determinant()<0.0 || (A_dn.U*A_dn.Vt).determinant()<0.0) {
-				debug << "WTF?";
+				debug << "WTF?" << ret.second;
 				throw -1;
 			}
 			return ret;
@@ -708,7 +710,7 @@ class V3Probability {
 			ret.first = A_up.S.array().log().sum() + A_dn.S.array().log().sum();
 			ret.second = (A_up.U*A_up.Vt*A_dn.U*A_dn.Vt).determinant()>0.0?1.0:-1.0;
 			if ((A_up.U*A_up.Vt).determinant()<0.0 || (A_dn.U*A_dn.Vt).determinant()<0.0) {
-				debug << (A_up.U*A_up.Vt).determinant() << (A_dn.U*A_dn.Vt).determinant() << ret.second;
+				//debug << (A_up.U*A_up.Vt).determinant() << (A_dn.U*A_dn.Vt).determinant() << ret.second;
 				//throw -1;
 			}
 			return ret;
@@ -778,11 +780,18 @@ class V3Updater {
 
 	size_t updates;
 	size_t slice;
+
+	//std::vector<Vertex> last_add;
+	//std::vector<Vertex> last_del;
 	public:
 	void setK (double k) { K = k; prepare_AB(); }
 	void setU (double u) { U = u; prepare_AB(); }
 	void prepare_AB () { A = 0.0*U/2.0/K; B = sqrt(U/K+A*A); debug << (A+B) << (A-B); }
 	void setSeed (unsigned int s) { generator.seed(s); }
+
+	void randomize (V3Configuration &conf, size_t N = 0) {
+		for (size_t i=0;i<N;i++) conf.addVertex(generate());
+	}
 
 	void setup (const V3Configuration &conf, V3Probability &prob) {
 		size_t n = conf.sliceNumber();
@@ -792,7 +801,7 @@ class V3Updater {
 		setVolume(conf.volume());
 		prepare(conf, prob, 0);
 		prepare_alt(conf, prob, 0);
-		p = prob.probability(conf);
+		p = prob.probability_alt(conf);
 		dump.open("dump.dat");
 	}
 
@@ -872,6 +881,9 @@ class V3Updater {
 		Vertex v = generate();
 		conf.computeUpdateVectors(u_up, v_up, v, +1.0);
 		conf.computeUpdateVectors(u_dn, v_dn, v, +1.0);
+		//debug << "ins";
+		//conf.computeReversedVector(u_up, v, +1.0);
+		//conf.computeReversedVector(u_dn, v, +1.0);
 		U_up.col(updates) = u_up;
 		U_dn.col(updates) = u_dn;
 		V_up.col(updates) = v_up;
@@ -888,6 +900,7 @@ class V3Updater {
 			conf.addVertex(v);
 			update_p = std::pair<double, double>(new_p, new_s);
 			updates++;
+			//flush_updates(conf, prob);
 		} else {
 		}
 		return ret;
@@ -903,12 +916,19 @@ class V3Updater {
 		p = prob.probability_alt(conf);
 		updates = 0;
 		update_p = std::pair<double, double>(0.0, 1.0);
-		if (fabs(old_p-p.first)>1e-6 || old_s!=p.second) {
+		if (fabs((old_p-p.first)/old_p)>1e-5 || old_s!=p.second) {
 			debug << p.first << p.second;
 			debug << old_p << old_s;
-			debug << (conf.inverseTemperature()/conf.sliceNumber());
+			debug << (conf.inverseTemperature()/conf.sliceNumber()) << (conf.inverseTemperature()/conf.sliceNumber()*slice);
+			//debug << conf.sliceSize(slice) << last_add.size() << last_del.size();
+			//for (auto v : last_add) debug << '+' << v;
+			//for (auto v : last_del) debug << '-' << v;
 			conf.show_verts(dump);
+			std::cerr << std::endl;
+			//throw;
 		}
+		//last_add.clear();
+		//last_del.clear();
 	}
 
 	double sign () const { return p.second*update_p.second; }
@@ -922,6 +942,9 @@ class V3Updater {
 		Vertex v = conf.pickVertex(slice, vert_index);
 		conf.computeUpdateVectors(u_up, v_up, v, +1.0);
 		conf.computeUpdateVectors(u_dn, v_dn, v, +1.0);
+		//debug << "rem";
+		//conf.computeReversedVector(u_up, v, +1.0);
+		//conf.computeReversedVector(u_dn, v, +1.0);
 		U_up.col(updates) = -u_up;
 		U_dn.col(updates) = -u_dn;
 		V_up.col(updates) = v_up;
@@ -935,18 +958,20 @@ class V3Updater {
 		bool ret = -trialDistribution(generator)<new_p-update_p.first-log(conf.inverseTemperature())+log(conf.verticesNumber()+1)-std::log(K*conf.volume());
 		//std::cerr << new_p-update_p.first-log(conf.inverseTemperature())+log(conf.verticesNumber()+1)-log(K) << endl;
 		if (ret) {
+			//last_del.push_back(v);
 			conf.removeVertex(slice, vert_index);
 			update_p = std::pair<double, double>(new_p, new_s);
 			updates++;
+			//flush_updates(conf, prob);
 		} else {
 		}
 		return ret;
 	}
 
 	bool tryStep (V3Configuration &conf, V3Probability &prob) {
-		if (random(generator)<0.005) {
+		if (random(generator)<1.0/conf.sliceNumber()) {
 			slice = conf.sliceNumber() * random(generator);
-			debug << "jumping to slice" << slice;
+			//debug << "jumping to slice" << slice;
 			flush_updates(conf, prob);
 		}
 		if (coin_flip(generator)) {
@@ -974,6 +999,7 @@ class V3Measurements {
 		measurement<double> order;
 		measurement<double> density;
 		measurement<double> magnetization;
+		measurement<double> order_parameter;
 		measurement<double> kinetic_energy;
 		measurement<double> double_occupancy;
 		measurement<double> chi_af;
@@ -981,16 +1007,16 @@ class V3Measurements {
 		measurement<Eigen::ArrayXd> density_distribution_dn;
 	public:
 		void measure (V3Configuration &conf, V3Probability &prob, V3Updater &updater) {
-			updater.reprepare(conf, prob);
+			updater.flush_updates(conf, prob);
 			size_t V = conf.volume();
 			double beta = conf.inverseTemperature();
 			double mu = conf.chemicalPotential();
 			double s = updater.sign();
 			Eigen::MatrixXd rho_up = prob.greenFunctionUp();
 			Eigen::MatrixXd rho_dn = Eigen::MatrixXd::Identity(V, V) - prob.greenFunctionDn(); //_flipped(conf);
-			Eigen::MatrixXd rho_alt = prob.greenFunctionDn_flipped(conf);
-			debug << "n_dn diff =" << rho_dn.diagonal().sum() - rho_alt.diagonal().sum();
-			double K = (rho_up.diagonal() + rho_dn.diagonal()).transpose() * conf.eigenValues();
+			//Eigen::MatrixXd rho_alt = prob.greenFunctionDn_flipped(conf);
+			//debug << "n_dn diff =" << rho_dn.diagonal().sum() - rho_alt.diagonal().sum();
+			double K = (rho_up.diagonal() - rho_dn.diagonal()).transpose() * conf.eigenValues();
 			double n_up = rho_up.diagonal().array().sum();
 			double n_dn = rho_dn.diagonal().array().sum();
 			//std::cerr << rho_up.diagonal().transpose() << " -> " << n_up/conf.volume() << std::endl;
@@ -1000,13 +1026,14 @@ class V3Measurements {
 			rho_dn = conf.eigenVectors() * rho_dn * conf.eigenVectors().transpose();
 			//std::cerr << rho_up.diagonal().transpose() << " -> " << n_up << std::endl;
 			//std::cerr << rho_dn.diagonal().transpose() << " -> " << n_dn << std::endl;
-			//double op = (rho_up.diagonal().array()-rho_dn.diagonal().array()).square().sum();
+			double op = (rho_up.diagonal().array()-rho_dn.diagonal().array()).square().sum();
 			double n2 = (rho_up.diagonal().array()*rho_dn.diagonal().array()).sum();
 			// add to measurements
 			sign.add(s);
 			order.add(conf.verticesNumber());
 			density.add(s*(n_up+n_dn)/conf.volume());
 			magnetization.add(s*(n_up-n_dn)/conf.volume());
+			order_parameter.add(op);
 			kinetic_energy.add(s*K/conf.volume());
 			double_occupancy.add(s*n2/conf.volume());
 			density_distribution_up.add(s*rho_up.diagonal());
@@ -1024,15 +1051,18 @@ class V3Measurements {
 			out.close();
 		}
 
+		size_t samples () const { return sign.samples(); }
+
 		template <typename T>
 		void report (T &out) const {
-			out << "sign = " << sign.mean() << " +- " << sign.error() << ",\n";
-			out << "order = " << order.mean() << " +- " << order.error() << ",\n";
-			out << "density = " << density.mean() << " +- " << density.error() << ",\n";
-			out << "magnetization = " << magnetization.mean() << " +- " << magnetization.error() << ",\n";
-			out << "kinetic_energy = " << kinetic_energy.mean() << " +- " << kinetic_energy.error() << ",\n";
-			out << "double_occupancy = " << double_occupancy.mean() << " +- " << double_occupancy.error() << ",\n";
-			out << "chi_af = " << chi_af.mean() << " +- " << chi_af.error() << ",\n";
+			out << "sign = " << sign.mean() << " +- " << sign.error() << " tau=" << sign.time() << ",\n";
+			out << "order = " << order.mean() << " +- " << order.error() << " tau=" << order.time() << ",\n";
+			out << "density = " << density.mean() << " +- " << density.error() << " tau=" << density.time() << ",\n";
+			out << "magnetization = " << magnetization.mean() << " +- " << magnetization.error() << " tau=" << magnetization.time() << ",\n";
+			out << "order_parameter = " << order_parameter.mean() << " +- " << order_parameter.error() << " tau=" << order_parameter.time() << ",\n";
+			out << "kinetic_energy = " << kinetic_energy.mean() << " +- " << kinetic_energy.error() << " tau=" << kinetic_energy.time() << ",\n";
+			out << "double_occupancy = " << double_occupancy.mean() << " +- " << double_occupancy.error() << " tau=" << double_occupancy.time() << ",\n";
+			out << "chi_af = " << chi_af.mean() << " +- " << chi_af.error() << " tau=" << chi_af.time() << ",\n";
 		}
 };
 
@@ -1040,6 +1070,8 @@ typedef std::chrono::duration<double> seconds_type;
 
 int main (int argc, char **argv) {
 	steady_clock::time_point t0 = steady_clock::now();
+	signal(10, my_signal_handler);
+	signal(14, my_signal_handler);
 	unsigned int seed;
 	std::ifstream seedfile("/dev/urandom");
 	debug << "reading random seed";
@@ -1066,7 +1098,7 @@ int main (int argc, char **argv) {
 	outfile = argv[5];
 	// t.U, t.B, t.mu = -t.U, 2.0*t.mu-t.U, 0.5*(t.B-t.U)
 
-	configuration.setBeta(1.0);
+	configuration.setBeta(std::min(100.0, beta));
 	configuration.setMu(-0.5*U);
 	configuration.setB(2.0*mu-U);
 
@@ -1079,7 +1111,7 @@ int main (int argc, char **argv) {
 	lattice.compute();
 	configuration.setEigenvectors(lattice.eigenvectors());
 	configuration.setEigenvalues(lattice.eigenvalues());
-	configuration.make_slices(4.0*beta);
+	configuration.make_slices(5.0*beta);
 
 	//std::mt19937_64 generator;
 	//VertexFactory factory(generator);
@@ -1099,37 +1131,59 @@ int main (int argc, char **argv) {
 
 	V3Measurements measurements;
 
-	const int thermalization = 1000;
-	const int sweeps = 100000;
+	const int thermalization = 10000;
+	const int sweeps = 10000;
 
-	do {
-		updater.setup(configuration, prob);
-		for (int n=0;n<thermalization;n++) {
-			cerr << "beta =" << configuration.inverseTemperature() << ' ' << n << " sweeps, " << configuration.verticesNumber() << " vertices" << endl;
+	t0 = steady_clock::now();
+	while (configuration.inverseTemperature()<beta) {
+		//updater.setup(configuration, prob);
+		//for (int n=0;n<thermalization;n++) {
+			//double a = updater.sweep(configuration, prob);
+			//if (signalled==10) {
+				//signalled = 0;
+				//cerr << "beta =" << configuration.inverseTemperature() << ' ' << n << " sweeps, " << configuration.verticesNumber() << " vertices" << endl;
+				//cerr << "acceptance: " << a << endl;
+				//cerr << endl;
+			//}
 			//double p = configuration.probability(0).first;
-			cerr << "acceptance: " << updater.sweep(configuration, prob) << endl;
 			//std::cerr << configuration.probability(0).first-p << std::endl;
 			//for (int i=0;i<30;i+=5)
 			//cerr << (i+1) << " svds probability " << configuration.probability_from_scratch(i+1).first << endl;
+		//}
+		//configuration.setBeta(std::min(configuration.inverseTemperature()+0.1, beta));
+	}
+	updater.setup(configuration, prob);
+	for (int n=0;n<thermalization;n++) {
+		double a = updater.sweep(configuration, prob);
+		if (signalled==10) {
+			signalled = 0;
+			cerr << "beta =" << configuration.inverseTemperature() << ' ' << n << " sweeps, " << configuration.verticesNumber() << " vertices" << endl;
+			cerr << "acceptance: " << a << endl;
 			cerr << endl;
 		}
-		if (beta-configuration.inverseTemperature()<0.5) {
-			configuration.setBeta(beta);
-		} else {
-			configuration.setBeta(configuration.inverseTemperature()+0.45);
-		}
-	} while (configuration.inverseTemperature()<beta);
-	updater.setup(configuration, prob);
-	for (int n=0;n<sweeps;n++) {
-		cerr << n << " sweeps, " << configuration.verticesNumber() << " vertices" << endl;
 		//double p = configuration.probability(0).first;
-		cerr << "acceptance: " << updater.sweep(configuration, prob) << endl;
-		measurements.measure(configuration, prob, updater);
 		//std::cerr << configuration.probability(0).first-p << std::endl;
 		//for (int i=0;i<30;i+=5)
 		//cerr << (i+1) << " svds probability " << configuration.probability_from_scratch(i+1).first << endl;
-		measurements.report(std::cerr);
-		cerr << endl;
+	}
+	updater.setup(configuration, prob);
+	for (int n=0;n<sweeps;n++) {
+		double a = updater.sweep(configuration, prob);
+		measurements.measure(configuration, prob, updater);
+		if (signalled==10) {
+			signalled = 0;
+			cerr << "beta =" << configuration.inverseTemperature() << ' ' << n << " sweeps, " << configuration.verticesNumber() << " vertices" << endl;
+			cerr << "acceptance: " << a << endl;
+			measurements.report(std::cerr);
+			cerr << endl;
+		}
+		if (signalled==14) {
+			break;
+		}
+		//double p = configuration.probability(0).first;
+		//std::cerr << configuration.probability(0).first-p << std::endl;
+		//for (int i=0;i<30;i+=5)
+		//cerr << (i+1) << " svds probability " << configuration.probability_from_scratch(i+1).first << endl;
 		//if (duration_cast<seconds_type>(steady_clock::now()-t0).count()>3600) break;
 	}
 	for (size_t k=0;k<configuration.sliceNumber();k++) {
@@ -1146,6 +1200,8 @@ int main (int argc, char **argv) {
 	out << "U = " << U << ",\n";
 	out << "K = " << K << ",\n";
 	out << "seed = " << seed << ",\n";
+	out << "total time = " << duration_cast<seconds_type>(steady_clock::now()-t0).count() << ",\n";
+	out << "samples = " << measurements.samples() << ",\n";
 
 	measurements.report(out);
 
