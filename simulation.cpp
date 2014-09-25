@@ -582,9 +582,11 @@ void Simulation::measure_quick () {
 	double s = svd_sign();
 	double n_up = rho_up.diagonal().array().sum();
 	double n_dn = rho_dn.diagonal().array().sum();
+	double n2 = (rho_up.diagonal().array()*rho_dn.diagonal().array()).sum();
 	sign.add(psign*update_sign);
 	density.add(s*(n_up+n_dn)/V);
 	magnetization.add(s*(n_up-n_dn)/2.0/V);
+	interaction.add(s*g*n2/tx/V);
 	for (int i=0;i<V;i++) {
 		d_up[i].add(s*rho_up(i, i));
 		d_dn[i].add(s*rho_dn(i, i));
