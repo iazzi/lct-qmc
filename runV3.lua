@@ -33,9 +33,9 @@ os.execute('cp /users/iazzi/bss-mc/v3ct /mnt/lnec/iazzi/'..name..'/v3ct')
 local n = 1
 for beta = 1, 10 do
 	local f = io.open(name..'_'..n..'.in', 'w')
-	local time = tonumber(time or 500) * beta * beta
+	local time = tonumber(time or 500) * beta
 	time = ('%.2i:%.2i:%.2i'):format(math.floor(time/3600), math.floor(time/60)%60, time%60)
-	write(f, beta, 2, 1, 3, name, time)
+	write(f, beta, 4, 2, 6, name, time)
 	f:close()
 	os.execute('sbatch '..name..'_'..n..'.in')
 	n = n + 1
