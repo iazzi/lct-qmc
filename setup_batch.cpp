@@ -29,6 +29,8 @@ int main (int argc, char **argv) {
 		std::cerr << '\t' << lua_tostring(L, -1) << std::endl;
 		return -1;
 	}
+	std::string job_name("test");
+	if (argc>2) job_name = argv[2];
 
 	int nthreads = 1;
 	char *e = getenv("LSB_HOSTS");
@@ -135,7 +137,7 @@ int main (int argc, char **argv) {
 	out <<
 		"#!/usr/local/bin/bash -l\n"
 		"#\n"
-		"#SBATCH --job-name=\"test\"\n"
+		"#SBATCH --job-name=\"" << job_name << "\"\n"
 		"#SBATCH --partition=dphys_compute\n"
 		//"#SBATCH --cpus-per-task=20\n"
 		//"#SBATCH --nodes=1\n"
