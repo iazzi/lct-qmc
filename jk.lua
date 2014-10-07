@@ -79,7 +79,7 @@ for _, fn in ipairs(files) do
 		for mu, v in pairs(u) do
 			local w = transpose(v)
 			for i = 1, #w-2, 2 do
-				w[i], w[i+1] = jk(w[i], w[#w-1])
+				w[i], w[i+1] = average(w[i]) --, w[#w-1])
 				--w[i+1] = math.sqrt(average(w[i+1])/#w[i+1])
 				--w[i+1] = math.sqrt(w[i+1]-w[i]*w[i])
 			end
