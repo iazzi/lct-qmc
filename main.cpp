@@ -142,7 +142,7 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 					log << simulation.measured_sign;
 					log << "Density: " << measurement_ratio(simulation.density, simulation.measured_sign, " +- ");
 					log << "Magnetization: " << measurement_ratio(simulation.magnetization, simulation.measured_sign, " +- ") << '\n';
-					save_density("density.dat");
+					//save_density("density.dat");
 				}
 				simulation.update();
 				simulation.measure_quick();
@@ -159,7 +159,7 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 				if (duration_cast<seconds_type>(steady_clock::now()-t1).count()>5) {
 					t1 = steady_clock::now();
 					log << "thread" << j << "running: " << i << '/' << total_sweeps << "..." << (double(simulation.steps)/duration_cast<seconds_type>(t1-t0).count()) << "steps per second";
-					save_density("density.dat");
+					//save_density("density.dat");
 				}
 				simulation.update();
 				simulation.measure_quick();
@@ -178,7 +178,7 @@ void run_thread (int j, lua_State *L, Logger &log, std::mutex &lock, std::atomic
 			lua_getfield(L, -1, "outfile");
 			lua_insert(L, -2);
 			lua_pcall(L, 2, 0, 0);
-			save_density("density.dat");
+			//save_density("density.dat");
 			lock.unlock();
 		} catch (...) {
 			failed++;
