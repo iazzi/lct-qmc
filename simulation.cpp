@@ -755,7 +755,7 @@ bool Simulation::shift_time () {
 
 bool Simulation::shift_time_svd () {
 	bool ret = time_shift==N-1;
-	if (time_shift%5>0) {
+	if (time_shift%5>0 && false) {
 		remove_first_slice(svd.Vt);
 		svd.absorbVt();
 		apply_updates();
