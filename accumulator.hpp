@@ -27,6 +27,7 @@ class Accumulator {
 		svd.setIdentity(V);
 		total_logdet = 0.0;
 		current_logdet = 0.0;
+		dist = 0.0;
 	}
 
 	Matrix &matrixU () { return svd.U; }
