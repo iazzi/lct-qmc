@@ -13,7 +13,8 @@ local function write (out, a, b, name, time)
 #SBATCH --output=/mnt/lnec/iazzi/%NAME/]]..a..'_'..b..[[.out
 #SBATCH --error=/mnt/lnec/iazzi/%NAME/]]..a..'_'..b..[[.err
 
-cd ]]..'/mnt/lnec/iazzi/'..name
+numactl -show
+cd ]]..'/mnt/lnec/iazzi/'..name..'\n'
 	for i = a, b do
 		bstring = bstring .. '/mnt/lnec/iazzi/'..name..'/main /mnt/lnec/iazzi/%NAME/'..i..'.in &\n'
 	end

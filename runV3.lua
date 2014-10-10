@@ -14,6 +14,8 @@ out:write((([[
 #SBATCH --output=/mnt/lnec/iazzi/%NAME/beta_%B_U_%U.out
 #SBATCH --error=/mnt/lnec/iazzi/%NAME/beta_%B_U_%U.err
 
+numactl -show
+srun numactl -show
 srun --signal=14@60 /mnt/lnec/iazzi/]]..name..[[/v3ct %B %M %U %K /mnt/lnec/iazzi/%NAME/beta_%B_U_%U.%J.dat
 ]]):gsub('%%(%u+)', {
 	J = '%J',
@@ -31,7 +33,7 @@ local name, time = ...
 os.execute('mkdir /mnt/lnec/iazzi/'..name)
 os.execute('cp /users/iazzi/bss-mc/v3ct /mnt/lnec/iazzi/'..name..'/v3ct')
 local n = 1
-for beta = 1, 10 do
+for beta = 1, 10, 0.5 do
 	local f = io.open(name..'_'..n..'.in', 'w')
 	local time = tonumber(time or 500) * beta
 	time = ('%.2i:%.2i:%.2i'):format(math.floor(time/3600), math.floor(time/60)%60, time%60)
