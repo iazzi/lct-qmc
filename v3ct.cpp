@@ -287,7 +287,8 @@ class V3Configuration {
 		size_t n = slices_up.size();
 		double dtau = beta/n;
 		size_t index = size_t(w.tau/dtau);
-		addRank1Vertex(w);
+		//addRank1Vertex(w);
+		insertVertex(w);
 		return;
 		if (damage[index]<threshold) {
 			addRank1Vertex(w);
@@ -427,10 +428,10 @@ class V3Configuration {
 		auto i = pickVertexIterator(slice, index);
 		Eigen::VectorXd u_up, v_up;
 		Eigen::VectorXd u_dn, v_dn;
-		computeUpdateVectors(u_up, v_up, *i, 1.0);
-		computeUpdateVectors(u_dn, v_dn, *i, -1.0);
-		slices_up[slice] -= u_up*v_up.transpose();
-		slices_dn[slice] -= u_dn*v_dn.transpose();
+		//computeUpdateVectors(u_up, v_up, *i, 1.0);
+		//computeUpdateVectors(u_dn, v_dn, *i, -1.0);
+		//slices_up[slice] -= u_up*v_up.transpose();
+		//slices_dn[slice] -= u_dn*v_dn.transpose();
 		verts.erase(i);
 	}
 
