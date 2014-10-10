@@ -129,6 +129,8 @@ class V3Configuration {
 	const Eigen::VectorXd eigenValues () const { return eigenvalues; }
 	const Eigen::MatrixXd eigenVectors () const { return eigenvectors; }
 
+	Eigen::VectorXd cache;
+
 	void computeUpdateVectors (Eigen::VectorXd &u, Eigen::VectorXd &v, const Vertex& w, double s) {
 		size_t n = slices_up.size();
 		double dtau = beta/n;
@@ -139,7 +141,6 @@ class V3Configuration {
 		auto now = verts.lower_bound(Vertex(w.tau, 0, 0));
 		u = eigenvectors.row(w.x).transpose();
 		v = eigenvectors.row(w.x).transpose();
-		Eigen::VectorXd cache;
 
 		double t = w.tau;
 		for (auto i=now;i!=last;) {
