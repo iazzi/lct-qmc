@@ -477,8 +477,7 @@ class Simulation {
 	void get_green_function (double s = 1.0, int t0 = 0);
 
 	double get_kinetic_energy (const Matrix_d &M) {
-		positionSpace = M;
-		return positionSpace.trace() / V;
+		return (M * hamiltonian).trace();
 	}
 
 	double pair_correlation (const Matrix_d& rho_up, const Matrix_d& rho_dn) {
