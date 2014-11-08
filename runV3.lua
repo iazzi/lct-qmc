@@ -32,6 +32,7 @@ end
 local name, time = ...
 os.execute('mkdir /mnt/lnec/iazzi/'..name)
 os.execute('cp /users/iazzi/bss-mc/v3ct /mnt/lnec/iazzi/'..name..'/v3ct')
+os.execute('cp /users/iazzi/bss-mc/v3ct.cpp /mnt/lnec/iazzi/'..name..'/')
 local n = 1
 for beta = 1, 10, 0.5 do
 	local f = io.open(name..'_'..n..'.in', 'w')
