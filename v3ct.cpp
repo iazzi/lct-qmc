@@ -152,18 +152,18 @@ class V3Configuration {
 				u.array() *= (-(i->tau-t)*eigenvalues.array()).exp();
 				t = i->tau;
 			}
-			auto j = i;
-			while (++j!=last && j->tau==t) {}
-			if (std::distance(i, j)==1) {
+			//auto j = i;
+			//while (++j!=last && j->tau==t) {}
+			//if (std::distance(i, j)==1) {
 				u += s * i->sigma * eigenvectors.row(i->x).transpose() * (eigenvectors.row(i->x) * u);
-			} else {
-				cache.setZero(V);
-				for (auto k=i;k!=j;k++) {
-					cache += s * k->sigma * eigenvectors.row(k->x).transpose() * (eigenvectors.row(k->x) * u);
-				}
-				u += cache;
-			}
-			i = j;
+			//} else {
+				//cache.setZero(V);
+				//for (auto k=i;k!=j;k++) {
+					//cache += s * k->sigma * eigenvectors.row(k->x).transpose() * (eigenvectors.row(k->x) * u);
+				//}
+				//u += cache;
+			//}
+			++i;
 		}
 		if (t1>t) {
 			u.array() *= (-(t1-t)*eigenvalues.array()).exp();
@@ -426,8 +426,8 @@ class V3Configuration {
 
 	void removeVertex (size_t slice, size_t index) {
 		auto i = pickVertexIterator(slice, index);
-		Eigen::VectorXd u_up, v_up;
-		Eigen::VectorXd u_dn, v_dn;
+		//Eigen::VectorXd u_up, v_up;
+		//Eigen::VectorXd u_dn, v_dn;
 		//computeUpdateVectors(u_up, v_up, *i, 1.0);
 		//computeUpdateVectors(u_dn, v_dn, *i, -1.0);
 		//slices_up[slice] -= u_up*v_up.transpose();
@@ -528,10 +528,11 @@ class V3Probability {
 
 		Accumulator acc_up, acc_dn;
 
+		Eigen::ArrayXd Rd;
 		Eigen::MatrixXd R, R_inverse;
 	public:
 		void prepare_random_matrix (const V3Configuration& conf) {
-			Eigen::ArrayXd Rd = 1.0*Eigen::ArrayXd::Random(conf.volume());
+			Rd = 1.0*Eigen::ArrayXd::Random(conf.volume());
 			Rd -= Rd.sum()/Rd.size();
 			R = conf.eigenVectors().transpose() * Rd.exp().matrix().asDiagonal() * conf.eigenVectors();
 			R_inverse = conf.eigenVectors().transpose() * (-Rd).exp().matrix().asDiagonal() * conf.eigenVectors();
@@ -612,9 +613,14 @@ class V3Probability {
 		}
 
 		void accumulate (Accumulator &acc, const V3Configuration &conf, double t0, double s, int nt = -1) {
-			if (nt<0) nt = 1.0*conf.volume();
-			acc.start(R);
-			double dtau = 1.0/4.0;
+			if (nt<0) nt = 1.5*conf.volume();
+			//acc.start(R);
+			//R = conf.eigenVectors().transpose() * Rd.exp().matrix().asDiagonal() * conf.eigenVectors();
+			acc.reset(conf.volume());
+			acc.SVD().U = conf.eigenVectors().transpose();
+			acc.SVD().S = Rd.exp();
+			acc.SVD().Vt = conf.eigenVectors();
+			double dtau = 1.0/3.0;
 			auto first = conf.vertices().lower_bound(Vertex(t0, 0, 0));
 			auto last = conf.vertices().lower_bound(Vertex(conf.inverseTemperature(), 0, 0));
 			int nv = 0;
@@ -809,6 +815,8 @@ class V3Updater {
 		prepare(conf, prob, 0);
 		prepare_alt(conf, prob, 0);
 		p = prob.probability_alt(conf);
+		updates = 0;
+		update_p = std::pair<double, double>(0.0, 1.0);
 	}
 
 	void set_dump (const char *fn) {
@@ -831,7 +839,7 @@ class V3Updater {
 		randomPosition = std::uniform_int_distribution<size_t>(0, n-1);
 	}
 
-	V3Updater () : random(0.0, 1.0), trialDistribution(1.0) {
+	V3Updater () : random(0.0, 1.0), trialDistribution(1.0), U(0.0), K(0.0), A(0.0), B(0.0) {
 		updates = 0;
 		update_p = std::pair<double, double>(0.0, 1.0);
 		coin_flip = std::bernoulli_distribution(0.5);
@@ -917,6 +925,13 @@ class V3Updater {
 		return ret;
 	}
 
+	void reset_updates (V3Configuration &conf, V3Probability &prob) {
+		prepare_alt(conf, prob, slice);
+		p = prob.probability_alt(conf);
+		updates = 0;
+		update_p = std::pair<double, double>(0.0, 1.0);
+	}
+
 	void flush_updates (V3Configuration &conf, V3Probability &prob) {
 		//debug << "flushing";
 		//debug << p.first << p.second;
@@ -991,12 +1006,6 @@ class V3Updater {
 
 	bool tryStep (V3Configuration &conf, V3Probability &prob) {
 		if (random(generator)<0.01) {
-			if (updates>0) {
-				flush_updates(conf, prob);
-			}
-			slice = conf.sliceNumber() * random(generator);
-			//debug << "jumping to slice" << slice;
-			prepare_alt(conf, prob, slice);
 		}
 		if (coin_flip(generator)) {
 			//debug << "try insert";
@@ -1013,6 +1022,9 @@ class V3Updater {
 		for (size_t n=0;n<N;n++) {
 			ret += tryStep(conf, prob)?1.0:0.0;
 		}
+		slice = conf.sliceNumber() * random(generator);
+		//debug << "jumping to slice" << slice;
+		reset_updates(conf, prob);
 		return ret/N;
 	}
 };
@@ -1052,7 +1064,7 @@ class V3Measurements {
 			//debug << "n" << n_up << n_dn;
 			//std::cerr << rho_up.diagonal().transpose() << " -> " << n_up/conf.volume() << std::endl;
 			//std::cerr << rho_dn.diagonal().transpose() << " -> " << n_dn/conf.volume() << std::endl;
-			K -= (n_up+n_dn) * mu;
+			//K -= (n_up+n_dn) * mu;
 			rho_up = conf.eigenVectors() * rho_up * conf.eigenVectors().transpose();
 			rho_dn = conf.eigenVectors() * rho_dn * conf.eigenVectors().transpose();
 			//std::cerr << rho_up.diagonal().transpose() << " -> " << n_up << std::endl;
@@ -1198,8 +1210,8 @@ int main (int argc, char **argv) {
 
 	V3Measurements measurements;
 
-	const int thermalization = 10000;
-	const int sweeps = 100000;
+	const int thermalization = 1000000;
+	const int sweeps = 1000000;
 
 	t0 = steady_clock::now();
 	//while (configuration.inverseTemperature()<beta) {
@@ -1222,7 +1234,7 @@ int main (int argc, char **argv) {
 	updater.setup(configuration, prob);
 	for (int n=0;n<thermalization;n++) {
 		double a = updater.sweep(configuration, prob);
-		measurements.measure_ts(configuration, prob, updater);
+		//measurements.measure_ts(configuration, prob, updater);
 		if (signalled==10) {
 			signalled = 0;
 			cerr << "beta =" << configuration.inverseTemperature() << ' ' << n << " sweeps, " << configuration.verticesNumber() << " vertices" << endl;
@@ -1238,7 +1250,7 @@ int main (int argc, char **argv) {
 	for (int n=0;n<sweeps;n++) {
 		double a = updater.sweep(configuration, prob);
 		measurements.measure(configuration, prob, updater);
-		measurements.measure_ts(configuration, prob, updater);
+		//measurements.measure_ts(configuration, prob, updater);
 		if (signalled==10) {
 			signalled = 0;
 			cerr << "beta =" << configuration.inverseTemperature() << ' ' << n << " sweeps, " << configuration.verticesNumber() << " vertices" << endl;
@@ -1262,7 +1274,7 @@ int main (int argc, char **argv) {
 		debug << configuration.sliceSize(k);
 	}
 
-	measurements.write_ts("ts.dat");
+	//measurements.write_ts("ts.dat");
 
 	std::ofstream out(outfile);
 
