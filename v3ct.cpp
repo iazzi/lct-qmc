@@ -449,6 +449,14 @@ class V3Configuration {
 		}
 		out << std::endl;
 	}
+
+	void printout (const std::string &fn) const {
+		std::ofstream f(fn);
+		for (auto v : verts) {
+			f << v << '\n';
+		}
+		f.close();
+	}
 };
 
 
@@ -1133,6 +1141,7 @@ typedef std::chrono::duration<double> seconds_type;
 int main (int argc, char **argv) {
 	steady_clock::time_point t0 = steady_clock::now();
 	signal(10, my_signal_handler);
+	signal(12, my_signal_handler);
 	signal(14, my_signal_handler);
 	unsigned int seed;
 	std::ifstream seedfile("/dev/urandom");
@@ -1214,58 +1223,31 @@ int main (int argc, char **argv) {
 	const int sweeps = 1000000;
 
 	t0 = steady_clock::now();
-	//while (configuration.inverseTemperature()<beta) {
-		//updater.setup(configuration, prob);
-		//for (int n=0;n<thermalization/10;n++) {
-			//double a = updater.sweep(configuration, prob);
-			//if (signalled==10) {
-				//signalled = 0;
-				//cerr << "beta =" << configuration.inverseTemperature() << ' ' << n << " sweeps, " << configuration.verticesNumber() << " vertices" << endl;
-				//cerr << "acceptance: " << a << endl;
-				//cerr << endl;
-			//}
-			//double p = configuration.probability(0).first;
-			//std::cerr << configuration.probability(0).first-p << std::endl;
-			//for (int i=0;i<30;i+=5)
-			//cerr << (i+1) << " svds probability " << configuration.probability_from_scratch(i+1).first << endl;
-		//}
-		//configuration.setBeta(std::min(configuration.inverseTemperature()+0.5, beta));
-	//}
 	updater.setup(configuration, prob);
-	for (int n=0;n<thermalization;n++) {
+	for (int n=0;n<thermalization+sweeps;n++) {
 		double a = updater.sweep(configuration, prob);
+		if (n>=thermalization) measurements.measure(configuration, prob, updater);
 		//measurements.measure_ts(configuration, prob, updater);
 		if (signalled==10) {
 			signalled = 0;
+			cerr << "SIGNAL 1" << endl;
 			cerr << "beta =" << configuration.inverseTemperature() << ' ' << n << " sweeps, " << configuration.verticesNumber() << " vertices" << endl;
 			cerr << "acceptance: " << a << endl;
+			if (n>=thermalization) measurements.report(std::cerr);
 			cerr << endl;
 		}
-		//double p = configuration.probability(0).first;
-		//std::cerr << configuration.probability(0).first-p << std::endl;
-		//for (int i=0;i<30;i+=5)
-		//cerr << (i+1) << " svds probability " << configuration.probability_from_scratch(i+1).first << endl;
-	}
-	updater.setup(configuration, prob);
-	for (int n=0;n<sweeps;n++) {
-		double a = updater.sweep(configuration, prob);
-		measurements.measure(configuration, prob, updater);
-		//measurements.measure_ts(configuration, prob, updater);
-		if (signalled==10) {
+		if (signalled==12) {
 			signalled = 0;
+			cerr << "SIGNAL 2" << endl;
 			cerr << "beta =" << configuration.inverseTemperature() << ' ' << n << " sweeps, " << configuration.verticesNumber() << " vertices" << endl;
 			cerr << "acceptance: " << a << endl;
-			measurements.report(std::cerr);
+			if (n>=thermalization) measurements.report(std::cerr);
 			cerr << endl;
+			configuration.printout("debug.state");
 		}
 		if (signalled==14) {
 			break;
 		}
-		//double p = configuration.probability(0).first;
-		//std::cerr << configuration.probability(0).first-p << std::endl;
-		//for (int i=0;i<30;i+=5)
-		//cerr << (i+1) << " svds probability " << configuration.probability_from_scratch(i+1).first << endl;
-		//if (duration_cast<seconds_type>(steady_clock::now()-t0).count()>3600) break;
 	}
 	for (size_t k=0;k<configuration.sliceNumber();k++) {
 		configuration.recheck_slice(k);
@@ -1273,8 +1255,6 @@ int main (int argc, char **argv) {
 	for (size_t k=0;k<configuration.sliceNumber();k++) {
 		debug << configuration.sliceSize(k);
 	}
-
-	//measurements.write_ts("ts.dat");
 
 	std::ofstream out(outfile);
 
