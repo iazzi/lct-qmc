@@ -60,31 +60,54 @@ std::ostream & operator<< (std::ostream &out, const Vertex& v) {
 	return out;
 }
 
-class VertexFactory {
-	std::mt19937_64 &generator;
+class V3Slice {
+	std::set<Vertex, Vertex::Compare> verts;
 
-	// RNG distributions
-	std::bernoulli_distribution coin_flip;
-	std::uniform_int_distribution<size_t> randomPosition;
-	std::uniform_real_distribution<double> randomTime;
+	Eigen::MatrixXd eigenvectors;
+	Eigen::VectorXd eigenvalues;
+
+	size_t N;
+	double beta;
+
+	Eigen::MatrixXd matrix_;
+	Eigen::MatrixXd matrix_inv_;
+
+	Eigen::VectorXd cache;
 
 	public:
-	void setBeta (double b) {
-		randomTime = std::uniform_real_distribution<double>(0.0, b);
+
+	void setup (double b, int v, const Eigen::MatrixXd& U, const Eigen::VectorXd& E) {
+		beta = b;
+		N = v;
+		eigenvectors = U;
+		eigenvalues = E;
+       	}
+
+	void insert (const Vertex &v) { verts.insert(v); }
+	void clear () { verts.clear(); }
+
+	Eigen::MatrixXd matrix () {
+		matrix_.setIdentity(N, N);
+		double t0 = 0.0;
+		for (auto v : verts) {
+			if (v.tau>t0) matrix_.array().colwise() *= (-(v.tau-t0)*eigenvalues.array()).exp();
+			t0 = v.tau;
+			matrix_ += v.sigma * eigenvectors.row(v.x).transpose() * (eigenvectors.row(v.x) * matrix_);
+		}
+		if (beta>t0) matrix_.array().colwise() *= (-(beta-t0)*eigenvalues.array()).exp();
+		return matrix_;
 	}
 
-	void setVolume (size_t v) {
-		randomPosition = std::uniform_int_distribution<size_t>(0, v-1);
-	}
-
-	VertexFactory (std::mt19937_64& g): generator(g) {
-		coin_flip = std::bernoulli_distribution(0.5);
-		randomPosition = std::uniform_int_distribution<size_t>(0, 0);
-		randomTime = std::uniform_real_distribution<double>(0.0, 1.0);
-	}
-
-	Vertex generate (double a = 1.0) {
-		return Vertex(randomTime(generator), randomPosition(generator), coin_flip(generator)?a:-a);
+	Eigen::MatrixXd inverse () {
+		matrix_inv_.setIdentity(N, N);
+		double t0 = beta;
+		for (auto v=verts.rbegin();v!=verts.rend();v++) {
+			if (v->tau<t0) matrix_inv_.array().colwise() *= (-(v->tau-t0)*eigenvalues.array()).exp();
+			t0 = v->tau;
+			matrix_inv_ += -v->sigma/(1.0+v->sigma) * eigenvectors.row(v->x).transpose() * (eigenvectors.row(v->x) * matrix_inv_);
+		}
+		if (t0>0.0) matrix_inv_.array().colwise() *= (t0*eigenvalues.array()).exp();
+		return matrix_inv_;
 	}
 };
 
@@ -210,7 +233,7 @@ class V3Configuration {
 
 		insertVertex(w);
 
-		double t0 = beta/n*index, t1 = beta/n*(index+1);
+		//double t0 = beta/n*index, t1 = beta/n*(index+1);
 		Eigen::MatrixXd G; // = Eigen::MatrixXd::Identity(V, V);
 		Eigen::MatrixXd F; // = Eigen::MatrixXd::Identity(V, V);
 		//compute_slice(G, t0, t1, +1.0);
@@ -245,9 +268,9 @@ class V3Configuration {
 		double dtau = beta/n;
 		size_t index = size_t(w.tau/dtau);
 		double t0 = beta/n*index;
-		double t1 = beta/n*(index+1);
+		//double t1 = beta/n*(index+1);
 		auto first = verts.lower_bound(Vertex(t0, 0, 0));
-		auto last = verts.lower_bound(Vertex(t1, 0, 0));
+		//auto last = verts.lower_bound(Vertex(t1, 0, 0));
 		auto now = verts.lower_bound(Vertex(w.tau, 0, 0));
 		v = eigenvectors.row(w.x).transpose();
 		Eigen::VectorXd cache;
@@ -523,6 +546,8 @@ class SquareLattice {
 	const typename Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd>::RealVectorType & eigenvalues () const { return solver.eigenvalues(); }
 	const typename Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd>::MatrixType & eigenvectors () const { return solver.eigenvectors(); }
 
+	size_t volume () const { return V; }
+
 	SquareLattice (): Lx(2), Ly(2), Lz(1), V(4), tx(1.0), ty(1.0), tz(1.0), computed(false) {}
 };
 
@@ -787,7 +812,7 @@ class V3Updater {
 	std::uniform_real_distribution<double> random;
 	std::exponential_distribution<double> trialDistribution;
 
-	double K, U;
+	double U, K;
 	double A, B;
 	double dtau;
 	std::pair<double, double> p;
@@ -808,7 +833,7 @@ class V3Updater {
 	public:
 	void setK (double k) { K = k; prepare_AB(); }
 	void setU (double u) { U = u; prepare_AB(); }
-	void prepare_AB () { A = 0.0*U/2.0/K; B = sqrt(U/K+A*A); debug << (A+B) << (A-B); }
+	void prepare_AB () { A = 1.0*U/2.0/K; B = sqrt(U/K+A*A); debug << (A+B) << (A-B) << (1+A+B)*(1+A-B); }
 	void setSeed (unsigned int s) { generator.seed(s); }
 
 	void randomize (V3Configuration &conf, size_t N = 0) {
@@ -1061,7 +1086,7 @@ class V3Measurements {
 			updater.flush_updates(conf, prob);
 			size_t V = conf.volume();
 			double beta = conf.inverseTemperature();
-			double mu = conf.chemicalPotential();
+			//double mu = conf.chemicalPotential();
 			double s = updater.sign();
 			rho_up = prob.greenFunctionUp();
 			rho_dn = Eigen::MatrixXd::Identity(V, V) - prob.greenFunctionDn(); //_flipped(conf);
@@ -1183,8 +1208,8 @@ int main (int argc, char **argv) {
 	// t.U, t.B, t.mu = -t.U, 2.0*t.mu-t.U, 0.5*(t.B-t.U)
 
 	configuration.setBeta(std::min(20.0, beta));
-	configuration.setMu(-0.5*U);
-	configuration.setB(2.0*mu-U);
+	configuration.setMu(mu);
+	configuration.setB(0.0);
 
 	debug << configuration.mu_up() << configuration.mu_dn();
 
@@ -1199,24 +1224,8 @@ int main (int argc, char **argv) {
 	configuration.setEigenvalues(lattice.eigenvalues());
 	configuration.make_slices(4.0*beta);
 
-	debug << lattice.eigenvectors() << '\n';
-	debug << lattice.eigenvectors().rowwise().reverse().colwise().reverse() << '\n';
-
-	//std::mt19937_64 generator;
-	//VertexFactory factory(generator);
-	//factory.setVolume(configuration.volume());
-	//factory.setBeta(beta);
-
-	//cerr << lattice.eigenvalues().transpose() << endl << endl << lattice.eigenvectors() << endl << endl;
-
-	//prob.collectSlices(configuration, 0);
-	//prob.makeGreenFunction(configuration);
-	//prob.prepareUpdateMatrices(configuration, 0);
-	//cerr << "other probability " << prob.probability(configuration).first << endl;
-
-	//updater.single_vertex_test(configuration);
-
-	//updater.test_accumulate(configuration);
+	//debug << lattice.eigenvectors() << '\n';
+	//debug << lattice.eigenvectors().rowwise().reverse().colwise().reverse() << '\n';
 
 	V3Measurements measurements;
 
@@ -1238,13 +1247,20 @@ int main (int argc, char **argv) {
 			cerr << endl;
 		}
 		if (signalled==12) {
+			V3Slice slice;
+			double dtau = 1.0;
+			slice.setup(dtau, lattice.volume(), lattice.eigenvectors(), lattice.eigenvalues());
+			for (auto v : configuration.vertices()) {
+				if (v.tau<dtau) slice.insert(v);
+			}
+			std::cerr << slice.matrix()*slice.inverse() << endl << endl;
 			signalled = 0;
 			cerr << "SIGNAL 2" << endl;
 			cerr << "beta =" << configuration.inverseTemperature() << ' ' << n << " sweeps, " << configuration.verticesNumber() << " vertices" << endl;
 			cerr << "acceptance: " << a << endl;
 			if (n>=thermalization) measurements.report(std::cerr);
 			cerr << endl;
-			configuration.printout("debug.state");
+			//configuration.printout("debug.state");
 		}
 		if (signalled==14) {
 			break;

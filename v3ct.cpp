@@ -413,7 +413,7 @@ class V3Configuration {
 	double mu_dn () const { return mu-0.5*B; }
 	size_t verticesNumber () const { return verts.size(); }
 
-	auto pickVertexIterator (size_t slice, size_t index) const {
+	std::set<Vertex>::iterator pickVertexIterator (size_t slice, size_t index) const {
 		size_t n = slices_up.size();
 		auto first = verts.lower_bound(Vertex(beta/n*slice, 0, 0));
 		auto last = verts.lower_bound(Vertex(beta/n*(slice+1), 0, 0));
@@ -667,6 +667,7 @@ class V3Probability {
 			evolve(acc, conf, t0-t, dtau);
 			acc.matrixU().applyOnTheLeft(R_inverse);
 			acc.decomposeU();
+			acc_up.assertLogDet();
 			//std::cerr << (-(b-t)*eigenvalues.array()).exp().transpose() << std::endl << std::endl;
 			//std::cerr << G << std::endl << std::endl;
 		}

@@ -55,6 +55,10 @@ class Accumulator {
 		return std::fabs(svd.S.array().log().sum()-total_logdet)<prec;
 	}
 
+	double logDetError () const {
+		return std::fabs(svd.S.array().log().sum()-total_logdet);
+	}
+
 	void assertLogDet (double prec = 1.0e-6) const {
 		if (!testLogDet(prec)) {
 			std::cerr << svd.S.array().log().sum() << '-' << total_logdet << '=' << svd.S.array().log().sum()-total_logdet << std::endl;
