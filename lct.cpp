@@ -1214,10 +1214,9 @@ int main (int argc, char **argv) {
 	}
 
 	// t.U, t.B, t.mu = -t.U, 2.0*t.mu-t.U, 0.5*(t.B-t.U)
-
 	configuration.setBeta(std::min(20.0, beta));
-	configuration.setMu(mu);
-	configuration.setB(0.0);
+	configuration.setMu(-0.5*U);
+	configuration.setB(2.0*mu-U);
 
 	debug << configuration.mu_up() << configuration.mu_dn();
 
@@ -1237,7 +1236,7 @@ int main (int argc, char **argv) {
 
 	V3Measurements measurements;
 
-	const int thermalization = 1000;
+	const int thermalization = 1000000;
 	const int sweeps = 1000000;
 
 	t0 = steady_clock::now();
