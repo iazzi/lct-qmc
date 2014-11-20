@@ -1236,7 +1236,7 @@ int main (int argc, char **argv) {
 
 	V3Measurements measurements;
 
-	const int thermalization = 1000000;
+	const int thermalization = 000000;
 	const int sweeps = 1000000;
 
 	t0 = steady_clock::now();

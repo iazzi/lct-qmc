@@ -94,7 +94,10 @@ class measurement {
 		int samples (int i = 0) const { if (n_.size()==0) return 0; else return n_[i]; }
 
 		double time (int i) const {
-			return (variance(i)*n_[0]/n_[i]/variance(0)-1.0)*0.5;
+			if  (bins()>0)
+				return (variance(i)*n_[0]/n_[i]/variance(0)-1.0)*0.5;
+			else
+				return 0.0;
 		}
 
 		double time () const {
