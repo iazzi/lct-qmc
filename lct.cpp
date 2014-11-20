@@ -480,6 +480,14 @@ class V3Configuration {
 		}
 		f.close();
 	}
+
+	double logDet () const {
+		double ret = 0.0;
+		for (auto v : verts) {
+			ret += std::log(1.0+v.sigma);
+		}
+		return ret;
+	}
 };
 
 
@@ -1229,7 +1237,7 @@ int main (int argc, char **argv) {
 
 	V3Measurements measurements;
 
-	const int thermalization = 1000000;
+	const int thermalization = 1000;
 	const int sweeps = 1000000;
 
 	t0 = steady_clock::now();
@@ -1248,12 +1256,36 @@ int main (int argc, char **argv) {
 		}
 		if (signalled==12) {
 			V3Slice slice;
-			double dtau = 1.0;
-			slice.setup(dtau, lattice.volume(), lattice.eigenvectors(), lattice.eigenvalues());
-			for (auto v : configuration.vertices()) {
-				if (v.tau<dtau) slice.insert(v);
+			vector<V3Slice> slices;
+			int nslices = beta;
+			double dtau = 1.0/nslices;
+			double ld1 = 0.0, ld2 = 0.0;
+			for (int i=0;i<nslices;i++) {
+				slice.setup(dtau, lattice.volume(), lattice.eigenvectors(), lattice.eigenvalues());
+				for (auto v : configuration.vertices()) {
+					if (i*dtau<=v.tau && v.tau<(i+1)*dtau) {
+						slice.insert(v);
+						ld1 += std::log(1.0+v.sigma);
+					}
+				}
+				slices.push_back(slice);
+				slice.clear();
 			}
-			std::cerr << slice.matrix()*slice.inverse() << endl << endl;
+			SVDHelper svd;
+			svd.setIdentity(lattice.volume());
+			for (int i=0;i<nslices;i++) {
+				svd.U.applyOnTheLeft(slices[i].matrix());
+				svd.absorbU();
+			}
+			std::cerr << svd.S.array().log().sum() << ' ' << ld1 << ' ' << ld2 << endl;
+			for (int j=0;j<6;j++) for (int i=0;i<nslices;i++) {
+				svd.U.applyOnTheLeft(slices[i].matrix());
+				svd.absorbU();
+				svd.Vt.applyOnTheRight(slices[i].inverse());
+				svd.absorbVt();
+				std::cerr << "shift " << i << ' ' << (svd.S.array().log().sum()-ld1)/ld1 << ' ' << ld2 << endl;
+			}
+			//std::cerr << slice.matrix()*slice.inverse() << endl << endl;
 			signalled = 0;
 			cerr << "SIGNAL 2" << endl;
 			cerr << "beta =" << configuration.inverseTemperature() << ' ' << n << " sweeps, " << configuration.verticesNumber() << " vertices" << endl;
