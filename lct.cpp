@@ -24,6 +24,7 @@
 #include <cstdlib>
 
 #include "accumulator.hpp"
+#include "hubbard.hpp"
 
 //#define fftw_execute (void)
 
