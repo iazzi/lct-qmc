@@ -20,6 +20,25 @@ class HubbardInteraction {
 	Vertex generate ();
 	Vertex generate (double tau);
 	Vertex generate (double t0, double t1);
+	template <typename T>
+		void apply_vertex_on_the_left (Vertex v, T &M) {
+			M += v.sigma * eigenvectors.row(v.x) * (eigenvectors.row(v.x).transpose() * M);
+		}
+
+	template <typename T>
+		void apply_vertex_on_the_right (Vertex v, T &M) {
+			M += v.sigma * (M * eigenvectors.row(v.x)) * eigenvectors.row(v.x).transpose();
+		}
+
+	template <typename T>
+		void apply_inverse_on_the_left (Vertex v, T &M) {
+			M -= v.sigma/(1.0+v.sigma) * eigenvectors.row(v.x) * (eigenvectors.row(v.x).transpose() * M);
+		}
+
+	template <typename T>
+		void apply_inverse_on_the_right (Vertex v, T &M) {
+			M -= v.sigma/(1.0+v.sigma) * (M * eigenvectors.row(v.x)) * eigenvectors.row(v.x).transpose();
+		}
 };
 
 #endif // HUBBARD_HPP
