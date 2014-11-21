@@ -14,7 +14,7 @@ v3ct: v3ct.o
 
 pqmc: pqmc.o
 
-lct: lct.o
+lct: lct.o hubbard.o
 
 simulation.o: simulation.cpp simulation.hpp
 
