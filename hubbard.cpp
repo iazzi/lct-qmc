@@ -3,9 +3,10 @@
 #include <cmath>
 
 void HubbardInteraction::setup (const Eigen::MatrixXd &A, double u, double k) {
-	eigenvalues = A;
+	eigenvectors = A;
 	U = u;
 	K = k;
+	N = A.diagonal().size();
 	coin_flip = std::bernoulli_distribution(0.5);
 	random_site = std::uniform_int_distribution<size_t>(0, N-1);
 	a = 1.0*U/2.0/K;

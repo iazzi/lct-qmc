@@ -6,7 +6,7 @@
 
 class HubbardInteraction {
 	std::mt19937_64 &generator;
-	Eigen::MatrixXd eigenvalues;
+	Eigen::MatrixXd eigenvectors;
 	double U;
 	double K;
 	double N;
@@ -22,22 +22,22 @@ class HubbardInteraction {
 	Vertex generate (double t0, double t1);
 	template <typename T>
 		void apply_vertex_on_the_left (Vertex v, T &M) {
-			M += v.sigma * eigenvectors.row(v.x) * (eigenvectors.row(v.x).transpose() * M);
+			M += v.sigma * eigenvectors.row(v.x).transpose() * (eigenvectors.row(v.x) * M);
 		}
 
 	template <typename T>
 		void apply_vertex_on_the_right (Vertex v, T &M) {
-			M += v.sigma * (M * eigenvectors.row(v.x)) * eigenvectors.row(v.x).transpose();
+			M += v.sigma * (M * eigenvectors.row(v.x).transpose()) * eigenvectors.row(v.x);
 		}
 
 	template <typename T>
 		void apply_inverse_on_the_left (Vertex v, T &M) {
-			M -= v.sigma/(1.0+v.sigma) * eigenvectors.row(v.x) * (eigenvectors.row(v.x).transpose() * M);
+			M -= v.sigma/(1.0+v.sigma) * eigenvectors.row(v.x).transpose() * (eigenvectors.row(v.x) * M);
 		}
 
 	template <typename T>
 		void apply_inverse_on_the_right (Vertex v, T &M) {
-			M -= v.sigma/(1.0+v.sigma) * (M * eigenvectors.row(v.x)) * eigenvectors.row(v.x).transpose();
+			M -= v.sigma/(1.0+v.sigma) * (M * eigenvectors.row(v.x).transpose()) * eigenvectors.row(v.x);
 		}
 };
 
