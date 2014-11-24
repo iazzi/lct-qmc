@@ -4,6 +4,19 @@
 #include <Eigen/Dense>
 #include <random>
 
+struct HubbardVertex {
+	int x;
+	double sigma;
+	double tau;
+	struct Compare {
+		bool operator() (const HubbardVertex& a, const HubbardVertex& b) {
+			return (a.tau<b.tau) || (a.tau==b.tau && a.x<b.x)
+				|| (a.tau==b.tau && a.x==b.x && (std::fabs(a.sigma)<std::fabs(b.sigma)))
+				|| (a.tau==b.tau && a.x==b.x && std::fabs(a.sigma)==std::fabs(b.sigma) && a.sigma<b.sigma);
+		}
+	};
+};
+
 class HubbardInteraction {
 	std::mt19937_64 &generator;
 	Eigen::MatrixXd eigenvectors;
@@ -14,7 +27,7 @@ class HubbardInteraction {
 	std::bernoulli_distribution coin_flip;
 	std::uniform_int_distribution<size_t> random_site;
 	public:
-	typedef struct { int x; double sigma; double tau; } Vertex;
+	typedef HubbardVertex Vertex;
 	HubbardInteraction (std::mt19937_64 &g) : generator(g) {}
 	void setup (const Eigen::MatrixXd &A, double u, double k);
 	Vertex generate ();
