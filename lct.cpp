@@ -1,3 +1,13 @@
+#include "slice.hpp"
+
+#include "measurements.hpp"
+#include "logger.hpp"
+#include "svd.hpp"
+
+#include "accumulator.hpp"
+#include "hubbard.hpp"
+
+
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
@@ -9,10 +19,6 @@
 #include <atomic>
 #include <functional>
 
-#include "measurements.hpp"
-#include "logger.hpp"
-#include "svd.hpp"
-
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
 #include <Eigen/QR>
@@ -22,9 +28,6 @@
 
 #include <csignal>
 #include <cstdlib>
-
-#include "accumulator.hpp"
-#include "hubbard.hpp"
 
 //#define fftw_execute (void)
 
