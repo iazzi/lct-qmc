@@ -1,3 +1,4 @@
+#include "configuration.hpp"
 #include "model.hpp"
 #include "cubiclattice.hpp"
 #include "slice.hpp"
