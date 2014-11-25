@@ -23,7 +23,7 @@ class Slice {
 	Eigen::MatrixXd matrix_inv_;
 
 	public:
-	Slice (Model &m) : L(m.lattice()), I(m.interaction()), N(m.interaction().volume()) {}
+	Slice (Model &m) : L(m.lattice()), I(m.interaction()), N(m.interaction().volume()), beta(1.0) {}
 
 	void setup (double b) {
 		beta = b;
@@ -40,6 +40,7 @@ class Slice {
 			t0 = v.tau;
 			I.apply_vertex_on_the_left(v, matrix_);
 		}
+		if (beta>t0) L.propagate(beta-t0, matrix_);
 		return matrix_;
 	}
 
@@ -49,7 +50,7 @@ class Slice {
 		for (auto v=verts.rbegin();v!=verts.rend();v++) {
 			if (v->tau<t0) L.propagate(v->tau-t0, matrix_inv_);
 			t0 = v->tau;
-			I.apply_inverse_on_the_left(v, matrix_inv_);
+			I.apply_inverse_on_the_left(*v, matrix_inv_);
 		}
 		if (0.0<t0) L.propagate(-t0, matrix_inv_);
 		return matrix_inv_;
