@@ -26,9 +26,10 @@ class HubbardInteraction {
 	double a, b;
 	std::bernoulli_distribution coin_flip;
 	std::uniform_int_distribution<size_t> random_site;
+	std::uniform_real_distribution<double> random_time;
 	public:
 	typedef HubbardVertex Vertex;
-	HubbardInteraction (std::mt19937_64 &g) : generator(g) {}
+	HubbardInteraction (std::mt19937_64 &g) : generator(g), coin_flip(0.5), random_time(0.0, 1.0) {}
 	void setup (const Eigen::MatrixXd &A, double u, double k);
 	size_t volume () const { return N; }
 	Vertex generate ();

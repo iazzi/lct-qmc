@@ -17,6 +17,15 @@ HubbardInteraction::Vertex HubbardInteraction::generate () {
 	HubbardInteraction::Vertex ret;
 	ret.sigma = coin_flip(generator)?(a+b):(a-b);
 	ret.x = random_site(generator);
+	ret.tau = random_time(generator);
+	return ret;
+}
+
+HubbardInteraction::Vertex HubbardInteraction::generate (double t0, double t1) {
+	HubbardInteraction::Vertex ret;
+	ret.sigma = coin_flip(generator)?(a+b):(a-b);
+	ret.x = random_site(generator);
+	ret.tau = t0 + random_time(generator)*(t1-t0);
 	return ret;
 }
 
