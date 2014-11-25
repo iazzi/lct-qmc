@@ -1,3 +1,5 @@
+#include "model.hpp"
+#include "cubiclattice.hpp"
 #include "slice.hpp"
 
 #include "measurements.hpp"
@@ -1177,6 +1179,14 @@ class V3Measurements {
 typedef std::chrono::duration<double> seconds_type;
 
 int main (int argc, char **argv) {
+	std::mt19937_64 generator;
+	CubicLattice lattice;
+	lattice.set_size(4, 4, 1);
+	lattice.compute();
+	HubbardInteraction interaction(generator);
+	interaction.setup(lattice.eigenvectors(), 4.0, 5.0);
+	auto model = make_model(lattice, interaction);
+	Slice<Model<CubicLattice, HubbardInteraction>> slice(model);
 	steady_clock::time_point t0 = steady_clock::now();
 	signal(10, my_signal_handler);
 	signal(12, my_signal_handler);
@@ -1228,9 +1238,9 @@ int main (int argc, char **argv) {
 	updater.setK(K);
 	updater.setSeed(seed);
 
-	SquareLattice lattice;
-	lattice.setSize(4, 4, 1);
-	lattice.compute();
+	//SquareLattice lattice;
+	//lattice.setSize(4, 4, 1);
+	//lattice.compute();
 	configuration.setEigenvectors(lattice.eigenvectors());
 	configuration.setEigenvalues(lattice.eigenvalues());
 	configuration.make_slices(4.0*beta);

@@ -16,7 +16,7 @@ pqmc: pqmc.o
 
 lct: lct.o hubbard.o
 
-lct.o: lct.cpp svd.hpp accumulator.hpp measurements.hpp hubbard.hpp slice.hpp
+lct.o: lct.cpp svd.hpp accumulator.hpp measurements.hpp hubbard.hpp slice.hpp cubiclattice.hpp
 
 simulation.o: simulation.cpp simulation.hpp
 

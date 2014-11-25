@@ -23,7 +23,7 @@ class Slice {
 	Eigen::MatrixXd matrix_inv_;
 
 	public:
-	Slice (Interaction &i) : I(i), N(i.volume()) {}
+	Slice (Model &m) : I(m.interaction()), N(m.interaction().volume()) {}
 
 	void setup (double b) {
 		beta = b;

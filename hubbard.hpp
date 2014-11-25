@@ -22,7 +22,7 @@ class HubbardInteraction {
 	Eigen::MatrixXd eigenvectors;
 	double U;
 	double K;
-	double N;
+	size_t N;
 	double a, b;
 	std::bernoulli_distribution coin_flip;
 	std::uniform_int_distribution<size_t> random_site;
@@ -30,26 +30,27 @@ class HubbardInteraction {
 	typedef HubbardVertex Vertex;
 	HubbardInteraction (std::mt19937_64 &g) : generator(g) {}
 	void setup (const Eigen::MatrixXd &A, double u, double k);
+	size_t volume () const { return N; }
 	Vertex generate ();
 	Vertex generate (double tau);
 	Vertex generate (double t0, double t1);
 	template <typename T>
-		void apply_vertex_on_the_left (Vertex v, T &M) {
+		void apply_vertex_on_the_left (Vertex v, T &M) const {
 			M += v.sigma * eigenvectors.row(v.x).transpose() * (eigenvectors.row(v.x) * M);
 		}
 
 	template <typename T>
-		void apply_vertex_on_the_right (Vertex v, T &M) {
+		void apply_vertex_on_the_right (Vertex v, T &M) const {
 			M += v.sigma * (M * eigenvectors.row(v.x).transpose()) * eigenvectors.row(v.x);
 		}
 
 	template <typename T>
-		void apply_inverse_on_the_left (Vertex v, T &M) {
+		void apply_inverse_on_the_left (Vertex v, T &M) const {
 			M -= v.sigma/(1.0+v.sigma) * eigenvectors.row(v.x).transpose() * (eigenvectors.row(v.x) * M);
 		}
 
 	template <typename T>
-		void apply_inverse_on_the_right (Vertex v, T &M) {
+		void apply_inverse_on_the_right (Vertex v, T &M) const {
 			M -= v.sigma/(1.0+v.sigma) * (M * eigenvectors.row(v.x).transpose()) * eigenvectors.row(v.x);
 		}
 };
