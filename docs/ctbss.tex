@@ -1,0 +1,154 @@
+\documentclass[onecolumn,english,prl,showpacs]{revtex4}
+\usepackage[colorlinks=true,urlcolor=blue,citecolor=blue,linkcolor=blue]{hyperref}
+\usepackage[sort&compress]{natbib}
+\usepackage{ucs}
+\usepackage[utf8x]{inputenc}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{amsmath,color}
+\usepackage{mathrsfs}
+\usepackage{float}
+\usepackage{indentfirst}
+\usepackage{babel}	
+\usepackage{bbold}
+
+\newcommand{\rint}{\int\displaylimits}
+\renewcommand{\Re}{\mathop{\text{Re}}\nolimits}
+
+\renewcommand{\Im}{\mathop{\text{Im}}\nolimits}
+\newcommand{\D}{\mathcal{D}}
+\newcommand{\tr}{\mathop{\text{tr}}\nolimits}
+\newcommand{\Tr}{\mathop{\text{Tr}}\nolimits}
+\newcommand{\ket}[1]{|{#1}\rangle}
+\newcommand{\bra}[1]{\langle{#1}|}
+\newcommand{\bras}[2]{{}_{#2}\hspace*{-0.2mm}\langle{#1}|}
+\newcommand{\bracket}[2]{\langle#1|#2\rangle}
+\newcommand{\Det}{\mathop{\text{Det}}\nolimits}
+\newcommand{\Res}{\mathop{\text{Res}}}
+\newcommand{\pv}{\mathop{\text{P}}\nolimits}
+\newcommand{\erf}{\mathop{\text{erf}}\nolimits}
+\newcommand{\erfc}{\mathop{\text{erfc}}\nolimits}
+\newcommand{\erfi}{\mathop{\text{erfi}}\nolimits}
+\newcommand{\sinc}{\mathop{\text{sinc}}\nolimits}
+\newcommand{\sech}{\mathop{\text{sech}}\nolimits}
+\newcommand{\Ci}{\mathop{\text{Ci}}\nolimits}
+\newcommand{\Texp}{\mathop{\text{Texp}}\nolimits}
+
+\newcommand{\p}{^{\vphantom{\dagger}}}
+\newcommand{\h}{^{\dagger}}
+
+\newcommand{\Up}{{\uparrow}}
+\newcommand{\Dn}{{\downarrow}}
+
+\begin{document}
+
+\title{A continuous version of the BSS quantum Monte Carlo algorithm}
+
+\author{Mauro Iazzi}
+\author{Matthias Troyer}
+
+\affiliation{Theoretische Physik, ETH Zurich, 8093 Zurich, Switzerland}
+
+\begin{abstract}
+\end{abstract}
+
+\section{Partition function expansion}
+
+\begin{equation}
+ Z = \tr\left[ e^{-\beta (H_0+H_I-KV)} \right]
+\end{equation}
+
+\begin{multline}
+ Z = \tr\left[ e^{-\beta (H_0+H_I-KV)} \right]=\\=
+  \tr\left\{e^{-\beta H_0}\sum_n^\infty \frac{(-1)^n}{n!} {\mathcal{T}}\int_0^\beta \prod_{i=1}^n (H_I(\tau_i)-KV) d\tau_n\right\}=\\=
+  \tr\left\{e^{-\beta H_0}\sum_n^\infty \frac{K^nV^n}{n!} {\mathcal{T}}\int_0^\beta \prod_{i=1}^n (1-H_I(\tau_i)/KV) d\tau_n\right\}=\\=
+  \sum_n^\infty \frac{K^nV^n}{n!} {\mathcal{T}}\int_0^\beta \prod_{i=1}^n d\tau_n \tr\left[e^{-\beta H_0}\prod_{i=1}^n (1-H_I(\tau_i)/KV)\right]=\\=
+  \sum_n^\infty {\mathcal{T}}\int_0^\beta \frac{w(\tau_1, ..., \tau_n)}{n!} \prod_{i=1}^n d\tau_n 
+\end{multline}
+\begin{equation}
+ w(\tau_1, ..., \tau_n) = K^nV^n\tr\left[e^{-\beta H_0}\prod_{i=1}^n(1-H_I(\tau_i)/KV)\right]
+\end{equation}
+\begin{multline}
+ 1-H_I/KV=1-\frac{g}{KV} \sum_x \hat{n}_{x, \Up} \hat{n}_{x,\Dn} = \frac{g}{KV}\sum_x \left(\frac{K}{g}-\hat{n}_{x, \Up} \hat{n}_{x,\Dn}\right)=\\=
+ \frac{g}{2KV}\sum_x \sum_{\sigma_x=\pm1} \left(\sqrt{\frac{K}{g}}+\sigma_x\hat{n}_{x, \Up}\right)\left(\sqrt{\frac{K}{g}}-	\sigma_x \hat{n}_{x,\Dn}\right)=\\=
+ \frac{1}{2V}\sum_x \sum_{\sigma_x=\pm1} \left(1+\sqrt{\frac{g}{K}}\sigma_x\hat{n}_{x, \Up}\right)\left(1-\sqrt{\frac{g}{K}}\sigma_x \hat{n}_{x,\Dn}\right)
+\end{multline}
+\begin{equation}
+ w(\tau_1, ..., \tau_n) = (KV)^n\det\left\{1+G(\beta-\tau_n)\prod_{i=1}^n (1+\sqrt{g/K}\sigma_x(\tau_i)\hat{n}_x)G_0(\tau_i-\tau_{i-1})\right\}
+\end{equation}
+\begin{multline}
+ Z = \tr\left\{e^{-\beta H_0}\sum_n^\infty \frac{(-K)^n}{n!} {\mathcal{T}}\int_0^\beta \prod_{i=1}^n (1+H_I(\tau_i)/K) d\tau_n\right\} =\\=
+  \tr\left\{e^{-\beta H_0}\sum_n^\infty \frac{(-K)^n}{n!} {\mathcal{T}}\int_0^\beta \prod_{i=1}^n \frac{1}{2V} \sum_{x_i=1}^V\sum_{\sigma_i=\pm1} e^{+\tau_i H_0}\left(1+\sqrt{\frac{gV}{K}}\sigma_x\hat{n}_{x, \Up}\right)\left(1+\sqrt{\frac{gV}{K}}\sigma_x \hat{n}_{x,\Dn}\right) e^{-\tau_i H_0} d\tau_i\right\}=\\=
+  \sum_n^\infty \frac{(-K)^n}{n!} \frac{1}{2^nV^n} \int_0^\beta\ldots\int_0^\beta d\tau_1 \ldots d\tau_n \sum_{\{x_i\}}\sum_{\{\sigma_i\}} \tr\left\{e^{-\beta H_0} {\mathcal{T}}\prod_{i=1}^n e^{+\tau_i H_0}\left(1+\sqrt{\frac{gV}{K}}\sigma_x\hat{n}_{x, \Up}\right)\left(1+\sqrt{\frac{gV}{K}}\sigma_x \hat{n}_{x,\Dn}\right) e^{-\tau_i H_0}\right\}
+\end{multline}
+
+\begin{equation}
+ (1+\sigma \mathbf{v}\mathbf{v^t})^{-1} = 1-\frac{\sigma}{1+\sigma} \mathbf{v}\mathbf{v^t}
+\end{equation}
+\begin{equation}
+ (1-\frac{\sigma}{1+\sigma} \mathbf{v}\mathbf{v^t})^{-1} = 1-\frac{-\frac{\sigma}{1+\sigma}}{1-\frac{\sigma}{1+\sigma}} = 1-\frac{-\sigma}{1+\sigma-\sigma} \mathbf{v}\mathbf{v^t} = 1+\sigma \mathbf{v}\mathbf{v^t}
+\end{equation}
+
+Full pivoting LU
+\begin{equation}
+ G_i = P^{-1} LU Q^{-1} = P^{-1} LU' D Q^{-1} = P^{-1} LU' Q^{-1} Q D Q^{-1}
+\end{equation}
+$Q D Q^{-1}$ is diagonal may be applied directly to the SVD vector
+
+Single vertex probability
+\begin{multline}
+ \det [1+e^{\beta\mu}e^{\beta H_0}(1+\sigma vv^t)]\rightarrow\\\rightarrow 1+ \sigma v^t (1+e^{\beta\mu}e^{\beta H_0})^{-1} e^{\beta\mu}e^{\beta H_0} v =\\=
+\end{multline}
+
+\begin{equation}
+ 1 + U D V^t \rightarrow U (U^t + D V^t) = (V + )
+\end{equation}
+
+\section{A trick}
+One can use a trick to kill degeneracies. Use a random matrix $R$
+\begin{equation}
+ \det(1+\prod_iG_i) = \det(1+R^{-1}\prod_iG_iR)
+\end{equation}
+The rank-1 update becomes
+\begin{multline}
+ \frac{\det(1+R^{-1}\prod_{i=1}^NG_i(G_0+uv^t)R)}{\det(1+R^{-1}\prod_iG_iR)} = \det(1+ v^tR (1+R^{-1}\prod_iG_iR)^{-1}R^{-1}\prod_iG_iG_0^{-1}u ) =\\=
+ \det(1+ v^tR \frac{1}{1+R^{-1}\prod_iG_iR}R^{-1}\prod_iG_iG_0^{-1}u ) =\\=
+ \det(1+ v^t \frac{1}{1+\prod_iG_i}\prod_iG_iG_0^{-1}u ) =
+ \det(1+ v^t \frac{1}{1+\prod_iG_i^{-1}}G_0^{-1}u )
+\end{multline}
+Which is the usual formula without any $R$ of course. Let's put it back (cause we want to compute stuff with it)
+\begin{multline}
+ \frac{\det(1+R^{-1}\prod_{i=1}^NG_i(G_0+uv^t)R)}{\det(1+R^{-1}\prod_iG_iR)} =
+ \det(1+ v^t \frac{1}{1+\prod_iG_i^{-1}}G_0^{-1}u ) =\\=
+ \det(1+ v^t RR^{-1}\frac{1}{1+\prod_iG_i^{-1}}RR^{-1}G_0^{-1}u ) =\\=
+ \det(1+ v^t R\frac{1}{1+R^{-1}\prod_iG_i^{-1}R}R^{-1}G_0^{-1}u ) =\\=
+\end{multline}
+
+\section{sign}
+\begin{equation}
+ G_n(1+\sigma)G_{n-1}\ldots G_{2}(1+\sigma)G_1
+\end{equation}
+\begin{equation}
+ (G_n(1+\sigma)G_{n-1}\ldots G_{2}(1+\sigma)G_1)^{-1} = G_1^{-1}(1-\sigma)G_{2}^{-1}\ldots G_{n-1}^{-1}(1-\sigma)G_n^{-1}
+\end{equation}
+
+\section{a better representation for the sign}
+
+\begin{multline}
+ 1+\frac{g}{K} \sum_x (\hat{n}_{x, \Up} \hat{n}_{x,\Dn}-\frac{\hat{n}_{x, \Up}+\hat{n}_{x,\Dn}}{2}) = \frac{1}{V}\sum_x \left(1+\frac{gV}{K}\hat{n}_{x, \Up} \hat{n}_{x,\Dn}-gV\frac{\hat{n}_{x, \Up}+\hat{n}_{x,\Dn}}{2K}\right)=\\=
+ \frac{1}{V}\sum_x \frac12 \sum_{\sigma_x=\pm1} \left[1+(a+b\sigma_x)\hat{n}_{x, \Up}\right]\left[1+(a+b\sigma_x) \hat{n}_{x,\Dn}\right]=\\=
+ \frac{1}{V}\sum_x \frac12 \sum_{\sigma_x=\pm1} \left(1+(a+b\sigma_x)\hat{n}_{x, \Up}+(a+b\sigma_x) \hat{n}_{x,\Dn} + (a+b\sigma_x)^2\hat{n}_{x, \Up} \hat{n}_{x,\Dn} \right)
+\end{multline}
+\begin{eqnarray}
+ a = -\frac{gV}{2K},\\
+ a^2+b^2 = \frac{gV}{K}.
+\end{eqnarray}
+\begin{eqnarray}
+ a = -\frac{gV}{2K},\\
+ b = \pm\sqrt{\frac{gV}{K}-\frac{g^2V^2}{4K^2}}
+\end{eqnarray}
+
+Now since $a^2+b^2+2a=0$ then $1+a+b = (1+a-b)^{-1}$ which means that absent a magnetic field the model is sign-problem free.
+
+
+\end{document}
