@@ -28,6 +28,39 @@ class Configuration {
 		SVDHelper G_up, G_dn;
 		size_t index;
 
+	public:
+		Configuration (std::mt19937_64 &g, Model &m) : generator(g), model(m), index(0) {}
+		void setup (double b, double m, size_t n) {
+			beta = b;
+			mu = m;
+			M = n;
+			dtau = beta/M;
+			slices.resize(M, Slice<Model>(model));
+			for (size_t i=0;i<M;i++) {
+				slices[i].setup(dtau);
+			}
+		}
+
+		double log_abs_det () {
+			return svd.S.array().abs().log().sum();
+		}
+
+		double slice_log_abs_det () {
+			double ret = 0.0;
+			for (size_t i=0;i<M;i++) {
+				ret += slices[i].log_abs_det();
+			}
+			return ret;
+		}
+
+		void insert (Vertex v) {
+			if (v.tau<beta) {
+				size_t i = v.tau/dtau;
+				v.tau -= i*dtau;
+				slices[i].insert(v);
+			}
+		}
+
 		void compute_B () {
 			svd.setIdentity(model.lattice().volume()); // FIXME: amybe have a direct reference to the lattice here too
 			for (size_t i=0;i<M;i++) {
@@ -57,30 +90,6 @@ class Configuration {
 			ret.first = A_up.S.array().log().sum() + A_dn.S.array().log().sum();
 			ret.second = (A_up.U*A_up.Vt*A_dn.U*A_dn.Vt).determinant()>0.0?1.0:-1.0;
 			return ret;
-		}
-	public:
-		Configuration (std::mt19937_64 &g, Model &m) : generator(g), model(m), index(0) {}
-		void setup (double b, double m, size_t n) {
-			beta = b;
-			mu = m;
-			M = n;
-			dtau = beta/M;
-			slices.resize(M, Slice<Model>(model));
-			for (size_t i=0;i<M;i++) {
-				slices[i].setup(dtau);
-			}
-		}
-
-		double log_abs_det () {
-			return svd.S.array().abs().log().sum();
-		}
-
-		void insert (Vertex v) {
-			if (v.tau<beta) {
-				size_t i = v.tau/dtau;
-				v.tau -= i*dtau;
-				slices[i].insert(v);
-			}
 		}
 };
 
