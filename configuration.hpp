@@ -66,7 +66,7 @@ class Configuration {
 		}
 
 		void compute_B () {
-			svd.setIdentity(model.lattice().volume()); // FIXME: amybe have a direct reference to the lattice here too
+			svd.setIdentity(model.lattice().volume()); // FIXME: maybe have a direct reference to the lattice here too
 			for (size_t i=0;i<M;i++) {
 				svd.U.applyOnTheLeft(slices[(i+index+1)%M].matrix()); // FIXME: apply directly from the slice rather than multiplying the temporary
 				svd.absorbU(); // FIXME: have a random matrix applied here possibly only when no vertices have been applied

@@ -29,6 +29,7 @@ class HubbardInteraction {
 	std::uniform_real_distribution<double> random_time;
 	public:
 	typedef HubbardVertex Vertex;
+	typedef Eigen::VectorXd UpdateType;
 	HubbardInteraction (std::mt19937_64 &g) : generator(g), coin_flip(0.5), random_time(0.0, 1.0) {}
 	void setup (const Eigen::MatrixXd &A, double u, double k);
 	size_t volume () const { return N; }
@@ -54,6 +55,9 @@ class HubbardInteraction {
 		void apply_inverse_on_the_right (Vertex v, T &M) const {
 			M -= v.sigma/(1.0+v.sigma) * (M * eigenvectors.row(v.x).transpose()) * eigenvectors.row(v.x);
 		}
+
+	UpdateType matrixU (const Vertex v) const { return eigenvectors.row(v.x).transpose(); }
+	UpdateType matrixVt (const Vertex v) const { return eigenvectors.row(v.x).transpose(); }
 };
 
 #endif // HUBBARD_HPP
