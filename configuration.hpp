@@ -24,7 +24,7 @@ class Configuration {
 		double dtau;
 		size_t M;
 
-		SVDHelper svd; // this holds the deomposition of the matrix B for the up species
+		SVDHelper B_up, B_dn; // this holds the deomposition of the matrix B for the up species
 		SVDHelper G_up, G_dn;
 
 		size_t index; // This is the index of the LAST SLICE IN B
@@ -46,7 +46,11 @@ class Configuration {
 		void set_index (size_t i) { index = i%M; }
 
 		double log_abs_det () {
-			return svd.S.array().abs().log().sum();
+			return B_up.S.array().abs().log().sum() + B_dn.S.array().abs().log().sum();
+		}
+
+		double log_abs_det_up () {
+			return B_up.S.array().abs().log().sum();
 		}
 
 		double slice_log_abs_det () {
@@ -57,6 +61,8 @@ class Configuration {
 			return ret;
 		}
 
+		size_t slice_size () const { return slices[index].size(); }
+
 		void insert (Vertex v) {
 			if (v.tau<beta) {
 				size_t i = v.tau/dtau;
@@ -66,28 +72,33 @@ class Configuration {
 		}
 
 		void compute_B () {
-			svd.setIdentity(model.lattice().volume()); // FIXME: maybe have a direct reference to the lattice here too
+			B_up.setIdentity(model.lattice().volume()); // FIXME: maybe have a direct reference to the lattice here too
 			for (size_t i=0;i<M;i++) {
-				svd.U.applyOnTheLeft(slices[(i+index+1)%M].matrix()); // FIXME: apply directly from the slice rather than multiplying the temporary
-				svd.absorbU(); // FIXME: have a random matrix applied here possibly only when no vertices have been applied
+				slices[(i+index+1)%M].apply_matrix_11(B_up.U);
+				B_up.absorbU(); // FIXME: have a random matrix applied here possibly only when no vertices have been applied
+			}
+			B_dn.setIdentity(model.lattice().volume()); // FIXME: maybe have a direct reference to the lattice here too
+			for (size_t i=0;i<M;i++) {
+				slices[(i+index+1)%M].apply_matrix_12(B_dn.U);
+				B_dn.absorbU(); // FIXME: have a random matrix applied here possibly only when no vertices have been applied
 			}
 		}
 
 		void compute_G () {
-			G_up = svd; // B
+			G_up = B_up; // B
 			G_up.invertInPlace(); // B^-1
 			G_up.add_identity(std::exp(-beta*mu)); // 1+exp(-beta*mu)*B^-1
 			G_up.invertInPlace(); // 1/(1+exp(-beta*mu)*B^-1) = B/(1+B)
-			G_dn = svd;
-			//G_dn.invertInPlace(); // the down part is automatically the inverse of the up part
-			G_dn.add_identity(std::exp(beta*mu));
+			G_dn = B_dn;
+			G_dn.invertInPlace();
+			G_dn.add_identity(std::exp(-beta*mu));
 			G_dn.invertInPlace();
 		}
 
 		std::pair<double, double> probability () {
 			SVDHelper A_up, A_dn;
-			A_up = svd;
-			A_dn = svd;
+			A_up = B_up;
+			A_dn = B_dn;
 			A_up.add_identity(exp(beta*mu));
 			A_dn.add_identity(exp(beta*mu));
 			std::pair<double, double> ret;
@@ -100,7 +111,7 @@ class Configuration {
 			size_t i = v.tau/dtau;
 			v.tau -= i*dtau; // FIXME we should not have to modify the vertex time here;
 			double ret = 1.0 + v.sigma * slices[index].matrixVt(v).transpose() * G_up.matrix() * slices[index].matrixU(v);
-			      //ret *= 1.0 - v.sigma/(1.0+v.sigma) * slices[index].matrixVt().transpose() * G.matrix() * slices[index].matrixU();
+			      //ret *= 1.0 - v.sigma/(1.0+v.sigma) * slices[index].matrixVt(v).transpose() * G_dn.matrix() * slices[index].matrixU(v);
 			return ret;
 		}
 
