@@ -28,7 +28,6 @@ int main () {
 	}
 	conf.compute_B();
 	cerr << conf.log_abs_det() << " " << conf.slice_log_abs_det() << endl;
-
 	return 0;
 }
 
