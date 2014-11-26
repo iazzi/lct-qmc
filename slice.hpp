@@ -3,6 +3,7 @@
 
 #include <set>
 #include <Eigen/Dense>
+#include <cmath>
 
 template <typename Model>
 class Slice {
@@ -54,6 +55,13 @@ class Slice {
 			}
 			if (0.0<t0) L.propagate(-t0, matrix_inv_);
 			return matrix_inv_;
+		}
+		double log_abs_det () {
+			double ret = 0.0;
+			for (auto v : verts) {
+				ret += std::log(1.0+v.sigma);
+			}
+			return ret;
 		}
 };
 
