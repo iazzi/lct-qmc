@@ -10,18 +10,18 @@
 using namespace std;
 using namespace Eigen;
 
-const int L = 100;
+const int L = 10;
 
 int main () {
 	std::mt19937_64 generator;
 	CubicLattice lattice;
-	lattice.set_size(4, 4, 1);
+	lattice.set_size(L, L, 1);
 	lattice.compute();
 	HubbardInteraction interaction(generator);
 	interaction.setup(lattice.eigenvectors(), 4.0, 5.0);
 	auto model = make_model(lattice, interaction);
 	Slice<Model<CubicLattice, HubbardInteraction>> slice(model);
-	for (int i=0;i<50;i++) {
+	for (int i=0;i<L*L;i++) {
 		slice.insert(interaction.generate());
 	}
 	MatrixXd A = slice.matrix() * slice.inverse();

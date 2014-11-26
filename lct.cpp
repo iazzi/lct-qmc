@@ -1134,6 +1134,7 @@ int main (int argc, char **argv) {
 	interaction.setup(lattice.eigenvectors(), 4.0, 5.0);
 	auto model = make_model(lattice, interaction);
 	Slice<Model<CubicLattice, HubbardInteraction>> slice(model);
+	Configuration<Model<CubicLattice, HubbardInteraction>> my_conf(generator, model);
 	steady_clock::time_point t0 = steady_clock::now();
 	signal(10, my_signal_handler);
 	signal(12, my_signal_handler);
