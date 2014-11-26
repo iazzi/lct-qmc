@@ -8,10 +8,16 @@
 #include <iostream>
 #include <Eigen/Dense>
 
+#include <algorithm>
+
 using namespace std;
 using namespace Eigen;
 
 const int L = 10;
+
+double relative_error (double a, double b) {
+	return fabs(a-b)/min(fabs(a), fabs(b));
+}
 
 int main () {
 	std::mt19937_64 generator;
@@ -26,10 +32,20 @@ int main () {
 	for (int i=0;i<2*L*L;i++) {
 		conf.insert(interaction.generate(0.0, 20.0));
 	}
-	for (int i=0;i<1;i++) {
-		conf.set_index(i);
+	for (int i=0;i<40;i++) {
+		conf.set_index(i+5);
 		conf.compute_B();
-		cerr << conf.log_abs_det() << " " << conf.slice_log_abs_det() << endl;
+		conf.compute_G();
+		HubbardInteraction::Vertex v = interaction.generate(conf.slice_start(), conf.slice_end());
+		if (relative_error(conf.log_abs_det(), conf.slice_log_abs_det())>1e-10) return 1;
+		//cerr << conf.log_abs_det() << " " << conf.slice_log_abs_det() << endl;
+		double p1 = conf.probability().first;
+		double pr = conf.probability_ratio(v);
+		conf.insert(v);
+		conf.compute_B();
+		conf.compute_G();
+		double p2 = conf.probability().first;
+		std::cerr << std::log(pr) -p2+p1 << ' ' << v.tau-conf.slice_start() << ' ' << conf.slice_start() << ' ' << v.x << endl;
 	}
 	return 0;
 }

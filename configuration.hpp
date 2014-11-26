@@ -91,10 +91,21 @@ class Configuration {
 			A_up.add_identity(exp(beta*mu));
 			A_dn.add_identity(exp(beta*mu));
 			std::pair<double, double> ret;
-			ret.first = A_up.S.array().log().sum() + A_dn.S.array().log().sum();
+			ret.first = A_up.S.array().log().sum(); // + A_dn.S.array().log().sum();
 			ret.second = (A_up.U*A_up.Vt*A_dn.U*A_dn.Vt).determinant()>0.0?1.0:-1.0;
 			return ret;
 		}
+
+		double probability_ratio (Vertex v) { //FIXME it will only work for rank-1 vertices
+			size_t i = v.tau/dtau;
+			v.tau -= i*dtau; // FIXME we should not have to modify the vertex time here;
+			double ret = 1.0 + v.sigma * slices[index].matrixVt(v).transpose() * G_up.matrix() * slices[index].matrixU(v);
+			      //ret *= 1.0 - v.sigma/(1.0+v.sigma) * slices[index].matrixVt().transpose() * G.matrix() * slices[index].matrixU();
+			return ret;
+		}
+
+		double slice_start () const { return dtau*index; }
+		double slice_end () const { return dtau*(index+1); }
 };
 
 #endif // CONFIGURATION_HPP
