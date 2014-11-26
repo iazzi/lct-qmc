@@ -26,8 +26,11 @@ int main () {
 	for (int i=0;i<2*L*L;i++) {
 		conf.insert(interaction.generate(0.0, 20.0));
 	}
-	conf.compute_B();
-	cerr << conf.log_abs_det() << " " << conf.slice_log_abs_det() << endl;
+	for (int i=0;i<1;i++) {
+		conf.set_index(i);
+		conf.compute_B();
+		cerr << conf.log_abs_det() << " " << conf.slice_log_abs_det() << endl;
+	}
 	return 0;
 }
 

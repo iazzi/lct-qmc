@@ -26,7 +26,8 @@ class Configuration {
 
 		SVDHelper svd; // this holds the deomposition of the matrix B for the up species
 		SVDHelper G_up, G_dn;
-		size_t index;
+
+		size_t index; // This is the index of the LAST SLICE IN B
 
 	public:
 		Configuration (std::mt19937_64 &g, Model &m) : generator(g), model(m), index(0) {}
@@ -67,7 +68,7 @@ class Configuration {
 		void compute_B () {
 			svd.setIdentity(model.lattice().volume()); // FIXME: amybe have a direct reference to the lattice here too
 			for (size_t i=0;i<M;i++) {
-				svd.U.applyOnTheLeft(slices[(i+index)%M].matrix()); // FIXME: apply directly from the slice rather than multiplying the temporary
+				svd.U.applyOnTheLeft(slices[(i+index+1)%M].matrix()); // FIXME: apply directly from the slice rather than multiplying the temporary
 				svd.absorbU(); // FIXME: have a random matrix applied here possibly only when no vertices have been applied
 			}
 		}
