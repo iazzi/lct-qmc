@@ -12,8 +12,8 @@ class Slice {
 		typedef typename Model::Interaction Interaction;
 		typedef typename Interaction::Vertex Vertex;
 	private:
-		Lattice &L;
-		Interaction &I;
+		Lattice *L;
+		Interaction *I;
 
 		std::set<Vertex, typename Vertex::Compare> verts;
 
@@ -24,7 +24,8 @@ class Slice {
 		Eigen::MatrixXd matrix_inv_;
 
 	public:
-		Slice (Model &m) : L(m.lattice()), I(m.interaction()), N(m.interaction().volume()), beta(1.0) {}
+		Slice (Model &m) : L(&m.lattice()), I(&m.interaction()), N(m.interaction().volume()), beta(1.0) {}
+		Slice (const Slice &s) : L(s.L), I(s.I), N(s.N), beta(s.beta) {}
 
 		void setup (double b) {
 			beta = b;
@@ -37,11 +38,11 @@ class Slice {
 			matrix_.setIdentity(N, N);
 			double t0 = 0.0;
 			for (auto v : verts) {
-				if (v.tau>t0) L.propagate(v.tau-t0, matrix_);
+				if (v.tau>t0) L->propagate(v.tau-t0, matrix_);
 				t0 = v.tau;
-				I.apply_vertex_on_the_left(v, matrix_);
+				I->apply_vertex_on_the_left(v, matrix_);
 			}
-			if (beta>t0) L.propagate(beta-t0, matrix_);
+			if (beta>t0) L->propagate(beta-t0, matrix_);
 			return matrix_;
 		}
 
@@ -49,11 +50,11 @@ class Slice {
 			matrix_inv_.setIdentity(N, N);
 			double t0 = beta;
 			for (auto v=verts.rbegin();v!=verts.rend();v++) {
-				if (v->tau<t0) L.propagate(v->tau-t0, matrix_inv_);
+				if (v->tau<t0) L->propagate(v->tau-t0, matrix_inv_);
 				t0 = v->tau;
-				I.apply_inverse_on_the_left(*v, matrix_inv_);
+				I->apply_inverse_on_the_left(*v, matrix_inv_);
 			}
-			if (0.0<t0) L.propagate(-t0, matrix_inv_);
+			if (0.0<t0) L->propagate(-t0, matrix_inv_);
 			return matrix_inv_;
 		}
 		double log_abs_det () {

@@ -65,9 +65,8 @@ class Configuration {
 			mu = m;
 			M = n;
 			dtau = beta/M;
-			slices.resize(M);
+			slices.resize(M, Slice<Model>(model));
 			for (size_t i=0;i<M;i++) {
-				slices[i] = Slice<Model>(m);
 				slices[i].setup(dtau);
 			}
 		}
