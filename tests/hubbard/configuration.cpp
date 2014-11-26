@@ -28,16 +28,16 @@ int main () {
 	interaction.setup(lattice.eigenvectors(), 4.0, 5.0);
 	auto model = make_model(lattice, interaction);
 	Configuration<Model<CubicLattice, HubbardInteraction>> conf(generator, model);
-	conf.setup(20.0, 0.0, 40); // beta, mu (relative to half filling), slice number
-	for (int i=0;i<2*L*L;i++) {
+	conf.setup(20.0, 0.0, 80); // beta, mu (relative to half filling), slice number
+	for (int i=0;i<20*L*L;i++) {
 		conf.insert(interaction.generate(0.0, 20.0));
 	}
 	for (int i=0;i<40;i++) {
-		conf.set_index(i+5);
+		conf.set_index(i);
 		conf.compute_B();
 		conf.compute_G();
 		HubbardInteraction::Vertex v = interaction.generate(conf.slice_start(), conf.slice_end());
-		if (relative_error(conf.log_abs_det(), conf.slice_log_abs_det())>1e-10) return 1;
+		if (relative_error(conf.log_abs_det_up(), conf.slice_log_abs_det())>1e-10) return 1;
 		//cerr << conf.log_abs_det() << " " << conf.slice_log_abs_det() << endl;
 		double p1 = conf.probability().first;
 		double pr = conf.probability_ratio(v);
@@ -45,7 +45,7 @@ int main () {
 		conf.compute_B();
 		conf.compute_G();
 		double p2 = conf.probability().first;
-		std::cerr << std::log(pr) -p2+p1 << ' ' << v.tau-conf.slice_start() << ' ' << conf.slice_start() << ' ' << v.x << endl;
+		std::cerr << std::log(pr) -p2+p1 << ' ' << v.tau-conf.slice_start() << ' ' << conf.slice_start() << ' ' << conf.slice_size() << endl;
 	}
 	return 0;
 }
