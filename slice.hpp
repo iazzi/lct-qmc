@@ -139,6 +139,30 @@ class Slice {
 			if (beta>t0) L->propagate(t0-beta, vt);
 			return vt;
 		}
+
+		UpdateType matrixU2 (const Vertex v) {
+			UpdateType u = I->matrixU(v);
+			double t0 = v.tau;
+			for (auto w = verts.upper_bound(v);w!=verts.end();w++) {
+				if (w->tau>t0) L->propagate(w->tau-t0, u);
+				t0 = w->tau;
+				I->apply_inverse_on_the_left(*w, u);
+			}
+			if (beta>t0) L->propagate(beta-t0, u);
+			return u;
+		}
+
+		UpdateType matrixVt2 (const Vertex v) {
+			UpdateType vt = I->matrixVt(v);
+			double t0 = v.tau;
+			for (auto w = verts.upper_bound(v);w!=verts.end();w++) {
+				if (w->tau>t0) L->propagate(t0-w->tau, vt);
+				t0 = w->tau;
+				I->apply_vertex_on_the_left(*w, vt);
+			}
+			if (beta>t0) L->propagate(t0-beta, vt);
+			return vt;
+		}
 };
 
 
