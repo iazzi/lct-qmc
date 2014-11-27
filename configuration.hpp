@@ -77,20 +77,15 @@ class Configuration {
 			}
 		}
 
-		Eigen::MatrixXd cache;
 		void insert_and_update (Vertex v) {
 			if (v.tau<beta) {
 				size_t i = v.tau/dtau;
 				v.tau -= i*dtau;
-				Eigen::VectorXd V = G_matrix_up * slices[i].matrixU(v);
-				Eigen::VectorXd Vt = G_matrix_up.transpose() * slices[i].matrixVt(v);
-				cache = G_matrix_up;
-				cache -= v.sigma * V * Vt.transpose() / (1.0 + v.sigma * slices[index].matrixVt(v).transpose() * G_up.matrix() * slices[index].matrixU(v));
-				cache += v.sigma * slices[i].matrixU(v) * (slices[i].matrixVt(v).transpose() * cache);
+				G_matrix_up -= v.sigma * (G_matrix_up * slices[index].matrixU(v)) * (slices[index].matrixVt(v).transpose() * G_matrix_up) / (1.0 + v.sigma * slices[index].matrixVt(v).transpose() * G_matrix_up * slices[index].matrixU(v));
+				G_matrix_up += v.sigma * slices[i].matrixU(v) * (slices[i].matrixVt(v).transpose() * G_matrix_up);
+				G_matrix_dn -= -v.sigma/(1.0+v.sigma) * (G_matrix_dn * slices[index].matrixU2(v)) * (slices[index].matrixVt2(v).transpose() * G_matrix_dn) / (1.0 + -v.sigma/(1.0+v.sigma) * slices[index].matrixVt2(v).transpose() * G_dn.matrix() * slices[index].matrixU2(v));
+				G_matrix_dn += -v.sigma/(1.0+v.sigma) * slices[i].matrixU2(v) * (slices[i].matrixVt2(v).transpose() * G_matrix_dn);
 				slices[i].insert(v);
-				//std::cerr << cache << std::endl << std::endl;
-				//G_matrix_up -= (G_matrix_up * slices[index].matrixU(v)) * (slices[index].matrixVt(v).transpose() * G_matrix_up) / (1.0 + v.sigma * slices[index].matrixVt(v).transpose() * G_up.matrix() * slices[index].matrixU(v));
-				//G_matrix_dn -= (G_matrix_dn * slices[index].matrixU2(v)) * (slices[index].matrixVt2(v).transpose() * G_matrix_dn) / (1.0 + v.sigma * slices[index].matrixVt2(v).transpose() * G_dn.matrix() * slices[index].matrixU2(v));
 			}
 		}
 
@@ -147,16 +142,16 @@ class Configuration {
 			double ret = 0.0;
 			Eigen::MatrixXd A;
 			A = G_up.matrix();
-			std::cerr << A.array()-cache.array() << std::endl << std::endl;
-			std::cerr << cache.col(0).normalized().transpose() << std::endl << std::endl;
-			std::cerr << (G_matrix_up-A).col(0).normalized().transpose() << std::endl << std::endl;
-			Eigen::VectorXd B = (G_matrix_up-A).col(0).normalized();
-			Eigen::JacobiSVD<Eigen::MatrixXd> svd(G_matrix_up, Eigen::ComputeThinU | Eigen::ComputeThinV);
-			std::cerr << (svd.solve(B)).transpose().normalized() << std::endl << std::endl;
+			//std::cerr << A.array()-cache.array() << std::endl << std::endl;
+			//std::cerr << cache.col(0).normalized().transpose() << std::endl << std::endl;
+			//std::cerr << (G_matrix_up-A).col(0).normalized().transpose() << std::endl << std::endl;
+			//Eigen::VectorXd B = (G_matrix_up-A).col(0).normalized();
+			//Eigen::JacobiSVD<Eigen::MatrixXd> svd(G_matrix_up, Eigen::ComputeThinU | Eigen::ComputeThinV);
+			//std::cerr << (svd.solve(B)).transpose().normalized() << std::endl << std::endl;
 			ret += (G_matrix_up-A).norm();
 			G_matrix_up.swap(A);
 			A = G_dn.matrix();
-			//ret += (G_matrix_dn-A).norm();
+			ret += (G_matrix_dn-A).norm();
 			G_matrix_dn.swap(A);
 			return ret;
 		}
