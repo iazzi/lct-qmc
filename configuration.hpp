@@ -6,6 +6,9 @@
 #include <vector>
 #include <cmath>
 
+//FIXME
+#include <iostream>
+
 
 template <typename Model>
 class Configuration {
@@ -26,6 +29,9 @@ class Configuration {
 
 		SVDHelper B_up, B_dn; // this holds the deomposition of the matrix B for the up species
 		SVDHelper G_up, G_dn;
+
+		Eigen::MatrixXd G_matrix_up;
+		Eigen::MatrixXd G_matrix_dn;
 
 		size_t index; // This is the index of the LAST SLICE IN B
 
@@ -71,6 +77,23 @@ class Configuration {
 			}
 		}
 
+		Eigen::MatrixXd cache;
+		void insert_and_update (Vertex v) {
+			if (v.tau<beta) {
+				size_t i = v.tau/dtau;
+				v.tau -= i*dtau;
+				Eigen::VectorXd V = G_matrix_up * slices[i].matrixU(v);
+				Eigen::VectorXd Vt = G_matrix_up.transpose() * slices[i].matrixVt(v);
+				cache = G_matrix_up;
+				cache -= v.sigma * V * Vt.transpose() / (1.0 + v.sigma * slices[index].matrixVt(v).transpose() * G_up.matrix() * slices[index].matrixU(v));
+				cache += v.sigma * slices[i].matrixU(v) * (slices[i].matrixVt(v).transpose() * cache);
+				slices[i].insert(v);
+				//std::cerr << cache << std::endl << std::endl;
+				//G_matrix_up -= (G_matrix_up * slices[index].matrixU(v)) * (slices[index].matrixVt(v).transpose() * G_matrix_up) / (1.0 + v.sigma * slices[index].matrixVt(v).transpose() * G_up.matrix() * slices[index].matrixU(v));
+				//G_matrix_dn -= (G_matrix_dn * slices[index].matrixU2(v)) * (slices[index].matrixVt2(v).transpose() * G_matrix_dn) / (1.0 + v.sigma * slices[index].matrixVt2(v).transpose() * G_dn.matrix() * slices[index].matrixU2(v));
+			}
+		}
+
 		void compute_B () {
 			B_up.setIdentity(model.lattice().volume()); // FIXME: maybe have a direct reference to the lattice here too
 			for (size_t i=0;i<M;i++) {
@@ -102,7 +125,7 @@ class Configuration {
 			A_up.add_identity(exp(beta*mu));
 			A_dn.add_identity(exp(beta*mu));
 			std::pair<double, double> ret;
-			ret.first = A_up.S.array().log().sum(); // + A_dn.S.array().log().sum();
+			ret.first = A_up.S.array().log().sum() + A_dn.S.array().log().sum();
 			ret.second = (A_up.U*A_up.Vt*A_dn.U*A_dn.Vt).determinant()>0.0?1.0:-1.0;
 			return ret;
 		}
@@ -110,8 +133,31 @@ class Configuration {
 		double probability_ratio (Vertex v) { //FIXME it will only work for rank-1 vertices
 			size_t i = v.tau/dtau;
 			v.tau -= i*dtau; // FIXME we should not have to modify the vertex time here;
-			double ret = 1.0 + v.sigma * slices[index].matrixVt(v).transpose() * G_up.matrix() * slices[index].matrixU(v);
-			      //ret *= 1.0 - v.sigma/(1.0+v.sigma) * slices[index].matrixVt(v).transpose() * G_dn.matrix() * slices[index].matrixU(v);
+			double ret = 1.0 + v.sigma * slices[index].matrixVt(v).transpose() * G_matrix_up * slices[index].matrixU(v);
+			      ret *= 1.0 - v.sigma/(1.0+v.sigma) * slices[index].matrixVt2(v).transpose() * G_matrix_dn * slices[index].matrixU2(v);
+			return ret;
+		}
+
+		void save_G () {
+			G_matrix_up = G_up.matrix();
+			G_matrix_dn = G_dn.matrix();
+		}
+
+		double check_and_save_G () {
+			double ret = 0.0;
+			Eigen::MatrixXd A;
+			A = G_up.matrix();
+			std::cerr << A.array()/cache.array() << std::endl << std::endl;
+			std::cerr << cache.col(0).normalized().transpose() << std::endl << std::endl;
+			std::cerr << (G_matrix_up-A).col(0).normalized().transpose() << std::endl << std::endl;
+			Eigen::VectorXd B = (G_matrix_up-A).col(0).normalized();
+			Eigen::JacobiSVD<Eigen::MatrixXd> svd(G_matrix_up, Eigen::ComputeThinU | Eigen::ComputeThinV);
+			std::cerr << (svd.solve(B)).transpose().normalized() << std::endl << std::endl;
+			ret += (G_matrix_up-A).norm();
+			G_matrix_up.swap(A);
+			A = G_dn.matrix();
+			//ret += (G_matrix_dn-A).norm();
+			G_matrix_dn.swap(A);
 			return ret;
 		}
 
