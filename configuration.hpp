@@ -147,7 +147,7 @@ class Configuration {
 			double ret = 0.0;
 			Eigen::MatrixXd A;
 			A = G_up.matrix();
-			std::cerr << A.array()/cache.array() << std::endl << std::endl;
+			std::cerr << A.array()-cache.array() << std::endl << std::endl;
 			std::cerr << cache.col(0).normalized().transpose() << std::endl << std::endl;
 			std::cerr << (G_matrix_up-A).col(0).normalized().transpose() << std::endl << std::endl;
 			Eigen::VectorXd B = (G_matrix_up-A).col(0).normalized();

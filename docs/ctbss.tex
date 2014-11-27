@@ -150,5 +150,31 @@ Which is the usual formula without any $R$ of course. Let's put it back (cause w
 
 Now since $a^2+b^2+2a=0$ then $1+a+b = (1+a-b)^{-1}$ which means that absent a magnetic field the model is sign-problem free.
 
+\section{fast updates}
+
+\begin{equation}
+ G = \frac{1}{1+B^{-1}}
+\end{equation}
+
+\begin{equation}
+ B \rightarrow (1+uv^t)B
+\end{equation}
+
+\begin{equation}
+ B^{-1} \rightarrow B^{-1}(1+uv^t)^{-1}
+\end{equation}
+
+\begin{equation}
+ \frac{\det(1+(1+uv^t)B)}{\det(1+B)} = \frac{\det(B)}{\det(B)}\cdot \frac{\det(B^{-1}+1+uv^t)}{\det(B^{-1}+1)} = 1+v^t\frac{1}{1+B^{-1}} u = 1+v^t G u
+\end{equation}
+
+\begin{equation}
+ B \rightarrow (1+uv^t)B
+\end{equation}
+
+\begin{multline}
+ G \rightarrow \frac{(1+uv^t)B}{1+(1+uv^t)B} = (1+uv^t)\frac{1}{B^{-1}+1+uv^t} =\\= (1+uv^t)\left[\frac{1}{B^{-1}+1}-\frac{1}{B^{-1}+1}\cdot\frac{uv^t}{1+v^t\frac{1}{B^{-1}+1}u}\cdot\frac{1}{B^{-1}+1}\right]=\\= (1+uv^t)\left[G-G\cdot\frac{uv^t}{1+v^tGu}\cdot G\right]
+\end{multline}
+
 
 \end{document}
