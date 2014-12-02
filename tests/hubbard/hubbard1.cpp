@@ -20,10 +20,18 @@ int main () {
 	HubbardInteraction::Vertex v = I.generate();
 	I.apply_vertex_on_the_left(v, A);
 	I.apply_inverse_on_the_left(v, A);
-	if (!A.isIdentity()) return 1;
+	if (!A.isIdentity()) {
+		cerr << "multiplying a vertex and its inverse on the left does not result in the identity" << endl;
+		cerr << A << endl;
+		return 1;
+	}
 	I.apply_vertex_on_the_right(v, A);
 	I.apply_inverse_on_the_right(v, A);
-	if (!A.isIdentity()) return 1;
+	if (!A.isIdentity()) {
+		cerr << "multiplying a vertex and its inverse on the right does not result in the identity" << endl;
+		cerr << A << endl;
+		return 1;
+	}
 	return 0;
 }
 
