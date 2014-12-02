@@ -17,12 +17,32 @@ struct HubbardVertex {
 	};
 };
 
+//
+// class HubbardInteraction
+//
+// contains information to generate and manipulate the vertices for a Hubbard-like interaction
+// of the form U n_\Up n_\Dn.
+//
+// The expansion is in the operator  -(K - U n_\Up n_\Dn) with K>0
+//
+// Assumption that the lattice matrix represents the full @V \timex @V matrix for both spin species
+// with spin up in the first V elements and spin down in the second half
+//
+// a Vertex contains the interacting site x, the strength sigma and the time tau
+// it corresponds to a rank-2 matrix of the form U V^t = sigma_\Up * u_\Up v^t_\Up + sigma_\Dn * u_Dn v^t_Dn
+//
+// sigma_\Up = A \pm B
+// sigma_\Dn = A \mp B = 2*A - sigma_\Up
+//
+// The UpdateType type contains
+//
 class HubbardInteraction {
 	std::mt19937_64 &generator;
 	Eigen::MatrixXd eigenvectors;
 	double U;
 	double K;
 	size_t N;
+	size_t V;
 	double a, b;
 	std::bernoulli_distribution coin_flip;
 	std::uniform_int_distribution<size_t> random_site;
@@ -38,22 +58,26 @@ class HubbardInteraction {
 	Vertex generate (double t0, double t1);
 	template <typename T>
 		void apply_vertex_on_the_left (Vertex v, T &M) const {
-			M += v.sigma * eigenvectors.row(v.x).transpose() * (eigenvectors.row(v.x) * M);
+			M += (a+v.sigma) * eigenvectors.row(v.x).transpose() * (eigenvectors.row(v.x) * M)
+				+ (a-v.sigma) * eigenvectors.row(v.x+V).transpose() * (eigenvectors.row(v.x+V) * M);
 		}
 
 	template <typename T>
 		void apply_vertex_on_the_right (Vertex v, T &M) const {
-			M += v.sigma * (M * eigenvectors.row(v.x).transpose()) * eigenvectors.row(v.x);
+			M += (a+v.sigma) * (M * eigenvectors.row(v.x).transpose()) * eigenvectors.row(v.x)
+				+ (a-v.sigma) * (M * eigenvectors.row(v.x+V).transpose()) * eigenvectors.row(v.x+V);
 		}
 
 	template <typename T>
 		void apply_inverse_on_the_left (Vertex v, T &M) const {
-			M -= v.sigma/(1.0+v.sigma) * eigenvectors.row(v.x).transpose() * (eigenvectors.row(v.x) * M);
+			M -= (a+v.sigma)/(1.0+a+v.sigma) * eigenvectors.row(v.x).transpose() * (eigenvectors.row(v.x) * M)
+				+ (a-v.sigma)/(1.0+a-v.sigma) * eigenvectors.row(v.x+V).transpose() * (eigenvectors.row(v.x+V) * M);
 		}
 
 	template <typename T>
 		void apply_inverse_on_the_right (Vertex v, T &M) const {
-			M -= v.sigma/(1.0+v.sigma) * (M * eigenvectors.row(v.x).transpose()) * eigenvectors.row(v.x);
+			M -= (a+v.sigma)/(1.0+a+v.sigma) * (M * eigenvectors.row(v.x).transpose()) * eigenvectors.row(v.x)
+				+ (a-v.sigma)/(1.0+a-v.sigma) * (M * eigenvectors.row(v.x+V).transpose()) * eigenvectors.row(v.x+V);
 		}
 
 	UpdateType matrixU (const Vertex v) const { return eigenvectors.row(v.x).transpose(); }
