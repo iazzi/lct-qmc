@@ -77,6 +77,7 @@ class Configuration {
 			}
 		}
 
+		// FIXME this is heavily dependent on the model
 		void insert_and_update (Vertex v) {
 			if (v.tau<beta) {
 				size_t i = v.tau/dtau;
