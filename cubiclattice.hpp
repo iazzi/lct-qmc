@@ -46,7 +46,10 @@ class CubicLattice {
 				}
 			}
 		}
-		solver.compute(H);
+		Eigen::MatrixXd H2 = Eigen::MatrixXd::Zero(2*V, 2*V);
+		H2.block(0, 0, V, V) = H;
+		H2.block(V, V, V, V) = H;
+		solver.compute(H2);
 		if (solver.info()==Eigen::Success) computed = true;
 	}
 
@@ -54,6 +57,8 @@ class CubicLattice {
 	const typename Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd>::MatrixType & eigenvectors () const { return solver.eigenvectors(); }
 
 	size_t volume () const { return V; }
+	size_t states () const { return 2*V; }
+	size_t dimension () const { return 2*V; }
 
 	template <typename T>
 		void propagate (double t, T& M) {
