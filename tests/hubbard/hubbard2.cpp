@@ -25,7 +25,11 @@ int main () {
 		slice.insert(interaction.generate());
 	}
 	MatrixXd A = slice.matrix() * slice.inverse();
-	if (!A.isIdentity()) return 1;
+	if (!A.isIdentity()) {
+		cerr << "slice.matrix() and slice.inverse() are not actually inverses" << endl;
+		cerr << A << endl;
+		return 1;
+	}
 	return 0;
 }
 
