@@ -1,6 +1,7 @@
-CXXFLAGS=$(MYCXXFLAGS) -std=c++11 -I $(HOME)/local/include `pkg-config --cflags eigen3 ` -Wall -I ../../
-LDFLAGS=$(MYLDFLAGS) -L $(HOME)/local/lib `pkg-config --libs eigen3`
-LDLIBS=$(MYLDLIBS) -lgmp -lmpfr `pkg-config --libs eigen3` -lm -lstdc++ -lmkl_gf_lp64 -lmkl_scalapack_lp64 -lmkl_blacs_openmpi_lp64 -lmkl_sequential -lmkl_core -llua -pthread -lfftw3_threads -lfftw3 -lmpi
+include ../../Makefile.conf
+CXXFLAGS=$(MYCXXFLAGS) -std=c++11 `pkg-config --cflags eigen3 ` -Wall -I ../../
+LDFLAGS=$(MYLDFLAGS) `pkg-config --libs eigen3`
+LDLIBS=$(MYLDLIBS) `pkg-config --libs eigen3`
 
 all: hubbard1.test hubbard2.test configuration.test
 
