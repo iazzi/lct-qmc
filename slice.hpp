@@ -25,7 +25,7 @@ class Slice {
 		Eigen::MatrixXd matrix_inv_;
 
 	public:
-		Slice (Model &m) : L(&m.lattice()), I(&m.interaction()), N(m.interaction().volume()), beta(1.0) {}
+		Slice (Model &m) : L(&m.lattice()), I(&m.interaction()), N(m.interaction().dimension()), beta(1.0) {}
 		Slice (const Slice &s) : L(s.L), I(s.I), N(s.N), beta(s.beta) {}
 
 		void setup (double b) {
@@ -58,6 +58,18 @@ class Slice {
 			}
 			if (0.0<t0) L->propagate(-t0, matrix_inv_);
 			return matrix_inv_;
+		}
+
+		// apply the slice with forward propagators and direct vertices
+		template <typename T>
+		void apply_matrix (T &A) {
+			double t0 = 0.0;
+			for (auto v : verts) {
+				if (v.tau>t0) L->propagate(v.tau-t0, A);
+				t0 = v.tau;
+				I->apply_vertex_on_the_left(v, A);
+			}
+			if (beta>t0) L->propagate(beta-t0, A);
 		}
 
 		// apply the slice with forward propagators and direct vertices
@@ -111,7 +123,7 @@ class Slice {
 		double log_abs_det () {
 			double ret = 0.0;
 			for (auto v : verts) {
-				ret += std::log(1.0+v.sigma);
+				ret += I->log_abs_det(v);
 			}
 			return ret;
 		}

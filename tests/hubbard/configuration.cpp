@@ -38,9 +38,9 @@ int main () {
 		conf.compute_G();
 		conf.save_G();
 		HubbardInteraction::Vertex v = interaction.generate(conf.slice_start(), conf.slice_end());
-		if (relative_error(conf.log_abs_det_up(), conf.slice_log_abs_det())>1e-10) {
-			cerr << relative_error(conf.log_abs_det_up(), conf.slice_log_abs_det()) << endl;
-			cerr << conf.log_abs_det_up() << ' ' << conf.slice_log_abs_det() << endl;
+		if (relative_error(conf.log_abs_det(), conf.slice_log_abs_det())>1e-10) {
+			cerr << relative_error(conf.log_abs_det(), conf.slice_log_abs_det()) << endl;
+			cerr << conf.log_abs_det() << ' ' << conf.slice_log_abs_det() << endl;
 			return 1;
 		}
 		//cerr << conf.log_abs_det() << " " << conf.slice_log_abs_det() << endl;

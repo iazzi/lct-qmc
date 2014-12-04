@@ -52,7 +52,9 @@ class HubbardInteraction {
 	typedef Eigen::VectorXd UpdateType;
 	HubbardInteraction (std::mt19937_64 &g) : generator(g), coin_flip(0.5), random_time(0.0, 1.0) {}
 	void setup (const Eigen::MatrixXd &A, double u, double k);
-	size_t volume () const { return N; }
+	size_t volume () const { return V; }
+	size_t states () const { return N; }
+	size_t dimension () const { return N; }
 	Vertex generate ();
 	Vertex generate (double tau);
 	Vertex generate (double t0, double t1);
@@ -82,6 +84,10 @@ class HubbardInteraction {
 
 	UpdateType matrixU (const Vertex v) const { return eigenvectors.row(v.x).transpose(); }
 	UpdateType matrixVt (const Vertex v) const { return eigenvectors.row(v.x).transpose(); }
+	double scalarA () const { return a; }
+	double scalarB () const { return b; }
+
+	double log_abs_det (const Vertex v) const { return 0.0; }
 };
 
 #endif // HUBBARD_HPP
