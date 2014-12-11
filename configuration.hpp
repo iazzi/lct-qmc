@@ -96,11 +96,11 @@ class Configuration {
 			Eigen::MatrixXd R2 = R.inverse();
 			for (size_t i=0;i<M;i++) {
 				slices[(i+index+1)%M].apply_matrix(B.U);
-				B.U.applyOnTheLeft(R);
+				//B.U.applyOnTheLeft(R);
 				B.absorbU(); // FIXME: have a random matrix applied here possibly only when no vertices have been applied
-				B.U.applyOnTheLeft(R2);
+				//B.U.applyOnTheLeft(R2);
 			}
-				B.absorbU(); // FIXME: have a random matrix applied here possibly only when no vertices have been applied
+			//B.absorbU(); // FIXME: have a random matrix applied here possibly only when no vertices have been applied
 		}
 		void compute_G () {
 			G = B; // B
@@ -142,7 +142,7 @@ class Configuration {
 			//std::cerr << (svd.solve(B)).transpose().normalized() << std::endl << std::endl;
 			ret += (G_matrix-A).norm();
 			G_matrix.swap(A);
-			return ret;
+			return ret / A.size();
 		}
 
 		double slice_start () const { return dtau*index; }

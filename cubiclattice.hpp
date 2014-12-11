@@ -11,6 +11,9 @@ class CubicLattice {
 
 	Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> solver;
 
+	Eigen::VectorXd eigenvalues_;
+	Eigen::MatrixXd eigenvectors_;
+
 	bool computed;
 
 	public:
@@ -46,15 +49,18 @@ class CubicLattice {
 				}
 			}
 		}
-		Eigen::MatrixXd H2 = Eigen::MatrixXd::Zero(2*V, 2*V);
-		H2.block(0, 0, V, V) = H;
-		H2.block(V, V, V, V) = H;
-		solver.compute(H2);
-		if (solver.info()==Eigen::Success) computed = true;
+		solver.compute(H);
+		eigenvectors_ = Eigen::MatrixXd::Zero(2*V, 2*V);
+		eigenvectors_.block(0, 0, V, V) = solver.eigenvectors();
+		eigenvectors_.block(V, V, V, V) = solver.eigenvectors();
+		eigenvalues_.setZero(2*V);
+		eigenvalues_.head(V) = solver.eigenvalues();
+		eigenvalues_.tail(V) = solver.eigenvalues();
+		computed = true;
 	}
 
-	const typename Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd>::RealVectorType & eigenvalues () const { return solver.eigenvalues(); }
-	const typename Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd>::MatrixType & eigenvectors () const { return solver.eigenvectors(); }
+	const Eigen::VectorXd & eigenvalues () const { return eigenvalues_; }
+	const Eigen::MatrixXd & eigenvectors () const { return eigenvectors_; }
 
 	size_t volume () const { return V; }
 	size_t states () const { return 2*V; }
@@ -62,7 +68,7 @@ class CubicLattice {
 
 	template <typename T>
 		void propagate (double t, T& M) {
-			M.array().colwise() *= (-t*solver.eigenvalues().array()).exp();
+			M.array().colwise() *= (-t*eigenvalues_.array()).exp();
 		}
 
 	CubicLattice (): Lx(2), Ly(2), Lz(1), V(4), tx(1.0), ty(1.0), tz(1.0), computed(false) {}
