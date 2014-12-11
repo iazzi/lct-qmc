@@ -52,7 +52,7 @@ int main () {
 		conf.compute_G();
 		cerr << conf.check_and_save_G() << endl;
 		double p2 = conf.probability().first;
-		std::cerr << std::log(pr) -p2+p1 << ' ' << v.tau-conf.slice_start() << ' ' << conf.slice_start() << ' ' << conf.slice_size() << endl;
+		std::cerr << std::log(pr)-p2+p1 << ' ' << v.tau-conf.slice_start() << ' ' << conf.slice_start() << ' ' << conf.slice_size() << endl;
 	}
 	return 0;
 }

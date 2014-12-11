@@ -62,6 +62,11 @@ class Configuration {
 			return ret;
 		}
 
+		double log_abs_max () const {
+			return B.S.array().abs().log().abs().maxCoeff();
+		}
+
+
 		size_t slice_size () const { return slices[index].size(); }
 
 		void insert (Vertex v) {
@@ -87,12 +92,16 @@ class Configuration {
 
 		void compute_B () {
 			B.setIdentity(model.lattice().dimension()); // FIXME: maybe have a direct reference to the lattice here too
+			Eigen::MatrixXd R = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension()) + 0.002*Eigen::MatrixXd::Random(model.lattice().dimension(), model.lattice().dimension());
+			Eigen::MatrixXd R2 = R.inverse();
 			for (size_t i=0;i<M;i++) {
 				slices[(i+index+1)%M].apply_matrix(B.U);
+				B.U.applyOnTheLeft(R);
 				B.absorbU(); // FIXME: have a random matrix applied here possibly only when no vertices have been applied
+				B.U.applyOnTheLeft(R2);
 			}
+				B.absorbU(); // FIXME: have a random matrix applied here possibly only when no vertices have been applied
 		}
-
 		void compute_G () {
 			G = B; // B
 			G.invertInPlace(); // B^-1
@@ -113,7 +122,7 @@ class Configuration {
 		double probability_ratio (Vertex v) { //FIXME it will only work for rank-1 vertices
 			size_t i = v.tau/dtau;
 			v.tau -= i*dtau; // FIXME we should not have to modify the vertex time here;
-			double ret = 1.0 + v.sigma * slices[index].matrixVt(v).transpose() * G_matrix * slices[index].matrixU(v);
+			double ret = (Eigen::Matrix2d::Identity() + slices[index].matrixVt(v).transpose() * G_matrix * slices[index].matrixU(v)).determinant();
 			return ret;
 		}
 
