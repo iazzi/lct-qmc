@@ -4,6 +4,9 @@
 #include <Eigen/Dense>
 #include <random>
 
+// FIXME
+#include <iostream>
+
 struct HubbardVertex {
 	int x;
 	double sigma;
@@ -49,7 +52,7 @@ class HubbardInteraction {
 	std::uniform_real_distribution<double> random_time;
 	public:
 	typedef HubbardVertex Vertex;
-	typedef Eigen::VectorXd UpdateType;
+	typedef Eigen::Matrix<double, Eigen::Dynamic, 2> UpdateType;
 	HubbardInteraction (std::mt19937_64 &g) : generator(g), coin_flip(0.5), random_time(0.0, 1.0) {}
 	void setup (const Eigen::MatrixXd &A, double u, double k);
 	size_t volume () const { return V; }
@@ -82,8 +85,20 @@ class HubbardInteraction {
 				+ (a-v.sigma)/(1.0+a-v.sigma) * (M * eigenvectors.row(v.x+V).transpose()) * eigenvectors.row(v.x+V);
 		}
 
-	UpdateType matrixU (const Vertex v) const { return eigenvectors.row(v.x).transpose(); }
-	UpdateType matrixVt (const Vertex v) const { return eigenvectors.row(v.x).transpose(); }
+	UpdateType matrixU (const Vertex v) const {
+		UpdateType ret(N, 2);
+		ret.col(0) = (a+v.sigma) * eigenvectors.row(v.x).transpose();
+		ret.col(1) = (a-v.sigma) * eigenvectors.row(v.x+V).transpose();
+		return ret;
+	}
+
+	UpdateType matrixV (const Vertex v) const {
+		UpdateType ret(N, 2);
+		ret.col(0) = eigenvectors.row(v.x).transpose();
+		ret.col(1) = eigenvectors.row(v.x+V).transpose();
+		return ret;
+	}
+
 	double scalarA () const { return a; }
 	double scalarB () const { return b; }
 
