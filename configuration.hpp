@@ -82,8 +82,8 @@ class Configuration {
 			if (v.tau<beta) {
 				size_t i = v.tau/dtau;
 				v.tau -= i*dtau;
-				//G_matrix_up -= v.sigma * (G_matrix_up * slices[index].matrixU(v)) * (slices[index].matrixVt(v).transpose() * G_matrix_up) / (1.0 + v.sigma * slices[index].matrixVt(v).transpose() * G_matrix_up * slices[index].matrixU(v));
-				//G_matrix_up += v.sigma * slices[i].matrixU(v) * (slices[i].matrixVt(v).transpose() * G_matrix_up);
+				G_matrix -= (G_matrix * slices[index].matrixU(v)) * (Eigen::Matrix2d::Identity() + slices[index].matrixVt(v).transpose() * G_matrix * slices[index].matrixU(v)).inverse() * (slices[index].matrixVt(v).transpose() * G_matrix);
+				G_matrix += slices[i].matrixU(v) * (slices[i].matrixVt(v).transpose() * G_matrix);
 				//G_matrix_dn -= -v.sigma/(1.0+v.sigma) * (G_matrix_dn * slices[index].matrixU2(v)) * (slices[index].matrixVt2(v).transpose() * G_matrix_dn) / (1.0 + -v.sigma/(1.0+v.sigma) * slices[index].matrixVt2(v).transpose() * G_dn.matrix() * slices[index].matrixU2(v));
 				//G_matrix_dn += -v.sigma/(1.0+v.sigma) * slices[i].matrixU2(v) * (slices[i].matrixVt2(v).transpose() * G_matrix_dn);
 				slices[i].insert(v);
