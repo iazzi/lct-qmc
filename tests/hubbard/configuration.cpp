@@ -35,15 +35,16 @@ int main () {
 	for (int i=0;i<40;i++) {
 		conf.set_index(i);
 		conf.compute_B();
+		if (relative_error(conf.log_abs_det(), conf.slice_log_abs_det())>1e-8 && conf.log_abs_det()>1.0e-8) {
+			cerr << relative_error(conf.log_abs_det(), conf.slice_log_abs_det()) << endl;
+			cerr << conf.log_abs_det() << ' ' << conf.slice_log_abs_det() << endl;
+			cerr << conf.log_abs_max() << endl;
+			return 1;
+		}
+		cerr << conf.log_abs_det() << " " << conf.slice_log_abs_det() << endl;
 		conf.compute_G();
 		conf.save_G();
 		HubbardInteraction::Vertex v = interaction.generate(conf.slice_start(), conf.slice_end());
-		if (relative_error(conf.log_abs_det(), conf.slice_log_abs_det())>1e-10) {
-			cerr << relative_error(conf.log_abs_det(), conf.slice_log_abs_det()) << endl;
-			cerr << conf.log_abs_det() << ' ' << conf.slice_log_abs_det() << endl;
-			return 1;
-		}
-		//cerr << conf.log_abs_det() << " " << conf.slice_log_abs_det() << endl;
 		double p1 = conf.probability().first;
 		double pr = conf.probability_ratio(v);
 		conf.insert_and_update(v);
