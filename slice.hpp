@@ -5,6 +5,9 @@
 #include <Eigen/Dense>
 #include <cmath>
 
+//FIXME
+#include <iostream>
+
 template <typename Model>
 class Slice {
 	public:
@@ -153,7 +156,7 @@ class Slice {
 		}
 
 		UpdateType matrixVt (const Vertex v) {
-			UpdateType vt = I->matrixVt(v);
+			UpdateType vt = I->matrixV(v);
 			double t0 = v.tau;
 			for (auto w = verts.upper_bound(v);w!=verts.end();w++) {
 				if (w->tau>t0) L->propagate(t0-w->tau, vt);
@@ -177,7 +180,7 @@ class Slice {
 		}
 
 		UpdateType matrixVt2 (const Vertex v) {
-			UpdateType vt = I->matrixVt(v);
+			UpdateType vt = I->matrixV(v);
 			double t0 = v.tau;
 			for (auto w = verts.upper_bound(v);w!=verts.end();w++) {
 				if (w->tau>t0) L->propagate(t0-w->tau, vt);
