@@ -3,7 +3,7 @@ CXXFLAGS=$(MYCXXFLAGS) -std=c++11 `pkg-config --cflags eigen3 ` -Wall -I ../../
 LDFLAGS=$(MYLDFLAGS) `pkg-config --libs eigen3`
 LDLIBS=$(MYLDLIBS) `pkg-config --libs eigen3`
 
-all: hubbard1.test hubbard2.test slice.test probability.test greenfunction.test remove.test
+all: hubbard1.test hubbard2.test slice.test determinant.test greenfunction.test remove.test
 
 %.test: %
 	./$<
@@ -14,7 +14,7 @@ hubbard2: hubbard2.o ../../hubbard.o
 
 slice: slice.o ../../hubbard.o
 
-probability: probability.o ../../hubbard.o
+determinant: determinant.o ../../hubbard.o
 
 greenfunction: greenfunction.o ../../hubbard.o
 
