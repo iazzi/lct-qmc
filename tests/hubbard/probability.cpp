@@ -46,7 +46,7 @@ int main () {
 		conf.save_G();
 		HubbardInteraction::Vertex v = interaction.generate(conf.slice_start(), conf.slice_end());
 		double p1 = conf.probability().first;
-		double pr = conf.probability_ratio(v);
+		double pr = conf.insert_probability(v);
 		conf.insert_and_update(v);
 		conf.compute_B();
 		conf.compute_G();

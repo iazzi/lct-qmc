@@ -41,7 +41,7 @@ int main () {
 		double p1 = conf.probability().first;
 		for (int j=0;j<L*L;j++) {
 			HubbardInteraction::Vertex v = interaction.generate(conf.slice_start(), conf.slice_end());
-			pr *= conf.probability_ratio(v);
+			pr *= conf.insert_probability(v);
 			conf.insert_and_update(v);
 		}
 		conf.compute_B();

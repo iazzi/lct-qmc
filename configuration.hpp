@@ -66,9 +66,6 @@ class Configuration {
 			return B.S.array().abs().log().abs().maxCoeff();
 		}
 
-
-		size_t slice_size () const { return slices[index].size(); }
-
 		void insert (Vertex v) {
 			if (v.tau<beta) {
 				size_t i = v.tau/dtau;
@@ -92,15 +89,15 @@ class Configuration {
 
 		void compute_B () {
 			B.setIdentity(model.lattice().dimension()); // FIXME: maybe have a direct reference to the lattice here too
-			Eigen::MatrixXd R = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension()) + 0.002*Eigen::MatrixXd::Random(model.lattice().dimension(), model.lattice().dimension());
-			Eigen::MatrixXd R2 = R.inverse();
+			//Eigen::MatrixXd R = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension()) + 0.002*Eigen::MatrixXd::Random(model.lattice().dimension(), model.lattice().dimension());
+			//Eigen::MatrixXd R2 = R.inverse();
 			for (size_t i=0;i<M;i++) {
 				slices[(i+index+1)%M].apply_matrix(B.U);
 				//B.U.applyOnTheLeft(R);
 				B.absorbU(); // FIXME: have a random matrix applied here possibly only when no vertices have been applied
 				//B.U.applyOnTheLeft(R2);
 			}
-			//B.absorbU(); // FIXME: have a random matrix applied here possibly only when no vertices have been applied
+			//B.absorbU(); // FIXME: only apply this if the random matrix is used in the last step
 		}
 		void compute_G () {
 			G = B; // B
@@ -119,10 +116,17 @@ class Configuration {
 			return ret;
 		}
 
-		double probability_ratio (Vertex v) { //FIXME it will only work for rank-1 vertices
+		double insert_probability (Vertex v) {
 			size_t i = v.tau/dtau;
 			v.tau -= i*dtau; // FIXME we should not have to modify the vertex time here;
 			double ret = (Eigen::Matrix2d::Identity() + slices[index].matrixVt(v).transpose() * G_matrix * slices[index].matrixU(v)).determinant();
+			return ret;
+		}
+
+		double remove_probability (Vertex v) {
+			size_t i = v.tau/dtau;
+			v.tau -= i*dtau; // FIXME we should not have to modify the vertex time here;
+			double ret = (Eigen::Matrix2d::Identity() - slices[index].matrixVt(v).transpose() * G_matrix * slices[index].matrixU(v)).determinant();
 			return ret;
 		}
 
@@ -147,6 +151,9 @@ class Configuration {
 
 		double slice_start () const { return dtau*index; }
 		double slice_end () const { return dtau*(index+1); }
+		size_t slice_size () const { return slices[index].size(); }
+
+		Vertex get_vertex (size_t i) const { return slices[index].get_vertex(i); }
 };
 
 #endif // CONFIGURATION_HPP
