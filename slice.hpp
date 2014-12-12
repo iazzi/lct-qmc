@@ -38,10 +38,14 @@ class Slice {
 
 		size_t size () const { return verts.size(); }
 		void insert (const Vertex &v) { verts.insert(v); }
-		void remove (const Vertex &v) { verts.erase(v); }
+		size_t remove (const Vertex &v) { return verts.erase(v); }
 		void clear () { verts.clear(); }
 
-		Vertex get_vertex (size_t i) const { return *(std::advance(verts.begin(), i)); }
+		Vertex get_vertex (size_t i) const {
+			auto iter = verts.begin();
+			std::advance(iter, i);
+			return *iter;
+		}
 
 		Eigen::MatrixXd matrix () {
 			matrix_.setIdentity(N, N);
@@ -171,25 +175,26 @@ class Slice {
 			return vt;
 		}
 
-		UpdateType matrixU2 (const Vertex v) {
-			UpdateType u = I->matrixU(v);
+		UpdateType inverseU (const Vertex v) {
+			UpdateType u = -I->matrixU(v);
 			double t0 = v.tau;
 			for (auto w = verts.upper_bound(v);w!=verts.end();w++) {
 				if (w->tau>t0) L->propagate(w->tau-t0, u);
 				t0 = w->tau;
-				I->apply_inverse_on_the_left(*w, u);
+				I->apply_vertex_on_the_left(*w, u);
 			}
 			if (beta>t0) L->propagate(beta-t0, u);
 			return u;
 		}
 
-		UpdateType matrixVt2 (const Vertex v) {
+		UpdateType inverseVt (const Vertex v) {
 			UpdateType vt = I->matrixV(v);
+			I->apply_inverse_on_the_left(v, vt);
 			double t0 = v.tau;
 			for (auto w = verts.upper_bound(v);w!=verts.end();w++) {
 				if (w->tau>t0) L->propagate(t0-w->tau, vt);
 				t0 = w->tau;
-				I->apply_vertex_on_the_left(*w, vt);
+				I->apply_inverse_on_the_left(*w, vt);
 			}
 			if (beta>t0) L->propagate(t0-beta, vt);
 			return vt;

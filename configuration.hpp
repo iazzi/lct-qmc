@@ -74,6 +74,16 @@ class Configuration {
 			}
 		}
 
+		size_t remove (Vertex v) {
+			int N = model.lattice().dimension();
+			Eigen::MatrixXd A = slices[index].matrix();
+			//A -= slices[index].matrixU(v)*slices[index].matrixVt(v).transpose()*(Eigen::MatrixXd::Identity(N, N)+slices[index].matrixU(v)*slices[index].matrixVt(v).transpose()).inverse()*A;
+			A += slices[index].inverseU(v)*slices[index].inverseVt(v).transpose()*A;
+			size_t ret = slices[index].remove(v);
+			std::cerr << "err->" << (slices[index].matrix()-A).norm() << std::endl;
+			return ret;
+		}
+
 		// FIXME this is heavily dependent on the model
 		void insert_and_update (Vertex v) {
 			if (v.tau<beta) {
@@ -84,6 +94,18 @@ class Configuration {
 				//G_matrix_dn -= -v.sigma/(1.0+v.sigma) * (G_matrix_dn * slices[index].matrixU2(v)) * (slices[index].matrixVt2(v).transpose() * G_matrix_dn) / (1.0 + -v.sigma/(1.0+v.sigma) * slices[index].matrixVt2(v).transpose() * G_dn.matrix() * slices[index].matrixU2(v));
 				//G_matrix_dn += -v.sigma/(1.0+v.sigma) * slices[i].matrixU2(v) * (slices[i].matrixVt2(v).transpose() * G_matrix_dn);
 				slices[i].insert(v);
+			}
+		}
+		//
+		// FIXME this is heavily dependent on the model
+		void remove_and_update (Vertex v) {
+			if (v.tau<beta) {
+				size_t i = index;
+				G_matrix += (G_matrix * slices[index].matrixU(v)) * (Eigen::Matrix2d::Identity() + slices[index].matrixVt(v).transpose() * G_matrix * slices[index].matrixU(v)).inverse() * (slices[index].matrixVt(v).transpose() * G_matrix);
+				G_matrix -= slices[i].matrixU(v) * (slices[i].matrixVt(v).transpose() * G_matrix);
+				//G_matrix_dn -= -v.sigma/(1.0+v.sigma) * (G_matrix_dn * slices[index].matrixU2(v)) * (slices[index].matrixVt2(v).transpose() * G_matrix_dn) / (1.0 + -v.sigma/(1.0+v.sigma) * slices[index].matrixVt2(v).transpose() * G_dn.matrix() * slices[index].matrixU2(v));
+				//G_matrix_dn += -v.sigma/(1.0+v.sigma) * slices[i].matrixU2(v) * (slices[i].matrixVt2(v).transpose() * G_matrix_dn);
+				std::cerr << slices[index].remove(v) << std::endl;
 			}
 		}
 
@@ -124,8 +146,6 @@ class Configuration {
 		}
 
 		double remove_probability (Vertex v) {
-			size_t i = v.tau/dtau;
-			v.tau -= i*dtau; // FIXME we should not have to modify the vertex time here;
 			double ret = (Eigen::Matrix2d::Identity() - slices[index].matrixVt(v).transpose() * G_matrix * slices[index].matrixU(v)).determinant();
 			return ret;
 		}

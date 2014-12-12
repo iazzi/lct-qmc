@@ -3,7 +3,7 @@ CXXFLAGS=$(MYCXXFLAGS) -std=c++11 `pkg-config --cflags eigen3 ` -Wall -I ../../
 LDFLAGS=$(MYLDFLAGS) `pkg-config --libs eigen3`
 LDLIBS=$(MYLDLIBS) `pkg-config --libs eigen3`
 
-all: hubbard1.test hubbard2.test slice.test probability.test greenfunction.test
+all: hubbard1.test hubbard2.test slice.test probability.test greenfunction.test remove.test
 
 %.test: %
 	./$<
@@ -17,6 +17,8 @@ slice: slice.o ../../hubbard.o
 probability: probability.o ../../hubbard.o
 
 greenfunction: greenfunction.o ../../hubbard.o
+
+remove: remove.o ../../hubbard.o
 
 parallel:
 	$(MAKE) all MYCXXFLAGS="-O3 -march=native -DNDEBUG -DEIGEN_NO_DEBUG -fopenmp $(MYCXXFLAGS)" MYLDFLAGS="-fopenmp -lfftw3_threads"
