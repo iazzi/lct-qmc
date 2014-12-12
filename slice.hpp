@@ -4,6 +4,7 @@
 #include <set>
 #include <Eigen/Dense>
 #include <cmath>
+#include <iterator>
 
 //FIXME
 #include <iostream>
@@ -37,7 +38,10 @@ class Slice {
 
 		size_t size () const { return verts.size(); }
 		void insert (const Vertex &v) { verts.insert(v); }
+		void remove (const Vertex &v) { verts.erase(v); }
 		void clear () { verts.clear(); }
+
+		Vertex get_vertex (size_t i) const { return *(std::advance(verts.begin(), i)); }
 
 		Eigen::MatrixXd matrix () {
 			matrix_.setIdentity(N, N);
