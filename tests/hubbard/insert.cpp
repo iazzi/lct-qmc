@@ -29,10 +29,14 @@ int main () {
 	auto model = make_model(lattice, interaction);
 	Configuration<Model<CubicLattice, HubbardInteraction>> conf(generator, model);
 	conf.setup(20.0, 0.0, 80); // beta, mu (relative to half filling), slice number
-	for (int i=0;i<20*L*L;i++) {
-		conf.insert(interaction.generate(0.0, 20.0));
+	for (size_t i=0;i<conf.slice_number();i++) {
+		conf.set_index(i);
+		for (size_t j=0;j<L*L;j++) {
+			conf.insert(interaction.generate(0.0, conf.slice_end()-conf.slice_start()));
+		}
+		//std::cerr << i << " -> " << conf.slice_size() << std::endl;
 	}
-	for (int i=0;i<40;i++) {
+	for (size_t i=0;i<conf.slice_number();i++) {
 		double pr = 1.0;
 		conf.set_index(i);
 		conf.compute_B();
@@ -40,7 +44,7 @@ int main () {
 		conf.save_G();
 		double p1 = conf.probability().first;
 		for (int j=0;j<L*L;j++) {
-			HubbardInteraction::Vertex v = interaction.generate(conf.slice_start(), conf.slice_end());
+			HubbardInteraction::Vertex v = interaction.generate(0.0, conf.slice_end()-conf.slice_start());
 			pr *= conf.insert_probability(v);
 			conf.insert_and_update(v);
 		}

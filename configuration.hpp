@@ -67,11 +67,7 @@ class Configuration {
 		}
 
 		void insert (Vertex v) {
-			if (v.tau<beta) {
-				size_t i = v.tau/dtau;
-				v.tau -= i*dtau;
-				slices[i].insert(v);
-			}
+			slices[index].insert(v);
 		}
 
 		size_t remove (Vertex v) {
@@ -84,13 +80,10 @@ class Configuration {
 		}
 
 		void insert_and_update (Vertex v) {
-			if (v.tau<beta) {
-				size_t i = v.tau/dtau;
-				v.tau -= i*dtau;
-				G_matrix -= (G_matrix * slices[index].matrixU(v)) * (Eigen::Matrix2d::Identity() + slices[index].matrixVt(v).transpose() * G_matrix * slices[index].matrixU(v)).inverse() * (slices[index].matrixVt(v).transpose() * G_matrix);
-				G_matrix += slices[i].matrixU(v) * (slices[i].matrixVt(v).transpose() * G_matrix);
-				slices[i].insert(v);
-			}
+			size_t i = index;
+			G_matrix -= (G_matrix * slices[index].matrixU(v)) * (Eigen::Matrix2d::Identity() + slices[index].matrixVt(v).transpose() * G_matrix * slices[index].matrixU(v)).inverse() * (slices[index].matrixVt(v).transpose() * G_matrix);
+			G_matrix += slices[i].matrixU(v) * (slices[i].matrixVt(v).transpose() * G_matrix);
+			insert(v);
 		}
 
 		void remove_and_update (Vertex v) {
@@ -132,8 +125,7 @@ class Configuration {
 		}
 
 		double insert_probability (Vertex v) {
-			size_t i = v.tau/dtau;
-			v.tau -= i*dtau; // FIXME we should not have to modify the vertex time here;
+			size_t i = index;
 			double ret = (Eigen::Matrix2d::Identity() + slices[index].matrixVt(v).transpose() * G_matrix * slices[index].matrixU(v)).determinant();
 			return ret;
 		}
@@ -165,6 +157,7 @@ class Configuration {
 		double slice_start () const { return dtau*index; }
 		double slice_end () const { return dtau*(index+1); }
 		size_t slice_size () const { return slices[index].size(); }
+		size_t slice_number () const { return M; } // MUST be same as slices.size()
 
 		Vertex get_vertex (size_t i) const { return slices[index].get_vertex(i); }
 };
