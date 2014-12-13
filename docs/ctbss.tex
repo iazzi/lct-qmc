@@ -183,4 +183,18 @@ For $U$ and $V$ matrices:
  G \rightarrow \frac{(1+UV^t)B}{1+(1+UV^t)B} = (1+UV^t)\frac{1}{B^{-1}+1+UV^t} =\\= (1+UV^t)\left[\frac{1}{B^{-1}+1}-\frac{1}{B^{-1}+1}U\cdot\frac{1}{1+U^t\frac{1}{B^{-1}+1}U}\cdot V^t\frac{1}{B^{-1}+1}\right]=\\= (1+UV^t)\left[G-GU\cdot\frac{1}{1+V^tGU}\cdot V^tG\right]
 \end{multline}
 
+When removing (same $U$ and $V$ as for adding)
+\begin{equation}
+ B \rightarrow [1-UV^t(1+UV^t)^{-1}]B
+\end{equation}
+so we define
+\begin{eqnarray}
+ U' &=& -U\\
+ V'^t &=& V^t(1+UV^t)^{-1}
+\end{eqnarray}
+
+\begin{multline}
+ G \rightarrow \frac{(1+U'V'^t)B}{1+(1+U'V'^t)B} = (1+U'V'^t)\frac{1}{B^{-1}+1+U'V'^t} =\\= (1+U'V'^t)\left[\frac{1}{B^{-1}+1}-\frac{1}{B^{-1}+1}U'\cdot\frac{1}{1+U'^t\frac{1}{B^{-1}+1}U'}\cdot V'^t\frac{1}{B^{-1}+1}\right]=\\= (1+U'V'^t)\left[G-GU'\cdot\frac{1}{1+V'^tGU'}\cdot V'^tG\right]
+\end{multline}
+
 \end{document}
