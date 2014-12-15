@@ -23,17 +23,20 @@ class Configuration {
 		std::mt19937_64 &generator;
 		Model &model;
 
-		double beta, mu;
-		double dtau;
-		size_t M;
+		double beta; // inverse temperature
+		double mu; // chemical potential
+		double dtau; // imaginary time size of a slice
+		size_t M; // number of slices
 
 		SVDHelper B; // this holds the deomposition of the matrix B
-		SVDHelper G;
+		SVDHelper G; // SVD decomposition of the Green function
 
 		Eigen::MatrixXd G_matrix;
 
 		size_t index; // This is the index of the LAST SLICE IN B
 
+		Eigen::MatrixXd R; // a random matrix to solve degeneracies
+		Eigen::MatrixXd R2; // inverse of R
 	public:
 		Configuration (std::mt19937_64 &g, Model &m) : generator(g), model(m), index(0) {}
 
@@ -97,15 +100,15 @@ class Configuration {
 
 		void compute_B () {
 			B.setIdentity(model.lattice().dimension()); // FIXME: maybe have a direct reference to the lattice here too
-			//Eigen::MatrixXd R = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension()) + 0.002*Eigen::MatrixXd::Random(model.lattice().dimension(), model.lattice().dimension());
-			//Eigen::MatrixXd R2 = R.inverse();
+			R = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension()) + 0.002*Eigen::MatrixXd::Random(model.lattice().dimension(), model.lattice().dimension());
+			R2 = R.inverse();
 			for (size_t i=0;i<M;i++) {
 				slices[(i+index+1)%M].apply_matrix(B.U);
-				//B.U.applyOnTheLeft(R);
+				B.U.applyOnTheLeft(R);
 				B.absorbU(); // FIXME: have a random matrix applied here possibly only when no vertices have been applied
-				//B.U.applyOnTheLeft(R2);
+				B.U.applyOnTheLeft(R2);
 			}
-			//B.absorbU(); // FIXME: only apply this if the random matrix is used in the last step
+			B.absorbU(); // FIXME: only apply this if the random matrix is used in the last step
 		}
 		void compute_G () {
 			G = B; // B
