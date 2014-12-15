@@ -37,7 +37,7 @@ int main () {
 		//std::cerr << i << " -> " << conf.slice_size() << std::endl;
 	}
 	for (size_t i=0;i<conf.slice_number();i++) {
-		double pr = 1.0;
+		double pr = 0.0;
 		conf.set_index(i);
 		conf.compute_B();
 		conf.compute_G();
@@ -45,14 +45,14 @@ int main () {
 		double p1 = conf.probability().first;
 		for (int j=0;j<L*L;j++) {
 			HubbardInteraction::Vertex v = interaction.generate(0.0, conf.slice_end()-conf.slice_start());
-			pr *= conf.insert_probability(v);
+			pr += std::log(std::fabs(conf.insert_probability(v)));
 			conf.insert_and_update(v);
 		}
 		conf.compute_B();
 		conf.compute_G();
 		cerr << conf.check_and_save_G() << endl;
 		double p2 = conf.probability().first;
-		std::cerr << std::log(pr)-p2+p1 << endl;
+		std::cerr << pr-p2+p1 << endl;
 	}
 	return 0;
 }
