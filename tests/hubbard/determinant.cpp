@@ -30,8 +30,12 @@ int main () {
 	auto model = make_model(lattice, interaction);
 	Configuration<Model<CubicLattice, HubbardInteraction>> conf(generator, model);
 	conf.setup(20.0, 0.0, N); // beta, mu (relative to half filling), slice number
-	for (int i=0;i<20*L*L;i++) {
-		conf.insert(interaction.generate(0.0, 20.0));
+	for (size_t i=0;i<conf.slice_number();i++) {
+		conf.set_index(i);
+		for (size_t j=0;j<L*L;j++) {
+			conf.insert(interaction.generate(0.0, conf.slice_end()-conf.slice_start()));
+		}
+		//std::cerr << i << " -> " << conf.slice_size() << std::endl;
 	}
 	for (int i=0;i<N;i++) {
 		conf.set_index(i);
