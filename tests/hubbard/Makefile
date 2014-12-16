@@ -3,22 +3,21 @@ CXXFLAGS=$(MYCXXFLAGS) -std=c++11 `pkg-config --cflags eigen3 ` -Wall -I ../../
 LDFLAGS=$(MYLDFLAGS) `pkg-config --libs eigen3`
 LDLIBS=$(MYLDLIBS) `pkg-config --libs eigen3`
 
-all: hubbard1.test hubbard2.test slice.test determinant.test insert.test remove.test
+BIN=hubbard1 hubbard2 slice determinant insert remove
 
-%.test: %
-	./$<
+all: ${BIN}
 
-hubbard1: hubbard1.o ../../hubbard.o
+hubbard1: hubbard1.o
 
-hubbard2: hubbard2.o ../../hubbard.o
+hubbard2: hubbard2.o
 
-slice: slice.o ../../hubbard.o
+slice: slice.o
 
-determinant: determinant.o ../../hubbard.o
+determinant: determinant.o
 
-insert: insert.o ../../hubbard.o
+insert: insert.o
 
-remove: remove.o ../../hubbard.o
+remove: remove.o
 
 parallel:
 	$(MAKE) all MYCXXFLAGS="-O3 -march=native -DNDEBUG -DEIGEN_NO_DEBUG -fopenmp $(MYCXXFLAGS)" MYLDFLAGS="-fopenmp -lfftw3_threads"
@@ -32,4 +31,5 @@ optimized:
 debug:
 	$(MAKE) all MYCXXFLAGS="-g -ggdb -O0" MYLDFLAGS="-g -ggdb -O0"
 
-
+clean:
+	rm -f ${BIN} *.o
