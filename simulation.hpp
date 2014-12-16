@@ -381,7 +381,7 @@ class Simulation {
 		}
 		plog = np;
 		psign = ns;
-		if (isnan(plog)) {
+		if (std::isnan(plog)) {
 			std::cerr << "NaN found: restoring" << std::endl;
 			std::tie(plog, psign) = make_plain_inverse();
 		} else {
@@ -399,7 +399,7 @@ class Simulation {
 		}
 		plog = np;
 		psign = ns;
-		if (isnan(plog)) {
+		if (std::isnan(plog)) {
 			std::cerr << "NaN found: restoring" << std::endl;
 			std::tie(plog, psign) = make_svd_inverse();
 		} else {

@@ -374,7 +374,7 @@ class CTSimulation {
 		}
 		plog = np;
 		psign = ns;
-		if (isnan(plog)) {
+		if (std::isnan(plog)) {
 			std::cerr << "NaN found: restoring" << std::endl;
 			//make_svd();
 			make_svd_inverse(0.0);

@@ -152,7 +152,7 @@ class ctaux_sim : public alps::mcbase_ng {
 			//<< Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(+beta*B+beta*mu) * positionSpace).inverse() << std::endl << std::endl;
 		n_up = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(+beta*B+beta*mu) * positionSpace).inverse() ).trace();
 		n_dn = ( Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(-beta*B+beta*mu) * positionSpace).inverse() ).trace();
-		if (isinf(n_up) || isinf(n_dn) || isnan(n_up) || isnan(n_dn)) {
+		if (isinf(n_up) || isinf(n_dn) || std::isnan(n_up) || std::isnan(n_dn)) {
 			std::cerr << "positionSpace\n" << exp(+beta*B+beta*mu) * positionSpace << std::endl << std::endl;
 			std::cerr << "(1+positionSpace)^-1\n" << (Eigen::MatrixXd::Identity(V, V) + exp(+beta*B+beta*mu) * positionSpace).inverse() << std::endl << std::endl;
 			std::cerr << "n_up " << n_up << std::endl << Eigen::MatrixXd::Identity(V, V) - (Eigen::MatrixXd::Identity(V, V) + exp(+beta*B+beta*mu) * positionSpace).inverse() << std::endl << std::endl;
@@ -223,7 +223,7 @@ class ctaux_sim : public alps::mcbase_ng {
 					 //+ (evb.cast<std::complex<double>>() + std::exp(-beta*B)*eva).array().log().sum() - evb.array().log().sum();
 		std::complex<double> ret = logProbabilityFromEigenvalues(ev1);
 		double check = T.sum() + Q.sum() + D.sum();
-		if ( ev1.array().array().prod().real()<0 || isinf(check) || isnan(check) ) {
+		if ( ev1.array().array().prod().real()<0 || isinf(check) || std::isnan(check) ) {
 			//double lambda = (eva.array() / evb.cast<std::complex<double>>().array()).abs().maxCoeff();
 			//dggev(-(D.asDiagonal()*T*Q), Eigen::MatrixXd::Identity(V, V), eva, evb);
 			//std::cerr << (eva.array() / evb.cast<std::complex<double>>().array()).transpose() << std::endl;
@@ -236,7 +236,7 @@ class ctaux_sim : public alps::mcbase_ng {
 				throw "shit at " __FILE__ " too many recursions";
 			}
 		}
-		if (std::cos(ret.imag())<0.99 || isnan(ret.real())) {
+		if (std::cos(ret.imag())<0.99 || std::isnan(ret.real())) {
 			std::cerr << "ev1 " << ev1.transpose() << std::endl;
 			std::cerr << "ev2 " << ev2.transpose() << std::endl;
 			throw "shit at " __FILE__ " sign problem appeared";

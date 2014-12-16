@@ -475,7 +475,7 @@ class Simulation {
 		//std::cerr << w.transpose() << std::endl;
 		//std::cerr << "b, c = " << b << ", " << c << std::endl;
 		double ret = std::log((1+std::exp(+beta*B*0.5+beta*mu)*a)*(1+std::exp(-beta*B*0.5+beta*mu)*b));
-		if (isnan(ret) || isinf(ret)){
+		if (std::isnan(ret) || isinf(ret)){
 			accumulate_backward();
 			Matrix_d M1 = (Matrix_d::Identity(V, V) + std::exp(-beta*B*0.5-beta*mu)*positionSpace).inverse();
 			Matrix_d M2 = (Matrix_d::Identity(V, V) + std::exp(+beta*B*0.5-beta*mu)*positionSpace).inverse();
@@ -576,7 +576,7 @@ class Simulation {
 			}
 			spincorrelation[k].add(0.25*ssz);
 			if (staggered_field!=0.0) staggered_magnetization.add((rho_up.diagonal().array()*staggering - rho_dn.diagonal().array()*staggering).sum()/V);
-			if (isnan(ssz)) {
+			if (std::isnan(ssz)) {
 				//std::cerr << "explain:" << std::endl;
 				//std::cerr << "k=" << k << " ssz=" << ssz << std::endl;
 				//for (int j=0;j<V;j++) {
