@@ -74,12 +74,8 @@ class Configuration {
 		}
 
 		size_t remove (Vertex v) {
-			Eigen::MatrixXd A = slices[index].matrix();
-			//A -= slices[index].matrixU(v)*slices[index].matrixVt(v).transpose()*(Eigen::MatrixXd::Identity(N, N)+slices[index].matrixU(v)*slices[index].matrixVt(v).transpose()).inverse()*A;
-			A += slices[index].inverseU(v)*slices[index].inverseVt(v).transpose()*A;
-			size_t ret = slices[index].remove(v);
-			std::cerr << "err->" << (slices[index].matrix()-A).norm() << std::endl;
-			return ret;
+			slices[index].matrix() += slices[index].inverseU(v)*slices[index].inverseVt(v).transpose()*slices[index].matrix();
+			return slices[index].remove(v);
 		}
 
 		void insert_and_update (Vertex v) {
@@ -89,13 +85,11 @@ class Configuration {
 			insert(v);
 		}
 
-		void remove_and_update (Vertex v) {
-			if (v.tau<beta) {
+		size_t remove_and_update (Vertex v) {
 				size_t i = index;
 				G_matrix -= (G_matrix * slices[index].inverseU(v)) * (Eigen::Matrix2d::Identity() + slices[index].inverseVt(v).transpose() * G_matrix * slices[index].inverseU(v)).inverse() * (slices[index].inverseVt(v).transpose() * G_matrix);
 				G_matrix += slices[i].inverseU(v) * (slices[i].inverseVt(v).transpose() * G_matrix);
-				std::cerr << slices[index].remove(v) << std::endl;
-			}
+				return slices[index].remove(v);
 		}
 
 		void compute_B () {
@@ -134,7 +128,7 @@ class Configuration {
 		}
 
 		double remove_probability (Vertex v) {
-			double ret = (Eigen::Matrix2d::Identity() - slices[index].matrixVt(v).transpose() * G_matrix * slices[index].matrixU(v)).determinant();
+			double ret = (Eigen::Matrix2d::Identity() + slices[index].inverseVt(v).transpose() * G_matrix * slices[index].inverseU(v)).determinant();
 			return ret;
 		}
 
