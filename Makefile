@@ -15,7 +15,7 @@ v3ct: v3ct.o
 
 pqmc: pqmc.o
 
-lct: lct.o hubbard.o
+lct: lct.o
 
 lct.o: lct.cpp svd.hpp accumulator.hpp measurements.hpp hubbard.hpp slice.hpp cubiclattice.hpp model.hpp configuration.hpp
 

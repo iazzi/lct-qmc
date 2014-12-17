@@ -1,0 +1,17 @@
+*.o
+*.swp
+Makefile.conf
+ct_main
+lct
+main
+process_gf
+setup_batch
+test_params
+tests/hubbard/determinant
+tests/hubbard/hubbard1
+tests/hubbard/hubbard2
+tests/hubbard/insert
+tests/hubbard/remove
+tests/hubbard/run_tests.sh
+tests/hubbard/slice
+v3ct

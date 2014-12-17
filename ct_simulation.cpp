@@ -562,7 +562,7 @@ void CTSimulation::measure () {
 			ssz -= rho_up(x, y)*rho_up(y, x) + rho_dn(x, y)*rho_dn(y, x);
 		}
 		//measurements.spincorrelation[k].add(s*0.25*ssz);
-		if (isnan(ssz)) {
+		if (std::isnan(ssz)) {
 		}
 	}
 	//if (staggered_field!=0.0) staggered_magnetization.add(s*(rho_up.diagonal().array()*staggering - rho_dn.diagonal().array()*staggering).sum()/V);

@@ -613,7 +613,7 @@ class Simulation {
 		//std::cerr << w.transpose() << std::endl;
 		//std::cerr << "b, c = " << b << ", " << c << std::endl;
 		double ret = std::log((1+std::exp(+beta*B*0.5+beta*mu)*a)*(1+std::exp(-beta*B*0.5+beta*mu)*b));
-		//if (isnan(ret) || isinf(ret)) throw "";
+		//if (std::isnan(ret) || isinf(ret)) throw "";
 		return ret;
 	}
 
@@ -792,7 +792,7 @@ class Simulation {
 			}
 			spincorrelation[k].add(s*0.25*ssz);
 			if (staggered_field!=0.0) staggered_magnetization.add(s*(rho_up.diagonal().array()*staggering - rho_dn.diagonal().array()*staggering).sum()/V);
-			if (isnan(ssz)) {
+			if (std::isnan(ssz)) {
 				//std::cerr << "explain:" << std::endl;
 				//std::cerr << "k=" << k << " ssz=" << ssz << std::endl;
 				//for (int j=0;j<V;j++) {

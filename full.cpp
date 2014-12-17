@@ -364,7 +364,7 @@ class Simulation {
 		ret += svd_dn.S.array().log().sum();
 
 		double sign = (svd_up.U*svd_up.V*svd_dn.U*svd_dn.V).determinant();
-		if ( (sign)<1e-5 || std::isnan(ret.real()) || std::isnan(ret.imag())) {
+		if ( (sign)<1e-5 || std::std::isnan(ret.real()) || std::std::isnan(ret.imag())) {
 			//std::cerr << "prob_complex = " << ret << " det=" << cache.svd.S.array().log().sum() << " " << sign << std::endl;
 			//std::cerr << cache.svd.U.determinant() << std::endl;
 			//std::cerr << cache.svd.V.determinant() << std::endl;
@@ -503,7 +503,7 @@ class Simulation {
 			}
 			spincorrelation[k].add(0.25*ssz);
 			staggered_magnetization.add((rho_up.diagonal().array()*staggering - rho_dn.diagonal().array()*staggering).sum()/V);
-			if (isnan(ssz)) {
+			if (std::isnan(ssz)) {
 				//std::cerr << "explain:" << std::endl;
 				//std::cerr << "k=" << k << " ssz=" << ssz << std::endl;
 				//for (int j=0;j<V;j++) {

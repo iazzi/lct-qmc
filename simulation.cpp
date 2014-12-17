@@ -444,7 +444,7 @@ std::pair<double, double> Simulation::recheck () {
 	std::cout << "positive points = " << r/N/V << std::endl;
 	std::cout << "time_shift = " << time_shift << std::endl;
 	std::ofstream out;
-	if (svd_sign()*sign<0.0 && !isnan(plog)) {
+	if (svd_sign()*sign<0.0 && !std::isnan(plog)) {
 		std::cerr << "different!" << std::endl;
 		out.open("last_different.wf");
 	} else {
@@ -647,7 +647,7 @@ void Simulation::measure () {
 			ssz -= rho_up(x, y)*rho_up(y, x) + rho_dn(x, y)*rho_dn(y, x);
 		}
 		spincorrelation[k].add(s*0.25*ssz);
-		if (isnan(ssz)) {
+		if (std::isnan(ssz)) {
 		}
 	}
 	//if (staggered_field!=0.0) staggered_magnetization.add(s*(rho_up.diagonal().array()*staggering - rho_dn.diagonal().array()*staggering).sum()/V);

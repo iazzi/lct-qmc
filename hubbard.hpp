@@ -54,13 +54,40 @@ class HubbardInteraction {
 	typedef HubbardVertex Vertex;
 	typedef Eigen::Matrix<double, Eigen::Dynamic, 2> UpdateType;
 	HubbardInteraction (std::mt19937_64 &g) : generator(g), coin_flip(0.5), random_time(0.0, 1.0) {}
-	void setup (const Eigen::MatrixXd &A, double u, double k);
+
+        inline void setup (const Eigen::MatrixXd &A, double u, double k) {
+        	eigenvectors = A;
+        	U = u;
+        	K = k;
+        	N = A.diagonal().size();
+        	V = N/2; // FIXME assert N even?
+        	coin_flip = std::bernoulli_distribution(0.5);
+        	random_site = std::uniform_int_distribution<size_t>(0, V-1);
+        	a = 1.0*U/2.0/K;
+        	b = sqrt(U/K+a*a);
+        }
+
+        inline Vertex generate () {
+        	HubbardInteraction::Vertex ret;
+        	ret.sigma = coin_flip(generator)?(+b):(-b);
+        	ret.x = random_site(generator);
+        	ret.tau = random_time(generator);
+        	return ret;
+        }
+
+        Vertex generate (double tau);
+
+        inline Vertex generate (double t0, double t1) {
+        	HubbardInteraction::Vertex ret;
+        	ret.sigma = coin_flip(generator)?(+b):(-b);
+        	ret.x = random_site(generator);
+        	ret.tau = t0 + random_time(generator)*(t1-t0);
+        	return ret;
+        }
+
 	size_t volume () const { return V; }
 	size_t states () const { return N; }
 	size_t dimension () const { return N; }
-	Vertex generate ();
-	Vertex generate (double tau);
-	Vertex generate (double t0, double t1);
 	template <typename T>
 		void apply_vertex_on_the_left (Vertex v, T &M) const {
 			M += (a+v.sigma) * eigenvectors.row(v.x).transpose() * (eigenvectors.row(v.x) * M)
