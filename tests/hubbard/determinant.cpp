@@ -37,7 +37,7 @@ int main () {
 		}
 		//std::cerr << i << " -> " << conf.slice_size() << std::endl;
 	}
-	for (int i=0;i<N;i++) {
+	for (size_t i=0;i<conf.slice_number();i++) {
 		conf.set_index(i);
 		conf.compute_B();
 		if (relative_error(conf.log_abs_det(), conf.slice_log_abs_det())>1e-8 && conf.log_abs_det()>1.0e-8) {

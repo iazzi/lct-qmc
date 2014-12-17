@@ -14,6 +14,7 @@ using namespace std;
 using namespace Eigen;
 
 const int L = 10;
+const int N = 80;
 
 double relative_error (double a, double b) {
 	return fabs(a-b)/min(fabs(a), fabs(b));
@@ -28,7 +29,7 @@ int main () {
 	interaction.setup(lattice.eigenvectors(), 4.0, 5.0);
 	auto model = make_model(lattice, interaction);
 	Configuration<Model<CubicLattice, HubbardInteraction>> conf(generator, model);
-	conf.setup(20.0, 0.0, 80); // beta, mu (relative to half filling), slice number
+	conf.setup(20.0, 0.0, N); // beta, mu (relative to half filling), slice number
 	for (size_t i=0;i<conf.slice_number();i++) {
 		conf.set_index(i);
 		for (size_t j=0;j<L*L;j++) {
