@@ -19,6 +19,8 @@ insert: insert.o
 
 remove: remove.o
 
+wrap: wrap.o
+
 parallel:
 	$(MAKE) all MYCXXFLAGS="-O3 -march=native -DNDEBUG -DEIGEN_NO_DEBUG -fopenmp $(MYCXXFLAGS)" MYLDFLAGS="-fopenmp -lfftw3_threads"
 

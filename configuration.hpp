@@ -110,6 +110,30 @@ class Configuration {
 			}
 			B.absorbU(); // FIXME: only apply this if the random matrix is used in the last step
 		}
+
+		void wrap_B () {
+			B.setIdentity(model.lattice().dimension()); // FIXME: maybe have a direct reference to the lattice here too
+			R = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension()) + 0.002*Eigen::MatrixXd::Random(model.lattice().dimension(), model.lattice().dimension());
+			R2 = R.inverse();
+
+			slices[index].apply_inverse(B.U);
+			B.U.applyOnTheLeft(R);
+			B.absorbU(); // FIXME: have a random matrix applied here possibly only when no vertices have been applied
+			B.U.applyOnTheLeft(R2);
+
+			slices[(index+M-1)%M].apply_matrix(B.U);
+			B.U.applyOnTheLeft(R);
+			B.absorbU(); // FIXME: have a random matrix applied here possibly only when no vertices have been applied
+			B.U.applyOnTheLeft(R2);
+
+			slices[index].apply_matrix(B.U);
+			B.U.applyOnTheLeft(R);
+			B.absorbU(); // FIXME: have a random matrix applied here possibly only when no vertices have been applied
+			B.U.applyOnTheLeft(R2);
+
+			B.absorbU(); // FIXME: only apply this if the random matrix is used in the last step
+		}
+
 		void compute_G () {
 			G = B; // B
 			G.invertInPlace(); // B^-1
