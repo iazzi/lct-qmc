@@ -82,6 +82,8 @@ class Configuration {
 			size_t i = index;
 			G_matrix -= (G_matrix * slices[index].matrixU(v)) * (Eigen::Matrix2d::Identity() + slices[index].matrixVt(v).transpose() * G_matrix * slices[index].matrixU(v)).inverse() * (slices[index].matrixVt(v).transpose() * G_matrix);
 			G_matrix += slices[i].matrixU(v) * (slices[i].matrixVt(v).transpose() * G_matrix);
+			B.U -= (B.U * slices[index].matrixU(v)) * (Eigen::Matrix2d::Identity() + slices[index].matrixVt(v).transpose() * B.U * slices[index].matrixU(v)).inverse() * (slices[index].matrixVt(v).transpose() * B.U);
+			B.U += slices[i].matrixU(v) * (slices[i].matrixVt(v).transpose() * B.U);
 			insert(v);
 		}
 
@@ -89,6 +91,8 @@ class Configuration {
 				size_t i = index;
 				G_matrix -= (G_matrix * slices[index].inverseU(v)) * (Eigen::Matrix2d::Identity() + slices[index].inverseVt(v).transpose() * G_matrix * slices[index].inverseU(v)).inverse() * (slices[index].inverseVt(v).transpose() * G_matrix);
 				G_matrix += slices[i].inverseU(v) * (slices[i].inverseVt(v).transpose() * G_matrix);
+				B.U -= (B.U * slices[index].inverseU(v)) * (Eigen::Matrix2d::Identity() + slices[index].inverseVt(v).transpose() * B.U * slices[index].inverseU(v)).inverse() * (slices[index].inverseVt(v).transpose() * B.U);
+				B.U += slices[i].inverseU(v) * (slices[i].inverseVt(v).transpose() * B.U);
 				return slices[index].remove(v);
 		}
 
