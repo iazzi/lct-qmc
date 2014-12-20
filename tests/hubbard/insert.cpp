@@ -47,13 +47,14 @@ int main () {
 		for (int j=0;j<L*L;j++) {
 			HubbardInteraction::Vertex v = interaction.generate(0.0, conf.slice_end()-conf.slice_start());
 			pr += std::log(std::fabs(conf.insert_probability(v)));
+			cerr << "inserted vertex " << v.tau << endl;
 			conf.insert_and_update(v);
 		}
 		conf.compute_B();
 		conf.compute_G();
-		cerr << conf.check_and_save_G() << endl;
+		cerr << "dG = " << conf.check_and_save_G() << endl;
 		double p2 = conf.probability().first;
-		std::cerr << pr-p2+p1 << endl;
+		std::cerr << "dp = " << pr-p2+p1 << endl;
 	}
 	return 0;
 }

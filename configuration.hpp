@@ -122,14 +122,11 @@ class Configuration {
 		}
 
 		double insert_probability (Vertex v) {
-			size_t i = index;
-			double ret = (Eigen::Matrix2d::Identity() + slices[index].matrixVt(v).transpose() * G_matrix * slices[index].matrixU(v)).determinant();
-			return ret;
+			return (Eigen::Matrix2d::Identity() + slices[index].matrixVt(v).transpose() * G_matrix * slices[index].matrixU(v)).determinant();
 		}
 
 		double remove_probability (Vertex v) {
-			double ret = (Eigen::Matrix2d::Identity() + slices[index].inverseVt(v).transpose() * G_matrix * slices[index].inverseU(v)).determinant();
-			return ret;
+			return (Eigen::Matrix2d::Identity() + slices[index].inverseVt(v).transpose() * G_matrix * slices[index].inverseU(v)).determinant();
 		}
 
 		void save_G () {
@@ -148,7 +145,7 @@ class Configuration {
 			//std::cerr << (svd.solve(B)).transpose().normalized() << std::endl << std::endl;
 			ret += (G_matrix-A).norm();
 			G_matrix.swap(A);
-			return ret / A.size();
+			return ret;
 		}
 
 		double slice_start () const { return dtau*index; }

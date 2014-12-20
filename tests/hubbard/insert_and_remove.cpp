@@ -46,11 +46,15 @@ int main () {
 		conf.save_G();
 		double p1 = conf.probability().first;
 		for (int j=0;j<L*L;j++) {
-			size_t n = d(generator)*conf.slice_size();
-			HubbardInteraction::Vertex v = conf.get_vertex(n);
+			HubbardInteraction::Vertex v;
+			v = conf.get_vertex(d(generator)*conf.slice_size());
 			pr += std::log(std::fabs(conf.remove_probability(v)));
-			cerr << "removed vertex " << n << '/' << conf.slice_size() << ' ' << v.tau << endl;
+			cerr << "removed vertex " << v.tau << endl;
 			conf.remove_and_update(v);
+			v = interaction.generate(0.0, conf.slice_end()-conf.slice_start());
+			pr += std::log(std::fabs(conf.insert_probability(v)));
+			cerr << "inserted vertex " << v.tau << endl;
+			conf.insert_and_update(v);
 		}
 		conf.compute_B();
 		conf.compute_G();

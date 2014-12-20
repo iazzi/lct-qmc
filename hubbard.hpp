@@ -55,35 +55,35 @@ class HubbardInteraction {
 	typedef Eigen::Matrix<double, Eigen::Dynamic, 2> UpdateType;
 	HubbardInteraction (std::mt19937_64 &g) : generator(g), coin_flip(0.5), random_time(0.0, 1.0) {}
 
-        inline void setup (const Eigen::MatrixXd &A, double u, double k) {
-        	eigenvectors = A;
-        	U = u;
-        	K = k;
-        	N = A.diagonal().size();
-        	V = N/2; // FIXME assert N even?
-        	coin_flip = std::bernoulli_distribution(0.5);
-        	random_site = std::uniform_int_distribution<size_t>(0, V-1);
-        	a = 1.0*U/2.0/K;
-        	b = sqrt(U/K+a*a);
-        }
+	inline void setup (const Eigen::MatrixXd &A, double u, double k) {
+		eigenvectors = A;
+		U = u;
+		K = k;
+		N = A.diagonal().size();
+		V = N/2; // FIXME assert N even?
+		coin_flip = std::bernoulli_distribution(0.5);
+		random_site = std::uniform_int_distribution<size_t>(0, V-1);
+		a = 1.0*U/2.0/K;
+		b = sqrt(U/K+a*a);
+	}
 
-        inline Vertex generate () {
-        	HubbardInteraction::Vertex ret;
-        	ret.sigma = coin_flip(generator)?(+b):(-b);
-        	ret.x = random_site(generator);
-        	ret.tau = random_time(generator);
-        	return ret;
-        }
+	inline Vertex generate () {
+		HubbardInteraction::Vertex ret;
+		ret.sigma = coin_flip(generator)?(+b):(-b);
+		ret.x = random_site(generator);
+		ret.tau = random_time(generator);
+		return ret;
+	}
 
-        Vertex generate (double tau);
+	Vertex generate (double tau);
 
-        inline Vertex generate (double t0, double t1) {
-        	HubbardInteraction::Vertex ret;
-        	ret.sigma = coin_flip(generator)?(+b):(-b);
-        	ret.x = random_site(generator);
-        	ret.tau = t0 + random_time(generator)*(t1-t0);
-        	return ret;
-        }
+	inline Vertex generate (double t0, double t1) {
+		HubbardInteraction::Vertex ret;
+		ret.sigma = coin_flip(generator)?(+b):(-b);
+		ret.x = random_site(generator);
+		ret.tau = t0 + random_time(generator)*(t1-t0);
+		return ret;
+	}
 
 	size_t volume () const { return V; }
 	size_t states () const { return N; }
