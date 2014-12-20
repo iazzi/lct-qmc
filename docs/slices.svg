@@ -40,7 +40,7 @@
      inkscape:pageshadow="2"
      inkscape:zoom="1.4142136"
      inkscape:cx="224.93658"
-     inkscape:cy="728.15284"
+     inkscape:cy="784.72138"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
      showgrid="true"
@@ -61,7 +61,7 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title></dc:title>
+        <dc:title />
       </cc:Work>
     </rdf:RDF>
   </metadata>
@@ -176,7 +176,7 @@
          sodipodi:role="line"
          id="tspan3116"
          x="660"
-         y="242.36218">B<tspan
+         y="242.36218">A<tspan
    style="font-size:65.00091553%;baseline-shift:sub"
    id="tspan3118">0</tspan></tspan></text>
     <text
@@ -188,7 +188,7 @@
          sodipodi:role="line"
          id="tspan3116-6"
          x="600"
-         y="242.36218">B<tspan
+         y="242.36218">A<tspan
    style="font-size:65.00091553%;baseline-shift:sub"
    id="tspan3118-3">1</tspan></tspan></text>
     <text
@@ -200,7 +200,7 @@
          sodipodi:role="line"
          id="tspan3116-1"
          x="540"
-         y="242.36218">B<tspan
+         y="242.36218">A<tspan
    style="font-size:65.00091553%;baseline-shift:sub"
    id="tspan3118-2">2</tspan></tspan></text>
     <text
@@ -212,7 +212,7 @@
          sodipodi:role="line"
          id="tspan3116-9"
          x="480"
-         y="242.36218">B<tspan
+         y="242.36218">A<tspan
    style="font-size:65.00091553%;baseline-shift:sub"
    id="tspan3118-0">3</tspan></tspan></text>
     <text
@@ -224,7 +224,7 @@
          sodipodi:role="line"
          id="tspan3116-8"
          x="420"
-         y="242.36218">B<tspan
+         y="242.36218">A<tspan
    style="font-size:65.00091553%;baseline-shift:sub"
    id="tspan3118-06">4</tspan></tspan></text>
     <text
@@ -236,8 +236,8 @@
          sodipodi:role="line"
          id="tspan3116-3"
          x="360"
-         y="242.36218">B<tspan
-   style="font-size:65%;baseline-shift:sub"
+         y="242.36218">A<tspan
+   style="font-size:65.00091553%;baseline-shift:sub"
    id="tspan3243">5</tspan></tspan></text>
     <text
        xml:space="preserve"
@@ -248,7 +248,7 @@
          sodipodi:role="line"
          id="tspan3116-5"
          x="300"
-         y="242.36218">B<tspan
+         y="242.36218">A<tspan
    style="font-size:65.00091553%;baseline-shift:sub"
    id="tspan3118-5">6</tspan></tspan></text>
     <text
@@ -260,8 +260,8 @@
          sodipodi:role="line"
          id="tspan3116-14"
          x="240"
-         y="242.36218">B<tspan
-   style="font-size:65%;baseline-shift:sub"
+         y="242.36218">A<tspan
+   style="font-size:65.00091553%;baseline-shift:sub"
    id="tspan3245">7</tspan></tspan></text>
     <text
        xml:space="preserve"
@@ -272,7 +272,7 @@
          sodipodi:role="line"
          id="tspan3116-2"
          x="180"
-         y="242.36218">B<tspan
+         y="242.36218">A<tspan
    style="font-size:65.00091553%;baseline-shift:sub"
    id="tspan3118-8">8</tspan></tspan></text>
     <text
@@ -284,7 +284,7 @@
          sodipodi:role="line"
          id="tspan3116-4"
          x="120"
-         y="242.36218">B<tspan
+         y="242.36218">A<tspan
    style="font-size:65.00091553%;baseline-shift:sub"
    id="tspan3118-34">9</tspan></tspan></text>
     <text
@@ -296,7 +296,7 @@
          sodipodi:role="line"
          x="60"
          y="242.36218"
-         id="tspan3247">B<tspan
+         id="tspan3247">A<tspan
    style="font-size:65.00091553%;baseline-shift:sub"
    id="tspan3249">10</tspan></tspan></text>
     <path
