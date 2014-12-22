@@ -3,7 +3,7 @@ CXXFLAGS=$(MYCXXFLAGS) -std=c++11 `pkg-config --cflags eigen3 ` -Wall -I ../../
 LDFLAGS=$(MYLDFLAGS) `pkg-config --libs eigen3`
 LDLIBS=$(MYLDLIBS) `pkg-config --libs eigen3`
 
-BIN=hubbard1 hubbard2 slice determinant insert remove
+BIN=hubbard1 hubbard2 slice determinant insert remove wrap
 
 all: ${BIN}
 
