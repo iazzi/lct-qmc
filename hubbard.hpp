@@ -130,6 +130,7 @@ class HubbardInteraction {
 	double scalarB () const { return b; }
 
 	double log_abs_det (const Vertex v) const { return 0.0; }
+	double combinatorial_factor () { return log(K*volume()); }
 };
 
 #endif // HUBBARD_HPP

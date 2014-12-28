@@ -233,6 +233,9 @@ class Configuration {
 		size_t slice_number () const { return M; } // MUST be same as slices.size()
 
 		Vertex get_vertex (size_t i) const { return slices[index].get_vertex(i); }
+
+		double insert_factor () { return +log(beta/slice_number()) -log(slice_size()+1) +model.interaction().combinatorial_factor(); }
+		double remove_factor () { return -log(beta/slice_number()) +log(slice_size()+0) -model.interaction().combinatorial_factor(); }
 };
 
 #endif // CONFIGURATION_HPP
