@@ -146,22 +146,26 @@ class Configuration {
 				R = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension()) + 0.002*Eigen::MatrixXd::Random(model.lattice().dimension(), model.lattice().dimension());
 				R2 = R.inverse();
 			}
-
+			set_index(index+1);
 			// TODO: slices[(index+1)%M].apply_inverse_on_right(B.Vt);
                         std::cerr << "Applying inverse on the right" << std::endl;
-			B.Vt.applyOnTheRight(slices[(index+1)%M].inverse());
+			B.Vt.applyOnTheRight(slices[index].inverse());
+			B.Vt.applyOnTheRight(R);
                         //std::cerr << "Absorbing Vt" << std::endl;
-			//B.absorbVt();
+			B.absorbVt();
+			B.Vt.applyOnTheRight(R2);
+			B.absorbVt();
 
                         std::cerr << "Applying matrix on the left" << std::endl;
-			slices[(index+1)%M].apply_matrix(B.U);
+			slices[index].apply_matrix(B.U);
 			B.U.applyOnTheLeft(R);
-                        std::cerr << "Absorbing U" << std::endl;
+                        //std::cerr << "Absorbing U" << std::endl;
 			B.absorbU(); // FIXME: have a random matrix applied here possibly only when no vertices have been applied
 			B.U.applyOnTheLeft(R2);
 
-                        std::cerr << "Absorbing U" << std::endl;
+                        //std::cerr << "Absorbing U" << std::endl;
 			B.absorbU();
+			fix_sign_B();
 		}
 
 		void compute_G () {
@@ -210,19 +214,18 @@ class Configuration {
 
 		double check_B () {
 			double ret = 0.0;
-			Eigen::MatrixXd t_U, t_Vt, tmp;
+			Eigen::MatrixXd t_U, t_Vt;
 			t_U = B.U;
 			t_Vt = B.Vt;
-			tmp = B.matrix();
+			//tmp = B.matrix();
 			//std::cerr << B.S.transpose() << std::endl;
                         compute_B();
 			//std::cerr << B.S.transpose() << std::endl;
                         //std::cerr << (t_U.array()/B.U.array()) << std::endl;
                         //std::cerr << std::endl;
                         //std::cerr << B.U << std::endl;
-			//std::cerr << (ret += (tmp-B.matrix()).norm()) << ' ';
-			//std::cerr << (ret += (t_U-B.U).norm()) << ' ';
-			//std::cerr << (ret += (t_Vt-B.Vt).norm()) << std::endl;
+			ret += (t_U-B.U).norm();
+			ret += (t_Vt-B.Vt).norm();
 			//if (ret>1.0e-6) throw -1;
 			return ret;
 		}
