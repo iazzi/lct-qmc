@@ -13,7 +13,7 @@
 using namespace std;
 using namespace Eigen;
 
-const int L = 10;
+const int L = 2;
 const int N = 40;
 
 double relative_error (double a, double b) {

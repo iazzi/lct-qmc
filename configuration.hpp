@@ -149,12 +149,14 @@ class Configuration {
 			set_index(index+1);
 			// TODO: slices[(index+1)%M].apply_inverse_on_right(B.Vt);
                         std::cerr << "Applying inverse on the right" << std::endl;
-			B.Vt.applyOnTheRight(slices[index].inverse());
-			B.Vt.applyOnTheRight(R);
+			B.transposeInPlace();
+			B.U.applyOnTheLeft(slices[index].inverse().transpose());
+			B.U.applyOnTheLeft(R);
                         //std::cerr << "Absorbing Vt" << std::endl;
-			B.absorbVt();
-			B.Vt.applyOnTheRight(R2);
-			B.absorbVt();
+			B.absorbU();
+			B.U.applyOnTheLeft(R2);
+			B.absorbU();
+			B.transposeInPlace();
 
                         std::cerr << "Applying matrix on the left" << std::endl;
 			slices[index].apply_matrix(B.U);

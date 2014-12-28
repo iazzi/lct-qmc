@@ -242,6 +242,12 @@ struct SVDHelper {
 		return Vt.transpose() * S.array().inverse().matrix().asDiagonal() * U.transpose();
 	}
 
+	void transposeInPlace () {
+		U.swap(Vt);
+		U.transposeInPlace();
+		Vt.transposeInPlace();
+	}
+
 	void invertInPlace () {
 		S = S.array().inverse().matrix();
 		S.reverseInPlace();
