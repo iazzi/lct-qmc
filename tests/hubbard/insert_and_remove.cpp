@@ -56,11 +56,15 @@ int main () {
 			cerr << "inserted vertex " << v.tau << endl;
 			conf.insert_and_update(v);
 		}
-		conf.compute_B();
+		conf.commit_changes();
+		cerr << "dB = " << conf.check_B() << endl;
 		conf.compute_G();
 		cerr << "dG = " << conf.check_and_save_G() << ", ";
+		//cerr << "dB = " << conf.check_B() << endl;
+		//conf.compute_G();
+		//cerr << "dG = " << conf.check_and_save_G() << ", ";
 		double p2 = conf.probability().first;
-		std::cerr << "dp = " << pr-p2+p1 << endl;
+		std::cerr << "dp = " << pr-p2+p1 << endl << endl;
 	}
 	return 0;
 }

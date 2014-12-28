@@ -81,7 +81,6 @@ class Configuration {
 		void insert_and_update (Vertex v, const UpdateType& matrixU, const UpdateType& matrixVt) {
 			G_matrix -= (G_matrix * matrixU) * (Eigen::Matrix2d::Identity() + matrixVt.transpose() * G_matrix * matrixU).inverse() * (matrixVt.transpose() * G_matrix);
 			G_matrix += matrixU * (matrixVt.transpose() * G_matrix);
-			B.U -= (B.U * matrixU) * (Eigen::Matrix2d::Identity() + matrixVt.transpose() * B.U * matrixU).inverse() * (matrixVt.transpose() * B.U);
 			B.U += matrixU * (matrixVt.transpose() * B.U);
 			insert(v);
 		}
@@ -95,7 +94,6 @@ class Configuration {
 		size_t remove_and_update (Vertex v, const UpdateType& inverseU, const UpdateType& inverseVt) {
 			G_matrix -= (G_matrix * inverseU) * (Eigen::Matrix2d::Identity() + inverseVt.transpose() * G_matrix * inverseU).inverse() * (inverseVt.transpose() * G_matrix);
 			G_matrix += inverseU * (inverseVt.transpose() * G_matrix);
-			B.U -= (B.U * inverseU) * (Eigen::Matrix2d::Identity() + inverseVt.transpose() * B.U * inverseU).inverse() * (inverseVt.transpose() * B.U);
 			B.U += inverseU * (inverseVt.transpose() * B.U);
 			return remove(v);
 		}
@@ -106,10 +104,32 @@ class Configuration {
 			return remove_and_update(v, inverseU, inverseVt);
 		}
 
+		void commit_changes () {
+			//R = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension()) + 0.002*Eigen::MatrixXd::Random(model.lattice().dimension(), model.lattice().dimension());
+			//R2 = R.inverse();
+			B.U.applyOnTheLeft(R);
+			B.absorbU();
+			B.U.applyOnTheLeft(R2);
+			B.absorbU();
+			fix_sign_B();
+		}
+
+		void fix_sign_B () {
+			for (int i=0;i<B.U.cols();i++) {
+				double s = B.U.col(i).sum();
+				if (s<0.0) {
+					B.U.col(i) *= -1.0;
+					B.Vt.row(i) *= -1.0;
+				}
+			}
+		}
+
 		void compute_B () {
 			B.setIdentity(model.lattice().dimension()); // FIXME: maybe have a direct reference to the lattice here too
-			R = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension()) + 0.002*Eigen::MatrixXd::Random(model.lattice().dimension(), model.lattice().dimension());
-			R2 = R.inverse();
+			if (R.size()<B.U.size()) {
+				R = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension()) + 0.002*Eigen::MatrixXd::Random(model.lattice().dimension(), model.lattice().dimension());
+				R2 = R.inverse();
+			}
 			for (size_t i=0;i<M;i++) {
 				slices[(i+index+1)%M].apply_matrix(B.U);
 				B.U.applyOnTheLeft(R);
@@ -117,12 +137,15 @@ class Configuration {
 				B.U.applyOnTheLeft(R2);
 			}
 			B.absorbU(); // FIXME: only apply this if the random matrix is used in the last step
+			fix_sign_B();
 		}
 
                 // Wraps B(i) with B_{i+1} and B_{i+1}^{-1}, resulting in B(i+1)
 		void wrap_B () {
-			R = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension()) + 0.002*Eigen::MatrixXd::Random(model.lattice().dimension(), model.lattice().dimension());
-			R2 = R.inverse();
+			if (R.size()<model.lattice().dimension()*model.lattice().dimension()) {
+				R = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension()) + 0.002*Eigen::MatrixXd::Random(model.lattice().dimension(), model.lattice().dimension());
+				R2 = R.inverse();
+			}
 
 			// TODO: slices[(index+1)%M].apply_inverse_on_right(B.Vt);
                         std::cerr << "Applying inverse on the right" << std::endl;
@@ -187,16 +210,21 @@ class Configuration {
 
 		double check_B () {
 			double ret = 0.0;
-			Eigen::MatrixXd t_U, t_Vt;
+			Eigen::MatrixXd t_U, t_Vt, tmp;
 			t_U = B.U;
 			t_Vt = B.Vt;
+			tmp = B.matrix();
+			//std::cerr << B.S.transpose() << std::endl;
                         compute_B();
-                        std::cerr << t_U << std::endl;
-                        std::cerr << std::endl;
-                        std::cerr << B.U << std::endl;
-			ret += (t_U-B.U).norm();
-			ret += (t_Vt-B.Vt).norm();
-			return ret / (t_U.size() + t_Vt.size());
+			//std::cerr << B.S.transpose() << std::endl;
+                        //std::cerr << (t_U.array()/B.U.array()) << std::endl;
+                        //std::cerr << std::endl;
+                        //std::cerr << B.U << std::endl;
+			//std::cerr << (ret += (tmp-B.matrix()).norm()) << ' ';
+			//std::cerr << (ret += (t_U-B.U).norm()) << ' ';
+			//std::cerr << (ret += (t_Vt-B.Vt).norm()) << std::endl;
+			//if (ret>1.0e-6) throw -1;
+			return ret;
 		}
 
 		double slice_start () const { return dtau*index; }
