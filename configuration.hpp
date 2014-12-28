@@ -118,6 +118,29 @@ class Configuration {
 			}
 			B.absorbU(); // FIXME: only apply this if the random matrix is used in the last step
 		}
+
+                // Wraps B(i) with B_{i+1} and B_{i+1}^{-1}, resulting in B(i+1)
+		void wrap_B () {
+			R = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension()) + 0.002*Eigen::MatrixXd::Random(model.lattice().dimension(), model.lattice().dimension());
+			R2 = R.inverse();
+
+			// TODO: slices[(index+1)%M].apply_inverse_on_right(B.Vt);
+                        std::cerr << "Applying inverse on the right" << std::endl;
+			B.Vt.applyOnTheRight(slices[(index+1)%M].inverse());
+                        //std::cerr << "Absorbing Vt" << std::endl;
+			//B.absorbVt();
+
+                        std::cerr << "Applying matrix on the left" << std::endl;
+			slices[(index+1)%M].apply_matrix(B.U);
+			B.U.applyOnTheLeft(R);
+                        std::cerr << "Absorbing U" << std::endl;
+			B.absorbU(); // FIXME: have a random matrix applied here possibly only when no vertices have been applied
+			B.U.applyOnTheLeft(R2);
+
+                        std::cerr << "Absorbing U" << std::endl;
+			B.absorbU();
+		}
+
 		void compute_G () {
 			G = B; // B
 			G.invertInPlace(); // B^-1
@@ -160,6 +183,20 @@ class Configuration {
 			ret += (G_matrix-A).norm();
 			G_matrix.swap(A);
 			return ret;
+		}
+
+		double check_B () {
+			double ret = 0.0;
+			Eigen::MatrixXd t_U, t_Vt;
+			t_U = B.U;
+			t_Vt = B.Vt;
+                        compute_B();
+                        std::cerr << t_U << std::endl;
+                        std::cerr << std::endl;
+                        std::cerr << B.U << std::endl;
+			ret += (t_U-B.U).norm();
+			ret += (t_Vt-B.Vt).norm();
+			return ret / (t_U.size() + t_Vt.size());
 		}
 
 		double slice_start () const { return dtau*index; }
