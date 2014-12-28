@@ -15,6 +15,7 @@ class Configuration {
 	public:
 		typedef typename Model::Lattice Lattice;
 		typedef typename Model::Interaction Interaction;
+		typedef typename Model::Interaction::UpdateType UpdateType;
 		typedef typename Interaction::Vertex Vertex;
 
 	private:
@@ -74,26 +75,35 @@ class Configuration {
 		}
 
 		size_t remove (Vertex v) {
-			slices[index].matrix() += slices[index].inverseU(v)*slices[index].inverseVt(v).transpose()*slices[index].matrix();
 			return slices[index].remove(v);
 		}
 
-		void insert_and_update (Vertex v) {
-			size_t i = index;
-			G_matrix -= (G_matrix * slices[index].matrixU(v)) * (Eigen::Matrix2d::Identity() + slices[index].matrixVt(v).transpose() * G_matrix * slices[index].matrixU(v)).inverse() * (slices[index].matrixVt(v).transpose() * G_matrix);
-			G_matrix += slices[i].matrixU(v) * (slices[i].matrixVt(v).transpose() * G_matrix);
-			B.U -= (B.U * slices[index].matrixU(v)) * (Eigen::Matrix2d::Identity() + slices[index].matrixVt(v).transpose() * B.U * slices[index].matrixU(v)).inverse() * (slices[index].matrixVt(v).transpose() * B.U);
-			B.U += slices[i].matrixU(v) * (slices[i].matrixVt(v).transpose() * B.U);
+		void insert_and_update (Vertex v, const UpdateType& matrixU, const UpdateType& matrixVt) {
+			G_matrix -= (G_matrix * matrixU) * (Eigen::Matrix2d::Identity() + matrixVt.transpose() * G_matrix * matrixU).inverse() * (matrixVt.transpose() * G_matrix);
+			G_matrix += matrixU * (matrixVt.transpose() * G_matrix);
+			B.U -= (B.U * matrixU) * (Eigen::Matrix2d::Identity() + matrixVt.transpose() * B.U * matrixU).inverse() * (matrixVt.transpose() * B.U);
+			B.U += matrixU * (matrixVt.transpose() * B.U);
 			insert(v);
 		}
 
+		void insert_and_update (Vertex v) {
+			UpdateType matrixU = slices[index].matrixU(v);
+			UpdateType matrixVt = slices[index].matrixVt(v);
+			insert_and_update(v, matrixU, matrixVt);
+		}
+
+		size_t remove_and_update (Vertex v, const UpdateType& inverseU, const UpdateType& inverseVt) {
+			G_matrix -= (G_matrix * inverseU) * (Eigen::Matrix2d::Identity() + inverseVt.transpose() * G_matrix * inverseU).inverse() * (inverseVt.transpose() * G_matrix);
+			G_matrix += inverseU * (inverseVt.transpose() * G_matrix);
+			B.U -= (B.U * inverseU) * (Eigen::Matrix2d::Identity() + inverseVt.transpose() * B.U * inverseU).inverse() * (inverseVt.transpose() * B.U);
+			B.U += inverseU * (inverseVt.transpose() * B.U);
+			return remove(v);
+		}
+
 		size_t remove_and_update (Vertex v) {
-				size_t i = index;
-				G_matrix -= (G_matrix * slices[index].inverseU(v)) * (Eigen::Matrix2d::Identity() + slices[index].inverseVt(v).transpose() * G_matrix * slices[index].inverseU(v)).inverse() * (slices[index].inverseVt(v).transpose() * G_matrix);
-				G_matrix += slices[i].inverseU(v) * (slices[i].inverseVt(v).transpose() * G_matrix);
-				B.U -= (B.U * slices[index].inverseU(v)) * (Eigen::Matrix2d::Identity() + slices[index].inverseVt(v).transpose() * B.U * slices[index].inverseU(v)).inverse() * (slices[index].inverseVt(v).transpose() * B.U);
-				B.U += slices[i].inverseU(v) * (slices[i].inverseVt(v).transpose() * B.U);
-				return slices[index].remove(v);
+			UpdateType inverseU = slices[index].inverseU(v);
+			UpdateType inverseVt = slices[index].inverseVt(v);
+			return remove_and_update(v, inverseU, inverseVt);
 		}
 
 		void compute_B () {
