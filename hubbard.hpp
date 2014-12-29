@@ -131,6 +131,10 @@ class HubbardInteraction {
 
 	double log_abs_det (const Vertex v) const { return 0.0; }
 	double combinatorial_factor () { return log(K*volume()); }
+
+	size_t blocks () const { return 2; }
+	size_t block_start (size_t i) const { return i==0?0:volume(); }
+	size_t block_size (size_t i) const { return volume(); }
 };
 
 #endif // HUBBARD_HPP
