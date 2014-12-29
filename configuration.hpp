@@ -30,6 +30,7 @@ class Configuration {
 		size_t M; // number of slices
 
 		SVDHelper B; // this holds the deomposition of the matrix B
+		std::vector<SVDHelper> blocks; // helper classes for the blocks
 		SVDHelper G; // SVD decomposition of the Green function
 
 		Eigen::MatrixXd G_matrix;
@@ -50,6 +51,8 @@ class Configuration {
 			for (size_t i=0;i<M;i++) {
 				slices[i].setup(dtau);
 			}
+			// use block information
+			blocks.resize(model.interaction().blocks());
 		}
 
 		void set_index (size_t i) { index = i%M; }
@@ -81,6 +84,9 @@ class Configuration {
 		void insert_and_update (Vertex v, const UpdateType& matrixU, const UpdateType& matrixVt) {
 			G_matrix -= (G_matrix * matrixU) * (Eigen::Matrix2d::Identity() + matrixVt.transpose() * G_matrix * matrixU).inverse() * (matrixVt.transpose() * G_matrix);
 			G_matrix += matrixU * (matrixVt.transpose() * G_matrix);
+			//std::cerr << matrixVt.transpose() * G_matrix * matrixU << std:: endl << std::endl;
+			//std::cerr << matrixVt.transpose() << std:: endl << std::endl;
+			//std::cerr << matrixU * matrixVt.transpose() * G_matrix << std:: endl << std::endl;
 			B.U += matrixU * (matrixVt.transpose() * B.U);
 			insert(v);
 		}
@@ -107,10 +113,7 @@ class Configuration {
 		void commit_changes () {
 			//R = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension()) + 0.002*Eigen::MatrixXd::Random(model.lattice().dimension(), model.lattice().dimension());
 			//R2 = R.inverse();
-			B.U.applyOnTheLeft(R);
-			B.absorbU();
-			B.U.applyOnTheLeft(R2);
-			B.absorbU();
+			decompose_U();
 			fix_sign_B();
 		}
 
@@ -124,26 +127,40 @@ class Configuration {
 			}
 		}
 
+		void decompose_U () {
+			for (size_t i=0;i<model.interaction().blocks();i++) {
+				size_t a = model.interaction().block_start(i);
+				size_t b = model.interaction().block_size(i);
+				blocks[i].fullSVD(B.U.block(a, a, b, b) * B.S.segment(a, b).asDiagonal());
+				B.U.block(a, a, b, b) = blocks[i].U;
+				B.S.segment(a, b) = blocks[i].S;
+				B.Vt.block(a, a, b, b).applyOnTheLeft(blocks[i].Vt);
+			}
+		}
+
 		void compute_B () {
 			B.setIdentity(model.lattice().dimension()); // FIXME: maybe have a direct reference to the lattice here too
 			if (R.size()<B.U.size()) {
-				R = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension()) + 0.002*Eigen::MatrixXd::Random(model.lattice().dimension(), model.lattice().dimension());
+				R = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension()) + 0.000*Eigen::MatrixXd::Random(model.lattice().dimension(), model.lattice().dimension());
 				R2 = R.inverse();
 			}
 			for (size_t i=0;i<M;i++) {
 				slices[(i+index+1)%M].apply_matrix(B.U);
-				B.U.applyOnTheLeft(R);
-				B.absorbU(); // FIXME: have a random matrix applied here possibly only when no vertices have been applied
-				B.U.applyOnTheLeft(R2);
+				decompose_U();
+				//B.U.applyOnTheLeft(R);
+				//B.absorbU(); // FIXME: have a random matrix applied here possibly only when no vertices have been applied
+				//B.U.applyOnTheLeft(R2);
+				//std::cerr << i << ' ' << B.S.transpose() << std::endl;
 			}
-			B.absorbU(); // FIXME: only apply this if the random matrix is used in the last step
+			//B.absorbU(); // FIXME: only apply this if the random matrix is used in the last step
+			//std::cerr << B.matrix() << std::endl << std::endl;
 			fix_sign_B();
 		}
 
                 // Wraps B(i) with B_{i+1} and B_{i+1}^{-1}, resulting in B(i+1)
 		void wrap_B () {
 			if (R.size()<model.lattice().dimension()*model.lattice().dimension()) {
-				R = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension()) + 0.002*Eigen::MatrixXd::Random(model.lattice().dimension(), model.lattice().dimension());
+				R = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension()) + 0.000*Eigen::MatrixXd::Random(model.lattice().dimension(), model.lattice().dimension());
 				R2 = R.inverse();
 			}
 			set_index(index+1);
@@ -151,22 +168,12 @@ class Configuration {
                         std::cerr << "Applying inverse on the right" << std::endl;
 			B.transposeInPlace();
 			B.U.applyOnTheLeft(slices[index].inverse().transpose());
-			B.U.applyOnTheLeft(R);
-                        //std::cerr << "Absorbing Vt" << std::endl;
-			B.absorbU();
-			B.U.applyOnTheLeft(R2);
-			B.absorbU();
+			decompose_U();
 			B.transposeInPlace();
 
                         std::cerr << "Applying matrix on the left" << std::endl;
 			slices[index].apply_matrix(B.U);
-			B.U.applyOnTheLeft(R);
-                        //std::cerr << "Absorbing U" << std::endl;
-			B.absorbU(); // FIXME: have a random matrix applied here possibly only when no vertices have been applied
-			B.U.applyOnTheLeft(R2);
-
-                        //std::cerr << "Absorbing U" << std::endl;
-			B.absorbU();
+			decompose_U();
 			fix_sign_B();
 		}
 
@@ -203,7 +210,10 @@ class Configuration {
 			double ret = 0.0;
 			Eigen::MatrixXd A;
 			A = G.matrix();
-			//std::cerr << A.array()-cache.array() << std::endl << std::endl;
+			//std::cerr << B.U << std::endl << std::endl;
+			//std::cerr << B.Vt << std::endl << std::endl;
+			//std::cerr << G_matrix.array() << std::endl << std::endl;
+			//std::cerr << ((A-G_matrix).array().abs()>1e-9) << std::endl << std::endl;
 			//std::cerr << cache.col(0).normalized().transpose() << std::endl << std::endl;
 			//std::cerr << (G_matrix_up-A).col(0).normalized().transpose() << std::endl << std::endl;
 			//Eigen::VectorXd B = (G_matrix_up-A).col(0).normalized();
@@ -220,9 +230,9 @@ class Configuration {
 			t_U = B.U;
 			t_Vt = B.Vt;
 			//tmp = B.matrix();
-			//std::cerr << B.S.transpose() << std::endl;
+			//std::cerr << B.S.array().abs().log().sum() << std::endl;
                         compute_B();
-			//std::cerr << B.S.transpose() << std::endl;
+			//std::cerr << B.S.array().abs().log().sum() << std::endl;
                         //std::cerr << (t_U.array()/B.U.array()) << std::endl;
                         //std::cerr << std::endl;
                         //std::cerr << B.U << std::endl;

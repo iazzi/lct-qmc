@@ -13,7 +13,7 @@
 using namespace std;
 using namespace Eigen;
 
-const int L = 10;
+const int L = 2;
 const int N = 80;
 
 double relative_error (double a, double b) {
@@ -22,6 +22,9 @@ double relative_error (double a, double b) {
 
 int main () {
 	std::mt19937_64 generator;
+	std::random_device rd;
+	uniform_int_distribution<unsigned int> idist(0, UINT_MAX);
+	generator.seed(idist(rd));
 	CubicLattice lattice;
 	lattice.set_size(L, L, 1);
 	lattice.compute();
@@ -33,7 +36,9 @@ int main () {
 	for (size_t i=0;i<conf.slice_number();i++) {
 		conf.set_index(i);
 		for (size_t j=0;j<L*L;j++) {
-			conf.insert(interaction.generate(0.0, conf.slice_end()-conf.slice_start()));
+			HubbardInteraction::Vertex v = interaction.generate(0.0, conf.slice_end()-conf.slice_start());
+			v.sigma = (j%2?-1:+1)*fabs(v.sigma);
+			conf.insert(v);
 		}
 		//std::cerr << i << " -> " << conf.slice_size() << std::endl;
 	}
@@ -46,11 +51,13 @@ int main () {
 		double p1 = conf.probability().first;
 		for (int j=0;j<L*L;j++) {
 			HubbardInteraction::Vertex v = interaction.generate(0.0, conf.slice_end()-conf.slice_start());
+			v.sigma = -v.sigma;
 			pr += std::log(std::fabs(conf.insert_probability(v)));
-			cerr << "inserted vertex " << v.tau << endl;
+			cerr << "inserted vertex " << v.tau << ' ' << v.sigma << endl;
 			conf.insert_and_update(v);
 		}
-		conf.compute_B();
+		conf.commit_changes();
+		cerr << conf.check_B() << endl;
 		conf.compute_G();
 		cerr << "dG = " << conf.check_and_save_G() << endl;
 		double p2 = conf.probability().first;

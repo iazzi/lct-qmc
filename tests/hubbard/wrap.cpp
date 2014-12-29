@@ -13,8 +13,8 @@
 using namespace std;
 using namespace Eigen;
 
-const int L = 2;
-const int N = 40;
+const int L = 4;
+const int N = 80;
 
 double relative_error (double a, double b) {
 	return fabs(a-b)/min(fabs(a), fabs(b));

@@ -13,8 +13,8 @@
 using namespace std;
 using namespace Eigen;
 
-const int L = 10;
-int N = 40;
+const int L = 4;
+int N = 80;
 
 double relative_error (double a, double b) {
 	return fabs(a-b)/min(fabs(a), fabs(b));
@@ -45,7 +45,7 @@ int main () {
 		conf.compute_G();
 		conf.save_G();
 		double p1 = conf.probability().first;
-		for (int j=0;j<L*L;j++) {
+		for (int j=0;j<L*L/2;j++) {
 			HubbardInteraction::Vertex v;
 			v = conf.get_vertex(d(generator)*conf.slice_size());
 			pr += std::log(std::fabs(conf.remove_probability(v)));

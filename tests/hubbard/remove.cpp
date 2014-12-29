@@ -13,8 +13,8 @@
 using namespace std;
 using namespace Eigen;
 
-const int L = 10;
-int N = 40;
+const int L = 4;
+int N = 80;
 
 double relative_error (double a, double b) {
 	return fabs(a-b)/min(fabs(a), fabs(b));
@@ -52,7 +52,8 @@ int main () {
 			cerr << "removed vertex " << n << '/' << conf.slice_size() << ' ' << v.tau << endl;
 			conf.remove_and_update(v);
 		}
-		conf.compute_B();
+		conf.commit_changes();
+		cerr << "dB = " << conf.check_B() << endl;
 		conf.compute_G();
 		cerr << "dG = " << conf.check_and_save_G() << ", ";
 		double p2 = conf.probability().first;
