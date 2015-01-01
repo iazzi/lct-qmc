@@ -99,58 +99,18 @@ class Slice {
 
 		// TODO: apply_inverse_on_the_right(T &A)
 
-		// apply the slice with forward propagators and direct vertices
-		template <typename T>
-		void apply_matrix_11 (T &A) {
-			double t0 = 0.0;
-			for (auto v : verts) {
-				if (v.tau>t0) L->propagate(v.tau-t0, A);
-				t0 = v.tau;
-				I->apply_vertex_on_the_left(v, A);
-			}
-			if (beta>t0) L->propagate(beta-t0, A);
-		}
-
-		// apply the slice with forward propagators and inverse vertices
-		template <typename T>
-		void apply_matrix_12 (T &A) {
-			double t0 = 0.0;
-			for (auto v : verts) {
-				if (v.tau>t0) L->propagate(v.tau-t0, A);
-				t0 = v.tau;
-				I->apply_inverse_on_the_left(v, A);
-			}
-			if (beta>t0) L->propagate(beta-t0, A);
-		}
-
-		// apply the slice with inverse propagators and forward vertices
-		template <typename T>
-		void apply_matrix_21 (T &A) {
-			double t0 = beta;
-			for (auto v=verts.rbegin();v!=verts.rend();v++) {
-				if (v->tau<t0) L->propagate(v->tau-t0, A);
-				t0 = v->tau;
-				I->apply_vertex_on_the_left(*v, A);
-			}
-			if (0.0<t0) L->propagate(-t0, A);
-		}
-
-		// apply the slice with inverse propagators and inverse vertices
-		template <typename T>
-		void apply_matrix_22 (T &A) {
-			double t0 = beta;
-			for (auto v=verts.rbegin();v!=verts.rend();v++) {
-				if (v->tau<t0) L->propagate(v->tau-t0, A);
-				t0 = v->tau;
-				I->apply_inverse_on_the_left(*v, A);
-			}
-			if (0.0<t0) L->propagate(-t0, A);
-		}
-
 		double log_abs_det () {
 			double ret = 0.0;
 			for (auto v : verts) {
 				ret += I->log_abs_det(v);
+			}
+			return ret;
+		}
+
+		double log_abs_det_block (size_t i) {
+			double ret = 0.0;
+			for (auto v : verts) {
+				ret += I->log_abs_det_block(v, i);
 			}
 			return ret;
 		}
