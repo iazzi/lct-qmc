@@ -130,12 +130,37 @@ class HubbardInteraction {
 	double scalarB () const { return b; }
 
 	double log_abs_det (const Vertex v) const { return 0.0; }
+	double log_abs_det_block (const Vertex v, size_t i) const { return std::log(std::fabs(i==0?(1.0+a+v.sigma):(1.0+a-v.sigma))); }
 	double combinatorial_factor () { return log(K*volume()); }
 
 	size_t blocks () const { return 2; }
 	size_t block_start (size_t i) const { return i==0?0:volume(); }
 	size_t block_size (size_t i) const { return volume(); }
 };
+
+template <>
+inline void HubbardInteraction::apply_vertex_on_the_left (Vertex v, Eigen::MatrixXd &M) const {
+	M.block(0, 0, V, V) += (a+v.sigma) * eigenvectors.block(0, 0, V, V).row(v.x).transpose() * (eigenvectors.block(0, 0, V, V).row(v.x) * M.block(0, 0, V, V));
+	M.block(V, V, V, V) += (a-v.sigma) * eigenvectors.block(V, V, V, V).row(v.x).transpose() * (eigenvectors.block(V, V, V, V).row(v.x) * M.block(V, V, V, V));
+}
+
+template <>
+inline void HubbardInteraction::apply_vertex_on_the_right (Vertex v, Eigen::MatrixXd &M) const {
+	M.block(0, 0, V, V) += (a+v.sigma) * (M.block(0, 0, V, V) * eigenvectors.block(0, 0, V, V).row(v.x).transpose()) * eigenvectors.block(0, 0, V, V).row(v.x);
+	M.block(V, V, V, V) += (a+v.sigma) * (M.block(V, V, V, V) * eigenvectors.block(V, V, V, V).row(v.x).transpose()) * eigenvectors.block(V, V, V, V).row(v.x);
+}
+
+template <>
+inline void HubbardInteraction::apply_vertex_on_the_left (Vertex v, HubbardInteraction::UpdateType &M) const {
+	M.col(0).head(V) += (a+v.sigma) * eigenvectors.block(0, 0, V, V).row(v.x).transpose() * (eigenvectors.block(0, 0, V, V).row(v.x) * M.col(0).head(V));
+	M.col(1).tail(V) += (a-v.sigma) * eigenvectors.block(V, V, V, V).row(v.x).transpose() * (eigenvectors.block(V, V, V, V).row(v.x) * M.col(1).tail(V));
+}
+
+template <>
+inline void HubbardInteraction::apply_inverse_on_the_left (Vertex v, HubbardInteraction::UpdateType &M) const {
+	M.col(0).head(V) -= (a+v.sigma)/(1.0+a+v.sigma) * eigenvectors.block(0, 0, V, V).row(v.x).transpose() * (eigenvectors.block(0, 0, V, V).row(v.x) * M.col(0).head(V));
+	M.col(1).tail(V) -= (a-v.sigma)/(1.0+a-v.sigma) * eigenvectors.block(V, V, V, V).row(v.x).transpose() * (eigenvectors.block(V, V, V, V).row(v.x) * M.col(1).tail(V));
+}
 
 #endif // HUBBARD_HPP
 
