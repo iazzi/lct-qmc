@@ -628,7 +628,7 @@ class V3Probability {
 				//if (std::fabs(acc.logdet())>15.0) {
 				if (nv>nt) {
 					acc.decomposeU();
-					acc.assertLogDet();
+					acc.assertLogDet(1e-5);
 					nv = 0;
 				}
 			}
@@ -646,14 +646,14 @@ class V3Probability {
 				//if (std::fabs(acc.logdet())>15.0) {
 				if (nv>nt) {
 					acc.decomposeU();
-					acc.assertLogDet();
+					acc.assertLogDet(1e-5);
 					nv = 0;
 				}
 			}
 			evolve(acc, conf, t0-t, dtau);
 			acc.matrixU().applyOnTheLeft(R_inverse);
 			acc.decomposeU();
-			acc_up.assertLogDet();
+			acc_up.assertLogDet(1e-5);
 			//std::cerr << (-(b-t)*eigenvalues.array()).exp().transpose() << std::endl << std::endl;
 			//std::cerr << G << std::endl << std::endl;
 		}
@@ -669,7 +669,7 @@ class V3Probability {
 			//accumulate(acc_dn, conf, t0, -1.0);
 			//debug << (acc_up.SVD().S.array()*acc_dn.SVD().S.array().reverse()).transpose() << '\n';
 			//try {
-				acc_up.assertLogDet();
+				acc_up.assertLogDet(1e-5);
 			//} catch (Accumulator::AssertionFailed ass) {
 			//}
 			//acc_dn.assertLogDet();

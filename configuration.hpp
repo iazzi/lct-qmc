@@ -69,6 +69,14 @@ class Configuration {
 			return ret;
 		}
 
+		double log_abs_det_block (size_t j) {
+			double ret = 0.0;
+			for (size_t i=0;i<M;i++) {
+				ret += slices[i].log_abs_det_block(j);
+			}
+			return ret;
+		}
+
 		double log_abs_max () const {
 			return B.S.array().abs().log().abs().maxCoeff();
 		}
@@ -131,29 +139,24 @@ class Configuration {
 			for (size_t i=0;i<model.interaction().blocks();i++) {
 				size_t a = model.interaction().block_start(i);
 				size_t b = model.interaction().block_size(i);
-				blocks[i].fullSVD(B.U.block(a, a, b, b) * B.S.segment(a, b).asDiagonal());
+				blocks[i].Vt = B.Vt.block(a, a, b, b);
+				blocks[i].S = B.S.segment(a, b);
+				blocks[i].U = B.U.block(a, a, b, b);
+				blocks[i].absorbU();
+				//blocks[i].fullSVD(B.U.block(a, a, b, b) * B.S.segment(a, b).asDiagonal());
 				B.U.block(a, a, b, b) = blocks[i].U;
 				B.S.segment(a, b) = blocks[i].S;
-				B.Vt.block(a, a, b, b).applyOnTheLeft(blocks[i].Vt);
+				B.Vt.block(a, a, b, b) = blocks[i].Vt;
 			}
 		}
 
 		void compute_B () {
 			B.setIdentity(model.lattice().dimension()); // FIXME: maybe have a direct reference to the lattice here too
-			if (R.size()<B.U.size()) {
-				R = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension()) + 0.000*Eigen::MatrixXd::Random(model.lattice().dimension(), model.lattice().dimension());
-				R2 = R.inverse();
-			}
 			for (size_t i=0;i<M;i++) {
 				slices[(i+index+1)%M].apply_matrix(B.U);
 				decompose_U();
-				//B.U.applyOnTheLeft(R);
-				//B.absorbU(); // FIXME: have a random matrix applied here possibly only when no vertices have been applied
-				//B.U.applyOnTheLeft(R2);
-				//std::cerr << i << ' ' << B.S.transpose() << std::endl;
+				// FIXME: have a random matrix applied here possibly only when no vertices have been applied
 			}
-			//B.absorbU(); // FIXME: only apply this if the random matrix is used in the last step
-			//std::cerr << B.matrix() << std::endl << std::endl;
 			fix_sign_B();
 		}
 
@@ -164,17 +167,66 @@ class Configuration {
 				R2 = R.inverse();
 			}
 			set_index(index+1);
-			// TODO: slices[(index+1)%M].apply_inverse_on_right(B.Vt);
+                        std::cerr << "Applying matrix on the left" << std::endl;
+			slices[index].apply_matrix(B.U);
+			decompose_U();
+			for (size_t i=0;i<model.interaction().blocks();i++) {
+				size_t a = model.interaction().block_start(i);
+				size_t b = model.interaction().block_size(i);
+				std::cerr << "block " << i << " -> " << B.S.segment(a, b).array().abs().log().sum() << ' ' << slices[index].log_abs_det_block(i)+log_abs_det_block(i) << std::endl;
+			}
                         std::cerr << "Applying inverse on the right" << std::endl;
 			B.transposeInPlace();
 			B.U.applyOnTheLeft(slices[index].inverse().transpose());
 			decompose_U();
 			B.transposeInPlace();
+			for (size_t i=0;i<model.interaction().blocks();i++) {
+				size_t a = model.interaction().block_start(i);
+				size_t b = model.interaction().block_size(i);
+				std::cerr << "block " << i << " -> " << B.S.segment(a, b).array().abs().log().sum() << ' ' << log_abs_det_block(i) << std::endl;
+			}
+			fix_sign_B();
+		}
+
+                // Wraps B(i) with B_{i+1} and B_{i+1}^{-1}, resulting in B(i+1)
+		void check_wrap_B () {
+			set_index(index+1);
+                        std::cerr << "Applying inverse on the right" << std::endl;
+			B.transposeInPlace();
+			B.U.applyOnTheLeft(slices[index].inverse().transpose());
+			decompose_U();
+			B.transposeInPlace();
+                        fix_sign_B();
+			for (size_t i=0;i<model.interaction().blocks();i++) {
+				size_t a = model.interaction().block_start(i);
+				size_t b = model.interaction().block_size(i);
+				std::cerr << "block " << i << " -> " << B.S.segment(a, b).array().abs().log().sum() << ' ' << -slices[index].log_abs_det_block(i)+log_abs_det_block(i) << std::endl;
+			}
+			Eigen::MatrixXd t_U = B.U;
+			Eigen::MatrixXd t_Vt = B.Vt;
+			Eigen::VectorXd t_S = B.S;
+                        B.setIdentity(model.lattice().dimension()); // FIXME: maybe have a direct reference to the lattice here too
+                        for (size_t i=0;i<M-1;i++) {
+                                slices[(i+index+1)%M].apply_matrix(B.U);
+                                decompose_U();
+                        }
+                        fix_sign_B();
+			std::cerr << B.S.transpose() << std::endl;
+			std::cerr << (t_S-B.S).transpose() << std::endl << std::endl;
+			std::cerr << B.U-t_U << std::endl << std::endl;
+			t_S.swap(B.S);
+			t_U.swap(B.U);
+			t_Vt.swap(B.Vt);
 
                         std::cerr << "Applying matrix on the left" << std::endl;
 			slices[index].apply_matrix(B.U);
 			decompose_U();
 			fix_sign_B();
+			for (size_t i=0;i<model.interaction().blocks();i++) {
+				size_t a = model.interaction().block_start(i);
+				size_t b = model.interaction().block_size(i);
+				std::cerr << "block " << i << " -> " << B.S.segment(a, b).array().abs().log().sum() << ' ' << log_abs_det_block(i) << std::endl;
+			}
 		}
 
 		void compute_G () {
@@ -232,10 +284,11 @@ class Configuration {
 			//tmp = B.matrix();
 			//std::cerr << B.S.array().abs().log().sum() << std::endl;
                         compute_B();
+			fix_sign_B();
 			//std::cerr << B.S.array().abs().log().sum() << std::endl;
-                        //std::cerr << (t_U.array()/B.U.array()) << std::endl;
+                        //std::cerr << t_U << std::endl << std::endl;
                         //std::cerr << std::endl;
-                        //std::cerr << B.U << std::endl;
+                        std::cerr << t_U-B.U << std::endl;
 			ret += (t_U-B.U).norm();
 			ret += (t_Vt-B.Vt).norm();
 			//if (ret>1.0e-6) throw -1;

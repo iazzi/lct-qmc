@@ -40,11 +40,16 @@ int main () {
 	conf.set_index(0);
 	conf.compute_B();
 	for (int i=0;i<N;i++) {
-		conf.wrap_B();
-                double err = conf.check_B();
-	        std::cerr << i << " " << err << endl;
+		conf.check_wrap_B();
+                if ((i+1)%6==-1) {
+			double err = conf.check_B();
+			std::cerr << i << " " << err << endl;
+		}
 		//conf.wrap_B();
 	}
+	cerr << "\n *** checking ***" << std::endl << std::endl;
+	double err = conf.check_B();
+	std::cerr << "err = " << err << endl;
 	return 0;
 }
 
