@@ -33,7 +33,6 @@ class HoneycombLattice {
 		if (p.contains("Ly")) {
 			Ly = p.getInteger("Ly");
 		}
-		V = Lx*Ly;
 		// get tunneling coefficient
 		if (p.contains("t")) {
 			tx = ty = p.getNumber("t");

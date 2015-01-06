@@ -14,7 +14,6 @@
 using namespace std;
 using namespace Eigen;
 
-const int L = 4;
 const int N = 80;
 
 double relative_error (double a, double b) {

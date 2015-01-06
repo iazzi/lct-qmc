@@ -107,7 +107,7 @@ class CubicLattice {
 
 	CubicLattice (): Lx(2), Ly(2), Lz(1), tx(1.0), ty(1.0), tz(1.0), computed(false) {}
 	CubicLattice (const CubicLattice &l): Lx(l.Lx), Ly(l.Ly), Lz(l.Lz), tx(l.tx), ty(l.ty), tz(l.tz), computed(false) {}
-	CubicLattice (const Parameters &p): Lx(2), Ly(2), Lz(1), tx(1.0), ty(1.0), tz(1.0), computed(false) { setup(p); }
+	CubicLattice (const Parameters &p): Lx(2), Ly(2), Lz(1), tx(1.0), ty(1.0), tz(1.0), computed(false) { setup(p); compute(); }
 };
 
 
