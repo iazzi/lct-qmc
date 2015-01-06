@@ -33,10 +33,10 @@ class Parameters {
 		}
 	}
 
-	std::string getString (const std::string &k) const { if (params.find(k)!=params.end()) return params.at(k); else return std::string(); }
 	bool contains (const std::string &k) const { return params.find(k)!=params.end(); }
-	double getNumber (const std::string &k) const { return atof(getString(k).c_str()); }
-	int getInteger (const std::string &k) const { return atoi(getString(k).c_str()); }
+	std::string getString (const std::string &k, const std::string &def = std::string()) const { if (contains(k)) return params.at(k); else return def; }
+	double getNumber (const std::string &k, double def = 0.0) const { if (contains(k)) return atof(params.at(k).c_str()); else return def; }
+	int getInteger (const std::string &k, int def = 0) const { if (contains(k)) return atoi(params.at(k).c_str()); else return def; }
 	void list () const { for (auto x : params) std::cerr << x.first << " --> " << x.second << std::endl; }
 };
 
