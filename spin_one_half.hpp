@@ -11,14 +11,20 @@ class SpinOneHalf {
 	Eigen::VectorXd eigenvalues_;
 	Eigen::MatrixXd eigenvectors_;
 
-	Lattice &l_;
+	Lattice l_;
 
 	bool computed;
 
 	public:
 
+	void setup (const Parameters &p) {
+		l_.setup(p);
+		computed = false;
+	}
+
 	void compute () {
 		if (computed) return;
+		l_.compute();
 		V = l_.dimension();
 		eigenvectors_ = Eigen::MatrixXd::Zero(2*V, 2*V);
 		eigenvectors_.block(0, 0, V, V) = l_.eigenvectors();
@@ -41,7 +47,9 @@ class SpinOneHalf {
 			M.array().colwise() *= (-t*eigenvalues_.array()).exp();
 		}
 
-	SpinOneHalf (Lattice &l): l_(l), computed(false) {}
+	SpinOneHalf (): computed(false) {}
+	SpinOneHalf (const Lattice &l): l_(l), computed(false) {}
+	SpinOneHalf (const Parameters &p): l_(p), computed(false) {}
 };
 
 
