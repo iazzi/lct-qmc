@@ -9,7 +9,7 @@ using namespace Eigen;
 
 const int L = 100;
 
-int main () {
+int main (int argc, char **argv) {
 	std::mt19937_64 generator;
 	MatrixXd A = MatrixXd::Random(L, L);
 	MatrixXd H = A * A.transpose();

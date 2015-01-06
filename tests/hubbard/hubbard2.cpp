@@ -2,6 +2,7 @@
 #include "slice.hpp"
 #include "model.hpp"
 #include "hubbard.hpp"
+#include "spin_one_half.hpp"
 
 #include <random>
 #include <iostream>
@@ -10,18 +11,16 @@
 using namespace std;
 using namespace Eigen;
 
-const int L = 10;
-
-int main () {
+int main (int argc, char **argv) {
 	std::mt19937_64 generator;
-	CubicLattice lattice;
-	lattice.set_size(L, L, 1);
+	Parameters params(argc, argv);
+	SpinOneHalf<CubicLattice> lattice(params);
 	lattice.compute();
 	HubbardInteraction interaction(generator);
 	interaction.setup(lattice.eigenvectors(), 4.0, 5.0);
 	auto model = make_model(lattice, interaction);
-	Slice<Model<CubicLattice, HubbardInteraction>> slice(model);
-	for (int i=0;i<L*L;i++) {
+	Slice<Model<SpinOneHalf<CubicLattice>, HubbardInteraction>> slice(model);
+	for (size_t i=0;i<lattice.volume();i++) {
 		slice.insert(interaction.generate());
 	}
 	MatrixXd A = slice.matrix() * slice.inverse();
