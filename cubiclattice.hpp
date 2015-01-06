@@ -4,6 +4,8 @@
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
 
+#include "parameters.hpp"
+
 class CubicLattice {
 	size_t Lx, Ly, Lz;
 	size_t V;
@@ -17,6 +19,41 @@ class CubicLattice {
 	bool computed;
 
 	public:
+
+	void setup (const Parameters &p) {
+		// get dimensions
+		if (p.contains("L")) {
+			Lx = Ly = Lz = p.getInteger("L");
+		} else {
+			Lx = Ly = Lz = 1;
+		}
+		if (p.contains("Lx")) {
+			Lx = p.getInteger("Lx");
+		}
+		if (p.contains("Ly")) {
+			Ly = p.getInteger("Ly");
+		}
+		if (p.contains("Lz")) {
+			Lz = p.getInteger("Lz");
+		}
+		V = Lx*Ly*Lz;
+		// get tunneling coefficient
+		if (p.contains("t")) {
+			tx = ty = tz = p.getNumber("t");
+		} else {
+			tx = ty = tz = 1;
+		}
+		if (p.contains("tx")) {
+			tx = p.getNumber("tx");
+		}
+		if (p.contains("ty")) {
+			ty = p.getNumber("ty");
+		}
+		if (p.contains("tz")) {
+			tz = p.getNumber("tz");
+		}
+		computed = false;
+	}
 
 	void set_size (size_t a, size_t b, size_t c) {
 		Lx = a;
@@ -35,6 +72,7 @@ class CubicLattice {
 
 	void compute () {
 		if (computed) return;
+		V = Lx*Ly*Lz;
 		Eigen::MatrixXd H = Eigen::MatrixXd::Zero(V, V);
 		for (size_t x=0;x<Lx;x++) {
 			for (size_t y=0;y<Ly;y++) {
@@ -50,12 +88,8 @@ class CubicLattice {
 			}
 		}
 		solver.compute(H);
-		eigenvectors_ = Eigen::MatrixXd::Zero(2*V, 2*V);
-		eigenvectors_.block(0, 0, V, V) = solver.eigenvectors();
-		eigenvectors_.block(V, V, V, V) = solver.eigenvectors();
-		eigenvalues_.setZero(2*V);
-		eigenvalues_.head(V) = solver.eigenvalues();
-		eigenvalues_.tail(V) = solver.eigenvalues();
+		eigenvectors_ = solver.eigenvectors();
+		eigenvalues_ = solver.eigenvalues();
 		computed = true;
 	}
 
@@ -63,15 +97,17 @@ class CubicLattice {
 	const Eigen::MatrixXd & eigenvectors () const { return eigenvectors_; }
 
 	size_t volume () const { return V; }
-	size_t states () const { return 2*V; }
-	size_t dimension () const { return 2*V; }
+	size_t states () const { return V; }
+	size_t dimension () const { return V; }
 
 	template <typename T>
 		void propagate (double t, T& M) {
 			M.array().colwise() *= (-t*eigenvalues_.array()).exp();
 		}
 
-	CubicLattice (): Lx(2), Ly(2), Lz(1), V(4), tx(1.0), ty(1.0), tz(1.0), computed(false) {}
+	CubicLattice (): Lx(2), Ly(2), Lz(1), tx(1.0), ty(1.0), tz(1.0), computed(false) {}
+	CubicLattice (const CubicLattice &l): Lx(l.Lx), Ly(l.Ly), Lz(l.Lz), tx(l.tx), ty(l.ty), tz(l.tz), computed(false) {}
+	CubicLattice (const Parameters &p): Lx(2), Ly(2), Lz(1), tx(1.0), ty(1.0), tz(1.0), computed(false) { setup(p); }
 };
 
 
