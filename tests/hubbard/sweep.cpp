@@ -15,7 +15,6 @@
 using namespace std;
 using namespace Eigen;
 
-int L = 4;
 int N = 80;
 
 double relative_error (double a, double b) {
@@ -49,7 +48,7 @@ int main (int argc, char **argv) {
 	double pr = 0.0;
 	for (size_t i=0;i<conf.slice_number();i++) {
 		HubbardInteraction::Vertex v;
-		for (int j=0;j<L*L;j++) {
+		for (int j=0;j<lattice.volume();j++) {
 			double dp = 0.0;
 			if (d(generator)<0.5) {
 				v = conf.get_vertex(d(generator)*conf.slice_size());
@@ -88,6 +87,4 @@ int main (int argc, char **argv) {
 	std::cerr << "dp = " << p1+pr-p2 << ' ' << p2-p1 << ' ' << pr << endl << endl;
 	return 0;
 }
-
-
 
