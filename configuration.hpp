@@ -173,7 +173,7 @@ class Configuration {
 			for (size_t i=0;i<model.interaction().blocks();i++) {
 				size_t a = model.interaction().block_start(i);
 				size_t b = model.interaction().block_size(i);
-				std::cerr << "block " << i << " -> " << B.S.segment(a, b).array().abs().log().sum() << ' ' << slices[index].log_abs_det_block(i)+log_abs_det_block(i) << std::endl;
+				//std::cerr << "block " << i << " -> " << B.S.segment(a, b).array().abs().log().sum() << ' ' << slices[index].log_abs_det_block(i)+log_abs_det_block(i) << std::endl;
 			}
                         std::cerr << "Applying inverse on the right" << std::endl;
 			B.transposeInPlace();
@@ -183,7 +183,7 @@ class Configuration {
 			for (size_t i=0;i<model.interaction().blocks();i++) {
 				size_t a = model.interaction().block_start(i);
 				size_t b = model.interaction().block_size(i);
-				std::cerr << "block " << i << " -> " << B.S.segment(a, b).array().abs().log().sum() << ' ' << log_abs_det_block(i) << std::endl;
+				//std::cerr << "block " << i << " -> " << B.S.segment(a, b).array().abs().log().sum() << ' ' << log_abs_det_block(i) << std::endl;
 			}
 			fix_sign_B();
 		}
@@ -293,6 +293,10 @@ class Configuration {
 			ret += (t_Vt-B.Vt).norm();
 			//if (ret>1.0e-6) throw -1;
 			return ret;
+		}
+
+		const Eigen::MatrixXd & green_function () {
+			return G_matrix;
 		}
 
 		double slice_start () const { return dtau*index; }
