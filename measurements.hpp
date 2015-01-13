@@ -113,14 +113,14 @@ template <typename T, bool Log> std::ostream& operator<< (std::ostream& out, con
 	if (m.samples()==0) {
 		out << m.name() << ": Empty." << std::endl;
 	} else {
-		int N = std::max(m.bins()-6, size_t(0));
+		int N = std::max(int(m.bins())-6, int(0));
 		out << m.name() << ": " << m.mean() << " +- " << m.error(N) << std::endl;
 		if (N<2 || 2*m.error(N-1)<(m.error(N)+m.error(N-2))) {
 			out << "NOT CONVERGING" << std::endl;
 		}
-		out << "Bins: " << N << std::endl;
-		for (int i=0;i<N;i++) {
-			out << "#" << i+1 << ": samples = " << m.samples(i) << ", value = " << m.mean(i) << " +- " << m.error(i) << ", autocorrelation time = " << m.time(i) << std::endl;
+		out << "Bins: " << m.bins() << std::endl;
+		for (size_t i=0;i<m.bins();i++) {
+			out << (m.samples(i)>100?'#':'?') << i+1 << ": samples = " << m.samples(i) << ", value = " << m.mean(i) << " +- " << m.error(i) << ", autocorrelation time = " << m.time(i) << std::endl;
 		}
 	}
 	return out;
