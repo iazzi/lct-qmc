@@ -47,6 +47,11 @@ class SpinOneHalf {
 			M.array().colwise() *= (-t*eigenvalues_.array()).exp();
 		}
 
+	template <typename T>
+		double kinetic_energy (const T &M) {
+			return (eigenvalues_.array() * M.diagonal().array()).sum();
+		}
+
 	SpinOneHalf (): computed(false) {}
 	SpinOneHalf (const Lattice &l): l_(l), computed(false) {}
 	SpinOneHalf (const Parameters &p): l_(p), computed(false) {}

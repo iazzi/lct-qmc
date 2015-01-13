@@ -18,6 +18,8 @@ class CubicLattice {
 
 	bool computed;
 
+	Eigen::MatrixXd H;
+
 	public:
 
 	void setup (const Parameters &p) {
@@ -73,7 +75,7 @@ class CubicLattice {
 	void compute () {
 		if (computed) return;
 		V = Lx*Ly*Lz;
-		Eigen::MatrixXd H = Eigen::MatrixXd::Zero(V, V);
+		H = Eigen::MatrixXd::Zero(V, V);
 		for (size_t x=0;x<Lx;x++) {
 			for (size_t y=0;y<Ly;y++) {
 				for (size_t z=0;z<Lz;z++) {
@@ -103,6 +105,11 @@ class CubicLattice {
 	template <typename T>
 		void propagate (double t, T& M) {
 			M.array().colwise() *= (-t*eigenvalues_.array()).exp();
+		}
+
+	template <typename T>
+		double kinetic_energy (const T &M) {
+			return (eigenvalues_.array() * M.diagonal().array()).sum();
 		}
 
 	CubicLattice (): Lx(2), Ly(2), Lz(1), tx(1.0), ty(1.0), tz(1.0), computed(false) {}
