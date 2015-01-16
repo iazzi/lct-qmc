@@ -40,7 +40,6 @@ struct HubbardVertex {
 // The UpdateType type contains
 //
 class HubbardInteraction {
-	std::mt19937_64 &generator;
 	Eigen::MatrixXd eigenvectors;
 	double U;
 	double K;
@@ -53,7 +52,7 @@ class HubbardInteraction {
 	public:
 	typedef HubbardVertex Vertex;
 	typedef Eigen::Matrix<double, Eigen::Dynamic, 2> UpdateType;
-	HubbardInteraction (std::mt19937_64 &g) : generator(g), coin_flip(0.5), random_time(0.0, 1.0) {}
+	HubbardInteraction (std::mt19937_64 &g) : coin_flip(0.5), random_time(0.0, 1.0) {}
 
 	inline void setup (const Eigen::MatrixXd &A, double u, double k) {
 		eigenvectors = A;
@@ -67,21 +66,19 @@ class HubbardInteraction {
 		b = sqrt(U/K+a*a);
 	}
 
-	inline Vertex generate () {
-		HubbardInteraction::Vertex ret;
-		ret.sigma = coin_flip(generator)?(+b):(-b);
-		ret.x = random_site(generator);
-		ret.tau = random_time(generator);
-		return ret;
+	template <typename G>
+	inline Vertex generate (G &g) {
+		return generate(0.0, 1.0, g);
 	}
 
 	Vertex generate (double tau);
 
-	inline Vertex generate (double t0, double t1) {
+	template <typename G>
+	inline Vertex generate (double t0, double t1, G &g) {
 		HubbardInteraction::Vertex ret;
-		ret.sigma = coin_flip(generator)?(+b):(-b);
-		ret.x = random_site(generator);
-		ret.tau = t0 + random_time(generator)*(t1-t0);
+		ret.sigma = coin_flip(g)?(+b):(-b);
+		ret.x = random_site(g);
+		ret.tau = t0 + random_time(g)*(t1-t0);
 		return ret;
 	}
 
