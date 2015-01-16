@@ -15,6 +15,8 @@ class SpinOneHalf {
 
 	bool computed;
 
+	Eigen::VectorXd cached_exp;
+
 	public:
 
 	void setup (const Parameters &p) {
@@ -44,7 +46,11 @@ class SpinOneHalf {
 
 	template <typename T>
 		void propagate (double t, T& M) {
-			M.array().colwise() *= (-t*eigenvalues_.array()).exp();
+			cached_exp = eigenvalues_;
+			cached_exp *= -t;
+			cached_exp = cached_exp.array().exp();
+			//M.applyOnTheLeft(cached_exp.matrix().asDiagonal());
+			M.array().colwise() *= cached_exp.array(); // (-t*eigenvalues_.array()).exp(); // this causes allocation!
 		}
 
 	template <typename T>
