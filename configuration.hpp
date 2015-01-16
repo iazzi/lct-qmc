@@ -39,6 +39,8 @@ class Configuration {
 
 		Eigen::MatrixXd R; // a random matrix to solve degeneracies
 		Eigen::MatrixXd R2; // inverse of R
+
+		UpdateType u, vt;
 	public:
 		Configuration (std::mt19937_64 &g, Model &m) : generator(g), model(m), index(0) {}
 
@@ -92,17 +94,14 @@ class Configuration {
 		void insert_and_update (Vertex v, const UpdateType& matrixU, const UpdateType& matrixVt) {
 			G_matrix -= (G_matrix * matrixU) * (Eigen::Matrix2d::Identity() + matrixVt.transpose() * G_matrix * matrixU).inverse() * (matrixVt.transpose() * G_matrix);
 			G_matrix += matrixU * (matrixVt.transpose() * G_matrix);
-			//std::cerr << matrixVt.transpose() * G_matrix * matrixU << std:: endl << std::endl;
-			//std::cerr << matrixVt.transpose() << std:: endl << std::endl;
-			//std::cerr << matrixU * matrixVt.transpose() * G_matrix << std:: endl << std::endl;
 			B.U += matrixU * (matrixVt.transpose() * B.U);
 			insert(v);
 		}
 
 		void insert_and_update (Vertex v) {
-			UpdateType matrixU = slices[index].matrixU(v);
-			UpdateType matrixVt = slices[index].matrixVt(v);
-			insert_and_update(v, matrixU, matrixVt);
+			slices[index].matrixU(v, u);
+			slices[index].matrixVt(v, vt);
+			insert_and_update(v, u, vt);
 		}
 
 		size_t remove_and_update (Vertex v, const UpdateType& inverseU, const UpdateType& inverseVt) {
@@ -113,9 +112,9 @@ class Configuration {
 		}
 
 		size_t remove_and_update (Vertex v) {
-			UpdateType inverseU = slices[index].inverseU(v);
-			UpdateType inverseVt = slices[index].inverseVt(v);
-			return remove_and_update(v, inverseU, inverseVt);
+			slices[index].inverseU(v, u);
+			slices[index].inverseVt(v, vt);
+			return remove_and_update(v, u, vt);
 		}
 
 		void commit_changes () {
@@ -162,17 +161,13 @@ class Configuration {
 
                 // Wraps B(i) with B_{i+1} and B_{i+1}^{-1}, resulting in B(i+1)
 		void wrap_B () {
-			if (R.size()<model.lattice().dimension()*model.lattice().dimension()) {
-				R = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension()) + 0.000*Eigen::MatrixXd::Random(model.lattice().dimension(), model.lattice().dimension());
-				R2 = R.inverse();
-			}
 			set_index(index+1);
                         std::cerr << "Applying matrix on the left" << std::endl;
 			slices[index].apply_matrix(B.U);
 			decompose_U();
 			for (size_t i=0;i<model.interaction().blocks();i++) {
-				size_t a = model.interaction().block_start(i);
-				size_t b = model.interaction().block_size(i);
+				//size_t a = model.interaction().block_start(i);
+				//size_t b = model.interaction().block_size(i);
 				//std::cerr << "block " << i << " -> " << B.S.segment(a, b).array().abs().log().sum() << ' ' << slices[index].log_abs_det_block(i)+log_abs_det_block(i) << std::endl;
 			}
                         std::cerr << "Applying inverse on the right" << std::endl;
@@ -180,11 +175,11 @@ class Configuration {
 			B.U.applyOnTheLeft(slices[index].inverse().transpose());
 			decompose_U();
 			B.transposeInPlace();
-			for (size_t i=0;i<model.interaction().blocks();i++) {
-				size_t a = model.interaction().block_start(i);
-				size_t b = model.interaction().block_size(i);
+			//for (size_t i=0;i<model.interaction().blocks();i++) {
+				//size_t a = model.interaction().block_start(i);
+				//size_t b = model.interaction().block_size(i);
 				//std::cerr << "block " << i << " -> " << B.S.segment(a, b).array().abs().log().sum() << ' ' << log_abs_det_block(i) << std::endl;
-			}
+			//}
 			fix_sign_B();
 		}
 
@@ -247,11 +242,15 @@ class Configuration {
 		}
 
 		double insert_probability (Vertex v) {
-			return (Eigen::Matrix2d::Identity() + slices[index].matrixVt(v).transpose() * G_matrix * slices[index].matrixU(v)).determinant();
+			slices[index].matrixU(v, u);
+			slices[index].matrixVt(v, vt);
+			return (Eigen::Matrix2d::Identity() + vt.transpose() * G_matrix * u).determinant();
 		}
 
 		double remove_probability (Vertex v) {
-			return (Eigen::Matrix2d::Identity() + slices[index].inverseVt(v).transpose() * G_matrix * slices[index].inverseU(v)).determinant();
+			slices[index].inverseU(v, u);
+			slices[index].inverseVt(v, vt);
+			return (Eigen::Matrix2d::Identity() + vt.transpose() * G_matrix * u).determinant();
 		}
 
 		void save_G () {
@@ -308,6 +307,10 @@ class Configuration {
 
 		double insert_factor () { return +log(beta/slice_number()) -log(slice_size()+1) +model.interaction().combinatorial_factor(); }
 		double remove_factor () { return -log(beta/slice_number()) +log(slice_size()+0) -model.interaction().combinatorial_factor(); }
+
+		size_t size () const { size_t ret = 0; for (const auto &s : slices) ret += s.size(); return ret; }
+		void show_verts () const { for (const auto &s : slices) std::cerr << s.size() << std::endl; }
+		void advance (int n) { set_index(2*M+index+n); }
 };
 
 #endif // CONFIGURATION_HPP

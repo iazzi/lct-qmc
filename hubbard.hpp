@@ -109,17 +109,27 @@ class HubbardInteraction {
 				+ (a-v.sigma)/(1.0+a-v.sigma) * (M * eigenvectors.row(v.x+V).transpose()) * eigenvectors.row(v.x+V);
 		}
 
-	UpdateType matrixU (const Vertex v) const {
-		UpdateType ret(N, 2);
+	void matrixU (const Vertex v, UpdateType &ret) const {
+		ret.resize(N, 2);
 		ret.col(0) = (a+v.sigma) * eigenvectors.row(v.x).transpose();
 		ret.col(1) = (a-v.sigma) * eigenvectors.row(v.x+V).transpose();
+	}
+
+	void matrixV (const Vertex v, UpdateType &ret) const {
+		ret.resize(N, 2);
+		ret.col(0) = eigenvectors.row(v.x).transpose();
+		ret.col(1) = eigenvectors.row(v.x+V).transpose();
+	}
+
+	UpdateType matrixU (const Vertex v) const {
+		UpdateType ret(N, 2);
+		matrixU(v, ret);
 		return ret;
 	}
 
 	UpdateType matrixV (const Vertex v) const {
 		UpdateType ret(N, 2);
-		ret.col(0) = eigenvectors.row(v.x).transpose();
-		ret.col(1) = eigenvectors.row(v.x+V).transpose();
+		matrixV(v, ret);
 		return ret;
 	}
 
