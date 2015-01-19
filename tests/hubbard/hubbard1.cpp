@@ -17,7 +17,7 @@ int main (int argc, char **argv) {
 	HubbardInteraction I(generator);
 	I.setup(es.eigenvectors(), 4.0, 5.0);
 	A.setIdentity(L, L);
-	HubbardInteraction::Vertex v = I.generate();
+	HubbardInteraction::Vertex v = I.generate(generator);
 	I.apply_vertex_on_the_left(v, A);
 	I.apply_inverse_on_the_left(v, A);
 	if (!A.isIdentity()) {

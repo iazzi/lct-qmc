@@ -16,7 +16,6 @@
 using namespace std;
 using namespace Eigen;
 
-int N = 80;
 
 double relative_error (double a, double b) {
 	return fabs(a-b)/min(fabs(a), fabs(b));
@@ -25,19 +24,20 @@ double relative_error (double a, double b) {
 int main (int argc, char **argv) {
 	std::mt19937_64 generator;
 	Parameters params(argc, argv);
+	double beta = params.getNumber("beta", 5.0);
 	std::uniform_real_distribution<double> d;
 	std::exponential_distribution<double> trial;
 	SpinOneHalf<CubicLattice> lattice(params);
 	lattice.compute();
 	HubbardInteraction interaction(generator);
-	interaction.setup(lattice.eigenvectors(), 4.0, 5.0);
+	interaction.setup(lattice.eigenvectors(), 4.0, 6.0);
 	auto model = make_model(lattice, interaction);
 	Configuration<Model<SpinOneHalf<CubicLattice>, HubbardInteraction>> conf(generator, model);
-	conf.setup(20.0, 0.0, N); // beta, mu (relative to half filling), slice number
+	conf.setup(beta, 0.0, 4*beta); // beta, mu (relative to half filling), slice number
 	for (size_t i=0;i<conf.slice_number();i++) {
 		conf.set_index(i);
-		for (size_t j=0;j<lattice.volume();j++) {
-			conf.insert(interaction.generate(0.0, conf.slice_end()-conf.slice_start()));
+		for (size_t j=0;j<0;j++) {
+			conf.insert(interaction.generate(0.0, conf.slice_end()-conf.slice_start(), generator));
 		}
 		//std::cerr << i << " -> " << conf.slice_size() << std::endl;
 	}
@@ -47,9 +47,8 @@ int main (int argc, char **argv) {
 	conf.save_G();
 	double p1 = conf.probability().first;
 	double pr = 0.0;
-	measurement<double> Kin;
-	auto sweep = [&generator, &conf, &lattice, &d, &trial, &pr, &interaction]() {
-		for (size_t i=0;i<conf.slice_number();i++) {
+	auto sweep = [&generator, &conf, &lattice, &d, &trial, &pr, &interaction](size_t M) {
+		for (size_t i=0;i<M;i++) {
 			HubbardInteraction::Vertex v;
 			for (size_t j=0;j<lattice.volume();j++) {
 				double dp = 0.0;
@@ -64,7 +63,7 @@ int main (int argc, char **argv) {
 						//cerr << "remove rejected" << endl;
 					}
 				} else {
-					v = interaction.generate(0.0, conf.slice_end()-conf.slice_start());
+					v = interaction.generate(0.0, conf.slice_end()-conf.slice_start(), generator);
 					dp = std::log(std::fabs(conf.insert_probability(v)));
 					if (-trial(generator)<dp+conf.insert_factor()) {
 						//cerr << "inserted vertex " << v.tau << endl;
@@ -75,31 +74,40 @@ int main (int argc, char **argv) {
 					}
 				}
 			}
-			conf.commit_changes();
 			//conf.compute_G();
 			//cerr << "dG = " << conf.check_and_save_G() << ", ";
-			conf.wrap_B();
-			if (0==(i+1)%7) conf.compute_B();
+			if (i+1>=M) {
+				conf.advance(1);
+				conf.compute_B();
+			} else {
+				conf.commit_changes();
+				conf.wrap_B();
+			}
 			conf.compute_G();
 			conf.save_G();
 			//double p2 = conf.probability().first;
 			//std::cerr << "dp = " << p1+pr-p2 << ' ' << p2-p1 << ' ' << pr << endl << endl;
 		}
 	};
-	size_t thermalization = 0;
-	size_t sweeps = 100;
+	size_t thermalization = 1000000;
+	size_t sweeps = 1000000;
+	measurement<double> Kin;
+	measurement<double> Verts;
 	for (size_t i=0;i<thermalization+sweeps;i++) {
-		sweep();
-		conf.compute_B();
-		conf.compute_G();
-		conf.save_G();
+		sweep(1);
 		if (i>=thermalization) {
 			Kin.add(lattice.kinetic_energy(conf.green_function())/lattice.volume());
-			cerr << Kin << endl;
+			Verts.add(conf.size());
+			if (i%100==0) cerr << endl << Kin << endl << Verts << endl;
+		} else if (i%100==0) {
+			cerr << ' ' << (100.0*i/thermalization) << "%         \r";
+			//Verts.add(conf.size());
+			//cerr << endl << Verts << endl;
 		}
 	}
 	double p2 = conf.probability().first;
 	std::cerr << "dp = " << p1+pr-p2 << ' ' << p2-p1 << ' ' << pr << endl << endl;
+	conf.show_verts();
 	return 0;
 }
 

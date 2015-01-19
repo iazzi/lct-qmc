@@ -21,7 +21,7 @@ int main (int argc, char **argv) {
 	auto model = make_model(lattice, interaction);
 	Slice<Model<SpinOneHalf<CubicLattice>, HubbardInteraction>> slice(model);
 	for (size_t i=0;i<lattice.volume();i++) {
-		slice.insert(interaction.generate());
+		slice.insert(interaction.generate(generator));
 	}
 	MatrixXd A = slice.matrix() * slice.inverse();
 	if (!A.isIdentity()) {

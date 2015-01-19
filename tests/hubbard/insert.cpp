@@ -36,8 +36,8 @@ int main (int argc, char **argv) {
 	for (size_t i=0;i<conf.slice_number();i++) {
 		conf.set_index(i);
 		for (size_t j=0;j<lattice.volume();j++) {
-			HubbardInteraction::Vertex v = interaction.generate(0.0, conf.slice_end()-conf.slice_start());
-			v.sigma = (j%2?-1:+1)*fabs(v.sigma);
+			HubbardInteraction::Vertex v = interaction.generate(0.0, conf.slice_end()-conf.slice_start(), generator);
+			//v.sigma = (j%2?-1:+1)*fabs(v.sigma);
 			conf.insert(v);
 		}
 		//std::cerr << i << " -> " << conf.slice_size() << std::endl;
@@ -50,7 +50,7 @@ int main (int argc, char **argv) {
 		conf.save_G();
 		double p1 = conf.probability().first;
 		for (int j=0;j<lattice.volume();j++) {
-			HubbardInteraction::Vertex v = interaction.generate(0.0, conf.slice_end()-conf.slice_start());
+			HubbardInteraction::Vertex v = interaction.generate(0.0, conf.slice_end()-conf.slice_start(), generator);
 			v.sigma = -v.sigma;
 			pr += std::log(std::fabs(conf.insert_probability(v)));
 			cerr << "inserted vertex " << v.tau << ' ' << v.sigma << endl;

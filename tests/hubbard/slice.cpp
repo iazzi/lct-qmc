@@ -29,9 +29,9 @@ int main (int argc, char **argv) {
 	Slice<Model<SpinOneHalf<CubicLattice>, HubbardInteraction>> slice(model);
 	for (size_t i=0;i<lattice.volume();i++) {
 		cerr << "insert" << endl;
-		slice.insert(interaction.generate(0.0, 1.0));
+		slice.insert(interaction.generate(0.0, 1.0, generator));
 	}
-	HubbardInteraction::Vertex v = interaction.generate(0.0, 1.0);
+	HubbardInteraction::Vertex v = interaction.generate(0.0, 1.0, generator);
 	MatrixXd A = slice.matrix();
 	Slice<Model<SpinOneHalf<CubicLattice>, HubbardInteraction>>::UpdateType U = slice.matrixU(v);
 	Slice<Model<SpinOneHalf<CubicLattice>, HubbardInteraction>>::UpdateType Vt = slice.matrixVt(v);

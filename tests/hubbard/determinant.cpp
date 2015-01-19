@@ -34,7 +34,7 @@ int main (int argc, char **argv) {
 	for (size_t i=0;i<conf.slice_number();i++) {
 		conf.set_index(i);
 		for (size_t j=0;j<lattice.volume();j++) {
-			conf.insert(interaction.generate(0.0, conf.slice_end()-conf.slice_start()));
+			conf.insert(interaction.generate(0.0, conf.slice_end()-conf.slice_start(), generator));
 		}
 		//std::cerr << i << " -> " << conf.slice_size() << std::endl;
 	}
