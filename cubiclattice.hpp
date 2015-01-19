@@ -20,6 +20,8 @@ class CubicLattice {
 
 	Eigen::MatrixXd H;
 
+	Eigen::VectorXd cached_exp;
+
 	public:
 
 	void setup (const Parameters &p) {
@@ -104,7 +106,11 @@ class CubicLattice {
 
 	template <typename T>
 		void propagate (double t, T& M) {
-			M.array().colwise() *= (-t*eigenvalues_.array()).exp();
+			cached_exp = eigenvalues_;
+			cached_exp *= -t;
+			cached_exp = cached_exp.exp();
+			M.applyOnTheLeft(cached_exp.matrix().asDiagonal());
+			//M.array().colwise() *= (-t*eigenvalues_.array()).exp(); // this causes allocation!
 		}
 
 	template <typename T>

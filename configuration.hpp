@@ -150,6 +150,10 @@ class Configuration {
 		}
 
 		void compute_B () {
+			if (R.size()<model.lattice().dimension()*model.lattice().dimension()) {
+				R = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension()) + 0.000*Eigen::MatrixXd::Random(model.lattice().dimension(), model.lattice().dimension());
+				R2 = R.inverse();
+			}
 			B.setIdentity(model.lattice().dimension()); // FIXME: maybe have a direct reference to the lattice here too
 			for (size_t i=0;i<M;i++) {
 				slices[(i+index+1)%M].apply_matrix(B.U);
