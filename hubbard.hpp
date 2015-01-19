@@ -56,6 +56,7 @@ class HubbardInteraction {
 	typedef HubbardVertex Vertex;
 	typedef Eigen::Matrix<double, Eigen::Dynamic, 2> UpdateType;
 	HubbardInteraction (std::mt19937_64 &g) : coin_flip(0.5), random_time(0.0, 1.0) {}
+	HubbardInteraction () : coin_flip(0.5), random_time(0.0, 1.0) {}
 
 	inline void setup (const Eigen::MatrixXd &A, double u, double k) {
 		eigenvectors = A;
