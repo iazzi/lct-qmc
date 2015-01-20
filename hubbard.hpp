@@ -179,8 +179,10 @@ inline void HubbardInteraction::apply_vertex_on_the_left (Vertex v, HubbardInter
 
 template <>
 inline void HubbardInteraction::apply_inverse_on_the_left (Vertex v, HubbardInteraction::UpdateType &M) {
-	M.col(0).head(V).noalias() -= (a+v.sigma)/(1.0+a+v.sigma) * eigenvectors.block(0, 0, V, V).row(v.x).transpose() * (eigenvectors.block(0, 0, V, V).row(v.x) * M.col(0).head(V));
-	M.col(1).tail(V).noalias() -= (a-v.sigma)/(1.0+a-v.sigma) * eigenvectors.block(V, V, V, V).row(v.x).transpose() * (eigenvectors.block(V, V, V, V).row(v.x) * M.col(1).tail(V));
+	double C = eigenvectors.block(0, 0, V, V).row(v.x) * M.col(0).head(V);
+	M.col(0).head(V).noalias() -= (a+v.sigma)/(1.0+a+v.sigma) * eigenvectors.block(0, 0, V, V).row(v.x).transpose() * C;
+	double D = eigenvectors.block(V, V, V, V).row(v.x) * M.col(1).tail(V);
+	M.col(1).tail(V).noalias() -= (a-v.sigma)/(1.0+a-v.sigma) * eigenvectors.block(V, V, V, V).row(v.x).transpose() * D;
 }
 
 #endif // HUBBARD_HPP

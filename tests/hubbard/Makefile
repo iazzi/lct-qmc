@@ -39,7 +39,7 @@ optimized:
 	$(MAKE) all MYCXXFLAGS="-O3 -march=native -DNDEBUG -DEIGEN_NO_DEBUG $(MYCXXFLAGS)" MYLDFLAGS="$(MYLDFLAGS)" MYLDLIBS="$(MYLDLIBS)"
 
 debug:
-	$(MAKE) all MYCXXFLAGS="-g -ggdb -O0 $(MYCXXFLAGS)" MYLDFLAGS="-g -ggdb -O0 $(MYLDFLAGS)" MYLDLIBS="$(MYLDLIBS)"
+	$(MAKE) all MYCXXFLAGS="-g -ggdb -O0 $(MYCXXFLAGS) -fdebug-prefix-map=`pwd`/=" MYLDFLAGS="-g -ggdb -O0 $(MYLDFLAGS)" MYLDLIBS="$(MYLDLIBS)"
 
 clean:
 	rm -f ${BIN} *.o
