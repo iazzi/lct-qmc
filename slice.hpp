@@ -15,7 +15,7 @@ class Slice {
 		typedef typename Model::Lattice Lattice;
 		typedef typename Model::Interaction Interaction;
 		typedef typename Interaction::Vertex Vertex;
-		typedef typename Interaction::UpdateType UpdateType;
+		typedef typename Interaction::MatrixType MatrixType;
 	private:
 		Lattice *L;
 		Interaction *I;
@@ -115,7 +115,7 @@ class Slice {
 			return ret;
 		}
 
-		void matrixU (const Vertex v, UpdateType &u) {
+		void matrixU (const Vertex v, MatrixType &u) {
 			I->matrixU(v, u);
 			double t0 = v.tau;
 			for (auto w = verts.upper_bound(v);w!=verts.end();w++) {
@@ -126,7 +126,7 @@ class Slice {
 			if (beta>t0) L->propagate(beta-t0, u);
 		}
 
-		void matrixVt (const Vertex v, UpdateType &vt) {
+		void matrixVt (const Vertex v, MatrixType &vt) {
 			I->matrixV(v, vt);
 			double t0 = v.tau;
 			for (auto w = verts.upper_bound(v);w!=verts.end();w++) {
@@ -137,7 +137,7 @@ class Slice {
 			if (beta>t0) L->propagate(t0-beta, vt);
 		}
 
-		void inverseU (const Vertex v, UpdateType &u) {
+		void inverseU (const Vertex v, MatrixType &u) {
 			I->matrixU(v, u);
 			u = -u;
 			double t0 = v.tau;
@@ -149,7 +149,7 @@ class Slice {
 			if (beta>t0) L->propagate(beta-t0, u);
 		}
 
-		void inverseVt (const Vertex v, UpdateType &vt) {
+		void inverseVt (const Vertex v, MatrixType &vt) {
 			I->matrixV(v, vt);
 			I->apply_inverse_on_the_left(v, vt);
 			double t0 = v.tau;
@@ -161,8 +161,8 @@ class Slice {
 			if (beta>t0) L->propagate(t0-beta, vt);
 		}
 
-		UpdateType matrixU (const Vertex v) {
-			UpdateType u = I->matrixU(v);
+		MatrixType matrixU (const Vertex v) {
+			MatrixType u = I->matrixU(v);
 			double t0 = v.tau;
 			for (auto w = verts.upper_bound(v);w!=verts.end();w++) {
 				if (w->tau>t0) L->propagate(w->tau-t0, u);
@@ -173,8 +173,8 @@ class Slice {
 			return u;
 		}
 
-		UpdateType matrixVt (const Vertex v) {
-			UpdateType vt = I->matrixV(v);
+		MatrixType matrixVt (const Vertex v) {
+			MatrixType vt = I->matrixV(v);
 			double t0 = v.tau;
 			for (auto w = verts.upper_bound(v);w!=verts.end();w++) {
 				if (w->tau>t0) L->propagate(t0-w->tau, vt);
@@ -185,8 +185,8 @@ class Slice {
 			return vt;
 		}
 
-		UpdateType inverseU (const Vertex v) {
-			UpdateType u = -I->matrixU(v);
+		MatrixType inverseU (const Vertex v) {
+			MatrixType u = -I->matrixU(v);
 			double t0 = v.tau;
 			for (auto w = verts.upper_bound(v);w!=verts.end();w++) {
 				if (w->tau>t0) L->propagate(w->tau-t0, u);
@@ -197,8 +197,8 @@ class Slice {
 			return u;
 		}
 
-		UpdateType inverseVt (const Vertex v) {
-			UpdateType vt = I->matrixV(v);
+		MatrixType inverseVt (const Vertex v) {
+			MatrixType vt = I->matrixV(v);
 			I->apply_inverse_on_the_left(v, vt);
 			double t0 = v.tau;
 			for (auto w = verts.upper_bound(v);w!=verts.end();w++) {

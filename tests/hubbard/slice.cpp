@@ -33,8 +33,8 @@ int main (int argc, char **argv) {
 	}
 	HubbardInteraction::Vertex v = interaction.generate(0.0, 1.0, generator);
 	MatrixXd A = slice.matrix();
-	Slice<Model<SpinOneHalf<CubicLattice>, HubbardInteraction>>::UpdateType U = slice.matrixU(v);
-	Slice<Model<SpinOneHalf<CubicLattice>, HubbardInteraction>>::UpdateType Vt = slice.matrixVt(v);
+	Slice<Model<SpinOneHalf<CubicLattice>, HubbardInteraction>>::MatrixType U = slice.matrixU(v);
+	Slice<Model<SpinOneHalf<CubicLattice>, HubbardInteraction>>::MatrixType Vt = slice.matrixVt(v);
 	slice.insert(v);
 	MatrixXd B = slice.matrix();
 	if (!B.isApprox(A+U*Vt.transpose()*A)) {

@@ -15,7 +15,7 @@ class Configuration {
 	public:
 		typedef typename Model::Lattice Lattice;
 		typedef typename Model::Interaction Interaction;
-		typedef typename Model::Interaction::UpdateType UpdateType;
+		typedef typename Model::Interaction::MatrixType MatrixType;
 		typedef typename Interaction::Vertex Vertex;
 
 	private:
@@ -40,7 +40,7 @@ class Configuration {
 		Eigen::MatrixXd R; // a random matrix to solve degeneracies
 		Eigen::MatrixXd R2; // inverse of R
 
-		UpdateType u, vt;
+		MatrixType u, vt;
 	public:
 		Configuration (std::mt19937_64 &g, Model &m) : generator(g), model(m), index(0) {}
 
@@ -91,7 +91,7 @@ class Configuration {
 			return slices[index].remove(v);
 		}
 
-		void insert_and_update (Vertex v, const UpdateType& matrixU, const UpdateType& matrixVt) {
+		void insert_and_update (Vertex v, const MatrixType& matrixU, const MatrixType& matrixVt) {
 			G_matrix -= (G_matrix * matrixU) * (Eigen::Matrix2d::Identity() + matrixVt.transpose() * G_matrix * matrixU).inverse() * (matrixVt.transpose() * G_matrix);
 			G_matrix += matrixU * (matrixVt.transpose() * G_matrix);
 			B.U += matrixU * (matrixVt.transpose() * B.U);
@@ -104,7 +104,7 @@ class Configuration {
 			insert_and_update(v, u, vt);
 		}
 
-		size_t remove_and_update (Vertex v, const UpdateType& inverseU, const UpdateType& inverseVt) {
+		size_t remove_and_update (Vertex v, const MatrixType& inverseU, const MatrixType& inverseVt) {
 			G_matrix -= (G_matrix * inverseU) * (Eigen::Matrix2d::Identity() + inverseVt.transpose() * G_matrix * inverseU).inverse() * (inverseVt.transpose() * G_matrix);
 			G_matrix += inverseU * (inverseVt.transpose() * G_matrix);
 			B.U += inverseU * (inverseVt.transpose() * B.U);
@@ -118,8 +118,6 @@ class Configuration {
 		}
 
 		void commit_changes () {
-			//R = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension()) + 0.002*Eigen::MatrixXd::Random(model.lattice().dimension(), model.lattice().dimension());
-			//R2 = R.inverse();
 			decompose_U();
 			fix_sign_B();
 		}
@@ -166,24 +164,14 @@ class Configuration {
                 // Wraps B(i) with B_{i+1} and B_{i+1}^{-1}, resulting in B(i+1)
 		void wrap_B () {
 			set_index(index+1);
-                        std::cerr << "Applying matrix on the left" << std::endl;
+                        //std::cerr << "Applying matrix on the left" << std::endl;
 			slices[index].apply_matrix(B.U);
 			decompose_U();
-			for (size_t i=0;i<model.interaction().blocks();i++) {
-				//size_t a = model.interaction().block_start(i);
-				//size_t b = model.interaction().block_size(i);
-				//std::cerr << "block " << i << " -> " << B.S.segment(a, b).array().abs().log().sum() << ' ' << slices[index].log_abs_det_block(i)+log_abs_det_block(i) << std::endl;
-			}
-                        std::cerr << "Applying inverse on the right" << std::endl;
+                        //std::cerr << "Applying inverse on the right" << std::endl;
 			B.transposeInPlace();
 			B.U.applyOnTheLeft(slices[index].inverse().transpose());
 			decompose_U();
 			B.transposeInPlace();
-			//for (size_t i=0;i<model.interaction().blocks();i++) {
-				//size_t a = model.interaction().block_start(i);
-				//size_t b = model.interaction().block_size(i);
-				//std::cerr << "block " << i << " -> " << B.S.segment(a, b).array().abs().log().sum() << ' ' << log_abs_det_block(i) << std::endl;
-			//}
 			fix_sign_B();
 		}
 
