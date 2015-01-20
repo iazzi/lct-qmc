@@ -162,51 +162,26 @@ class Slice {
 		}
 
 		MatrixType matrixU (const Vertex v) {
-			MatrixType u = I->matrixU(v);
-			double t0 = v.tau;
-			for (auto w = verts.upper_bound(v);w!=verts.end();w++) {
-				if (w->tau>t0) L->propagate(w->tau-t0, u);
-				t0 = w->tau;
-				I->apply_vertex_on_the_left(*w, u);
-			}
-			if (beta>t0) L->propagate(beta-t0, u);
+			MatrixType u;
+			matrixU(v, u);
 			return u;
 		}
 
 		MatrixType matrixVt (const Vertex v) {
-			MatrixType vt = I->matrixV(v);
-			double t0 = v.tau;
-			for (auto w = verts.upper_bound(v);w!=verts.end();w++) {
-				if (w->tau>t0) L->propagate(t0-w->tau, vt);
-				t0 = w->tau;
-				I->apply_inverse_on_the_left(*w, vt);
-			}
-			if (beta>t0) L->propagate(t0-beta, vt);
+			MatrixType vt;
+			matrixVt(v, vt);
 			return vt;
 		}
 
 		MatrixType inverseU (const Vertex v) {
-			MatrixType u = -I->matrixU(v);
-			double t0 = v.tau;
-			for (auto w = verts.upper_bound(v);w!=verts.end();w++) {
-				if (w->tau>t0) L->propagate(w->tau-t0, u);
-				t0 = w->tau;
-				I->apply_vertex_on_the_left(*w, u);
-			}
-			if (beta>t0) L->propagate(beta-t0, u);
+			MatrixType u;
+			inverseU(v, u);
 			return u;
 		}
 
 		MatrixType inverseVt (const Vertex v) {
-			MatrixType vt = I->matrixV(v);
-			I->apply_inverse_on_the_left(v, vt);
-			double t0 = v.tau;
-			for (auto w = verts.upper_bound(v);w!=verts.end();w++) {
-				if (w->tau>t0) L->propagate(t0-w->tau, vt);
-				t0 = w->tau;
-				I->apply_inverse_on_the_left(*w, vt);
-			}
-			if (beta>t0) L->propagate(t0-beta, vt);
+			MatrixType vt;
+			inverseVt(v, vt);
 			return vt;
 		}
 };
