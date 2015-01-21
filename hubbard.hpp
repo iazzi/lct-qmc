@@ -1,6 +1,8 @@
 #ifndef HUBBARD_HPP
 #define HUBBARD_HPP
 
+#include "parameters.hpp"
+
 #include <Eigen/Dense>
 #include <random>
 
@@ -56,19 +58,27 @@ class HubbardInteraction {
 	public:
 	typedef HubbardVertex Vertex;
 	typedef Eigen::Matrix<double, Eigen::Dynamic, 2> MatrixType;
-	HubbardInteraction (std::mt19937_64 &g) : coin_flip(0.5), random_time(0.0, 1.0) {}
 	HubbardInteraction () : coin_flip(0.5), random_time(0.0, 1.0) {}
 
-	inline void setup (const Eigen::MatrixXd &A, double u, double k) {
-		eigenvectors = A;
+	inline void setup (double u, double k) {
 		U = u;
 		K = k;
-		N = A.diagonal().size();
-		V = N/2; // FIXME assert N even?
-		coin_flip = std::bernoulli_distribution(0.5);
-		random_site = std::uniform_int_distribution<size_t>(0, V-1);
 		a = 1.0*U/2.0/K;
 		b = sqrt(U/K+a*a);
+	}
+
+	inline void setup (const Parameters &p) {
+		U = p.getNumber("U", 4.0);
+		K = p.getNumber("K", 6.0);
+		a = 1.0*U/2.0/K;
+		b = sqrt(U/K+a*a);
+	}
+
+	void set_lattice_eigenvectors (const Eigen::MatrixXd &A) {
+		eigenvectors = A;
+		N = A.diagonal().size();
+		V = N/2; // FIXME assert N even?
+		random_site = std::uniform_int_distribution<size_t>(0, V-1);
 	}
 
 	template <typename G>

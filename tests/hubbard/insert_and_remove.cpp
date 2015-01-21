@@ -21,13 +21,13 @@ double relative_error (double a, double b) {
 }
 
 int main (int argc, char **argv) {
+	Parameters params(argc, argv);
 	std::mt19937_64 generator;
 	std::uniform_real_distribution<double> d;
-	Parameters params(argc, argv);
 	SpinOneHalf<CubicLattice> lattice(params);
 	lattice.compute();
 	HubbardInteraction interaction;
-	interaction.setup(lattice.eigenvectors(), 4.0, 5.0);
+	interaction.setup(params);
 	auto model = make_model(lattice, interaction);
 	Configuration<Model<SpinOneHalf<CubicLattice>, HubbardInteraction>> conf(model);
 	conf.setup(20.0, 0.0, N); // beta, mu (relative to half filling), slice number
@@ -45,7 +45,7 @@ int main (int argc, char **argv) {
 		conf.compute_G();
 		conf.save_G();
 		double p1 = conf.probability().first;
-		for (int j=0;j<lattice.volume()/2;j++) {
+		for (size_t j=0;j<lattice.volume()/2;j++) {
 			HubbardInteraction::Vertex v;
 			v = conf.get_vertex(d(generator)*conf.slice_size());
 			pr += std::log(std::fabs(conf.remove_probability(v)));

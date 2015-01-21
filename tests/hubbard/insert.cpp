@@ -24,12 +24,10 @@ int main (int argc, char **argv) {
 	Parameters params(argc, argv);
 	std::mt19937_64 generator;
 	std::random_device rd;
-	uniform_int_distribution<unsigned int> idist(0, UINT_MAX);
-	generator.seed(idist(rd));
 	SpinOneHalf<CubicLattice> lattice(params);
 	lattice.compute();
 	HubbardInteraction interaction;
-	interaction.setup(lattice.eigenvectors(), 4.0, 5.0);
+	interaction.setup(params);
 	auto model = make_model(lattice, interaction);
 	Configuration<Model<SpinOneHalf<CubicLattice>, HubbardInteraction>> conf(model);
 	conf.setup(20.0, 0.0, N); // beta, mu (relative to half filling), slice number
@@ -49,7 +47,7 @@ int main (int argc, char **argv) {
 		conf.compute_G();
 		conf.save_G();
 		double p1 = conf.probability().first;
-		for (int j=0;j<lattice.volume();j++) {
+		for (size_t j=0;j<lattice.volume();j++) {
 			HubbardInteraction::Vertex v = interaction.generate(0.0, conf.slice_end()-conf.slice_start(), generator);
 			v.sigma = -v.sigma;
 			pr += std::log(std::fabs(conf.insert_probability(v)));

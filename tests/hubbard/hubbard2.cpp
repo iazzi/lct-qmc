@@ -16,8 +16,9 @@ int main (int argc, char **argv) {
 	Parameters params(argc, argv);
 	SpinOneHalf<CubicLattice> lattice(params);
 	lattice.compute();
-	HubbardInteraction interaction(generator);
-	interaction.setup(lattice.eigenvectors(), 4.0, 5.0);
+	HubbardInteraction interaction;
+	interaction.setup(4.0, 5.0);
+	interaction.set_lattice_eigenvectors(lattice.eigenvectors());
 	auto model = make_model(lattice, interaction);
 	Slice<Model<SpinOneHalf<CubicLattice>, HubbardInteraction>> slice(model);
 	for (size_t i=0;i<lattice.volume();i++) {

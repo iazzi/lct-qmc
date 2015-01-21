@@ -31,8 +31,8 @@ int main (int argc, char **argv) {
 	std::exponential_distribution<double> trial;
 	SpinOneHalf<CubicLattice> lattice(params);
 	lattice.compute();
-	HubbardInteraction interaction(generator);
-	interaction.setup(lattice.eigenvectors(), 4.0, 6.0);
+	HubbardInteraction interaction;
+	interaction.setup(4.0, 6.0);
 	auto model = make_model(lattice, interaction);
 	Configuration<Model<SpinOneHalf<CubicLattice>, HubbardInteraction>> conf(model);
 	conf.setup(beta, 0.0, 4*beta); // beta, mu (relative to half filling), slice number

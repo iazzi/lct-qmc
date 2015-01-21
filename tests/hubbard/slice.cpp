@@ -24,11 +24,11 @@ int main (int argc, char **argv) {
 	SpinOneHalf<CubicLattice> lattice(params);
 	lattice.compute();
 	HubbardInteraction interaction;
-	interaction.setup(lattice.eigenvectors(), 4.0, 5.0);
+	interaction.setup(4.0, 5.0);
 	auto model = make_model(lattice, interaction);
 	Slice<Model<SpinOneHalf<CubicLattice>, HubbardInteraction>> slice(model);
 	for (size_t i=0;i<lattice.volume();i++) {
-		cerr << "insert" << endl;
+		//cerr << "insert" << endl;
 		slice.insert(interaction.generate(0.0, 1.0, generator));
 	}
 	HubbardInteraction::Vertex v = interaction.generate(0.0, 1.0, generator);

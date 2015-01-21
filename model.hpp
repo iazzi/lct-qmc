@@ -6,7 +6,7 @@ class Model {
 	L &l;
 	I &i;
 	public:
-	Model (L &a, I &b) : l(a), i(b) {}
+	Model (L &a, I &b) : l(a), i(b) { i.set_lattice_eigenvectors(l.eigenvectors()); }
 	L& lattice () { return l; }
 	I& interaction () { return i; }
 	typedef L Lattice;

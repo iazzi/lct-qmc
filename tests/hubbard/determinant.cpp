@@ -26,7 +26,7 @@ int main (int argc, char **argv) {
 	SpinOneHalf<CubicLattice> lattice(params);
 	lattice.compute();
 	HubbardInteraction interaction;
-	interaction.setup(lattice.eigenvectors(), 4.0, 5.0);
+	interaction.setup(4.0, 5.0);
 	auto model = make_model(lattice, interaction);
 	N = params.getInteger("N");
 	Configuration<Model<SpinOneHalf<CubicLattice>, HubbardInteraction>> conf(model);

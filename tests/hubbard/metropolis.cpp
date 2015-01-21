@@ -21,14 +21,14 @@ double relative_error (double a, double b) {
 }
 
 int main (int argc, char **argv) {
-	std::mt19937_64 generator;
 	Parameters params(argc, argv);
+	std::mt19937_64 generator;
 	std::uniform_real_distribution<double> d;
 	std::exponential_distribution<double> trial;
 	SpinOneHalf<CubicLattice> lattice(params);
 	lattice.compute();
 	HubbardInteraction interaction;
-	interaction.setup(lattice.eigenvectors(), 4.0, 5.0);
+	interaction.setup(params);
 	auto model = make_model(lattice, interaction);
 	Configuration<Model<SpinOneHalf<CubicLattice>, HubbardInteraction>> conf(model);
 	conf.setup(20.0, 0.0, N); // beta, mu (relative to half filling), slice number

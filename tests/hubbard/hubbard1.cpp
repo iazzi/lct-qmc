@@ -12,11 +12,14 @@ const int L = 100;
 int main (int argc, char **argv) {
 	std::mt19937_64 generator;
 	MatrixXd A = MatrixXd::Random(L, L);
-	MatrixXd H = A * A.transpose();
+	MatrixXd H(2*L, 2*L);
+	H.topLeftCorner(L, L) = A * A.transpose();
+	H.bottomRightCorner(L, L) = A.transpose() * A;
 	SelfAdjointEigenSolver<MatrixXd> es(H);
-	HubbardInteraction I(generator);
-	I.setup(es.eigenvectors(), 4.0, 5.0);
-	A.setIdentity(L, L);
+	HubbardInteraction I;
+	I.setup(4.0, 5.0);
+	I.set_lattice_eigenvectors(es.eigenvectors());
+	A.setIdentity(2*L, 2*L);
 	HubbardInteraction::Vertex v = I.generate(generator);
 	I.apply_vertex_on_the_left(v, A);
 	I.apply_inverse_on_the_left(v, A);
