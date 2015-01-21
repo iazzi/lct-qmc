@@ -106,8 +106,7 @@ class Configuration {
 		void insert_and_update (Vertex v) {
 			if (v==cache.v) {
 			} else {
-				slices[index].matrixU(v, cache.u);
-				slices[index].matrixVt(v, cache.vt);
+				insert_probability(v);
 			}
 			insert_and_update(v, cache.u, cache.vt);
 		}
@@ -122,8 +121,7 @@ class Configuration {
 		size_t remove_and_update (Vertex v) {
 			if (v==cache.v) {
 			} else {
-				slices[index].inverseU(v, cache.u);
-				slices[index].inverseVt(v, cache.vt);
+				remove_probability(v);
 			}
 			return remove_and_update(v, cache.u, cache.vt);
 		}
@@ -248,14 +246,16 @@ class Configuration {
 			cache.v = v;
 			slices[index].matrixU(v, cache.u);
 			slices[index].matrixVt(v, cache.vt);
-			return (Eigen::Matrix2d::Identity() + cache.vt.transpose() * G_matrix * cache.u).determinant();
+			cache.probability = (Eigen::Matrix2d::Identity() + cache.vt.transpose() * G_matrix * cache.u).determinant();
+			return cache.probability;
 		}
 
 		double remove_probability (Vertex v) {
 			cache.v = v;
 			slices[index].inverseU(v, cache.u);
 			slices[index].inverseVt(v, cache.vt);
-			return (Eigen::Matrix2d::Identity() + cache.vt.transpose() * G_matrix * cache.u).determinant();
+			cache.probability = (Eigen::Matrix2d::Identity() + cache.vt.transpose() * G_matrix * cache.u).determinant();
+			return cache.probability;
 		}
 
 		void save_G () {

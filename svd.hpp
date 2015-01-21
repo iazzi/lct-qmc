@@ -1,6 +1,7 @@
 #ifndef SVD_HPP
 #define SVD_HPP
 
+#include <Eigen/LU>
 #include <Eigen/QR>
 #include <Eigen/SVD>
 
@@ -300,6 +301,22 @@ struct SVDHelper {
 		Vt = svd.Vt;
 		other.resize(svd.other.rows(), svd.other.cols());
 		return *this;
+	}
+
+	Eigen::MatrixXd get_propagator (double lambda) {
+		invertInPlace();
+		int N = S.size();
+		int M = ((S.array()*lambda).abs()>=1e0).count();
+		//std::cerr << N << ' ' << M << ' ' << S.maxCoeff()<< std::endl;
+		Eigen::MatrixXd A = U.rightCols(N-M) * S.tail(N-M).asDiagonal() * Vt.bottomRows(N-M) * lambda;
+		A += Eigen::MatrixXd::Identity(N, N);
+		A = A.inverse();
+		Eigen::MatrixXd B = Vt.topRows(M) * A * U.leftCols(M);
+		B += (lambda*S).head(M).cwiseInverse().asDiagonal();
+		B = B.inverse();
+		A -= A * U.leftCols(M) * B * Vt.topRows(M) * A;
+		invertInPlace();
+		return A;
 	}
 };
 
