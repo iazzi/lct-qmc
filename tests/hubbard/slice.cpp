@@ -23,7 +23,7 @@ int main (int argc, char **argv) {
 	Parameters params(argc, argv);
 	SpinOneHalf<CubicLattice> lattice(params);
 	lattice.compute();
-	HubbardInteraction interaction(generator);
+	HubbardInteraction interaction;
 	interaction.setup(lattice.eigenvectors(), 4.0, 5.0);
 	auto model = make_model(lattice, interaction);
 	Slice<Model<SpinOneHalf<CubicLattice>, HubbardInteraction>> slice(model);

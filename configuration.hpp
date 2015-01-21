@@ -21,7 +21,6 @@ class Configuration {
 	private:
 		std::vector<Slice<Model>> slices;
 
-		std::mt19937_64 &generator;
 		Model &model;
 
 		double beta; // inverse temperature
@@ -47,7 +46,7 @@ class Configuration {
 			Eigen::Matrix2d matrix;
 		} cache;
 	public:
-		Configuration (std::mt19937_64 &g, Model &m) : generator(g), model(m), index(0) {}
+		Configuration (Model &m) : model(m), index(0) {}
 
 		void setup (double b, double m, size_t n) {
 			beta = b;

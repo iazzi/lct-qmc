@@ -34,7 +34,7 @@ int main (int argc, char **argv) {
 	HubbardInteraction interaction(generator);
 	interaction.setup(lattice.eigenvectors(), 4.0, 6.0);
 	auto model = make_model(lattice, interaction);
-	Configuration<Model<SpinOneHalf<CubicLattice>, HubbardInteraction>> conf(generator, model);
+	Configuration<Model<SpinOneHalf<CubicLattice>, HubbardInteraction>> conf(model);
 	conf.setup(beta, 0.0, 4*beta); // beta, mu (relative to half filling), slice number
 	for (size_t i=0;i<conf.slice_number();i++) {
 		conf.set_index(i);
