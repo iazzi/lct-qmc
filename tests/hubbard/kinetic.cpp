@@ -85,8 +85,7 @@ int main (int argc, char **argv) {
 				conf.commit_changes();
 				conf.wrap_B();
 			}
-			conf.compute_G();
-			conf.save_G();
+			conf.compute_G_alt();
 			//double p2 = conf.probability().first;
 			//std::cerr << "dp = " << p1+pr-p2 << ' ' << p2-p1 << ' ' << pr << endl << endl;
 		}

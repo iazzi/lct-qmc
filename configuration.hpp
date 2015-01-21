@@ -227,9 +227,34 @@ class Configuration {
 
 		void compute_G () {
 			G = B; // B
-			G.invertInPlace(); // B^-1
-			G.add_identity(std::exp(-beta*mu)); // 1+exp(-beta*mu)*B^-1
-			G.invertInPlace(); // 1/(1+exp(-beta*mu)*B^-1) = B/(1+B)
+			//G.invertInPlace(); // B^-1
+			//G.add_identity(std::exp(-beta*mu)); // 1+exp(-beta*mu)*B^-1
+			//G.invertInPlace(); // 1/(1+exp(-beta*mu)*B^-1) = B/(1+B)
+			for (size_t i=0;i<model.interaction().blocks();i++) {
+				size_t a = model.interaction().block_start(i);
+				size_t b = model.interaction().block_size(i);
+				blocks[i].Vt = B.Vt.block(a, a, b, b);
+				blocks[i].S = B.S.segment(a, b);
+				blocks[i].U = B.U.block(a, a, b, b);
+				blocks[i].invertInPlace();
+				blocks[i].add_identity(std::exp(-beta*mu));
+				blocks[i].invertInPlace();
+				G.U.block(a, a, b, b) = blocks[i].U;
+				G.S.segment(a, b) = blocks[i].S;
+				G.Vt.block(a, a, b, b) = blocks[i].Vt;
+			}
+		}
+
+		void compute_G_alt () {
+			G = B; // B
+			for (size_t i=0;i<model.interaction().blocks();i++) {
+				size_t a = model.interaction().block_start(i);
+				size_t b = model.interaction().block_size(i);
+				blocks[i].Vt = B.Vt.block(a, a, b, b);
+				blocks[i].S = B.S.segment(a, b);
+				blocks[i].U = B.U.block(a, a, b, b);
+				G_matrix.block(a, a, b, b) = blocks[i].get_propagator(std::exp(-beta*mu));
+			}
 		}
 
 		std::pair<double, double> probability () {
