@@ -25,6 +25,8 @@ int main (int argc, char **argv) {
 	std::mt19937_64 generator;
 	Parameters params(argc, argv);
 	double beta = params.getNumber("beta", 5.0);
+	size_t thermalization = params.getInteger("thermalization", 10000);
+	size_t sweeps = params.getInteger("sweeps", 10000);
 	std::uniform_real_distribution<double> d;
 	std::exponential_distribution<double> trial;
 	SpinOneHalf<CubicLattice> lattice(params);
@@ -36,7 +38,7 @@ int main (int argc, char **argv) {
 	conf.setup(beta, 0.0, 4*beta); // beta, mu (relative to half filling), slice number
 	for (size_t i=0;i<conf.slice_number();i++) {
 		conf.set_index(i);
-		for (size_t j=0;j<0;j++) {
+		for (size_t j=0;j<lattice.volume();j++) {
 			conf.insert(interaction.generate(0.0, conf.slice_end()-conf.slice_start(), generator));
 		}
 		//std::cerr << i << " -> " << conf.slice_size() << std::endl;
@@ -89,8 +91,6 @@ int main (int argc, char **argv) {
 			//std::cerr << "dp = " << p1+pr-p2 << ' ' << p2-p1 << ' ' << pr << endl << endl;
 		}
 	};
-	size_t thermalization = 1000000;
-	size_t sweeps = 1000000;
 	measurement<double> Kin;
 	measurement<double> Verts;
 	for (size_t i=0;i<thermalization+sweeps;i++) {

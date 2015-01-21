@@ -40,7 +40,12 @@ class Configuration {
 		Eigen::MatrixXd R; // a random matrix to solve degeneracies
 		Eigen::MatrixXd R2; // inverse of R
 
-		MatrixType u, vt;
+		struct {
+			Vertex v;
+			MatrixType u, vt;
+			double probability;
+			Eigen::Matrix2d matrix;
+		} cache;
 	public:
 		Configuration (std::mt19937_64 &g, Model &m) : generator(g), model(m), index(0) {}
 
@@ -99,9 +104,12 @@ class Configuration {
 		}
 
 		void insert_and_update (Vertex v) {
-			slices[index].matrixU(v, u);
-			slices[index].matrixVt(v, vt);
-			insert_and_update(v, u, vt);
+			if (v==cache.v) {
+			} else {
+				slices[index].matrixU(v, cache.u);
+				slices[index].matrixVt(v, cache.vt);
+			}
+			insert_and_update(v, cache.u, cache.vt);
 		}
 
 		size_t remove_and_update (Vertex v, const MatrixType& inverseU, const MatrixType& inverseVt) {
@@ -112,9 +120,12 @@ class Configuration {
 		}
 
 		size_t remove_and_update (Vertex v) {
-			slices[index].inverseU(v, u);
-			slices[index].inverseVt(v, vt);
-			return remove_and_update(v, u, vt);
+			if (v==cache.v) {
+			} else {
+				slices[index].inverseU(v, cache.u);
+				slices[index].inverseVt(v, cache.vt);
+			}
+			return remove_and_update(v, cache.u, cache.vt);
 		}
 
 		void commit_changes () {
@@ -234,15 +245,17 @@ class Configuration {
 		}
 
 		double insert_probability (Vertex v) {
-			slices[index].matrixU(v, u);
-			slices[index].matrixVt(v, vt);
-			return (Eigen::Matrix2d::Identity() + vt.transpose() * G_matrix * u).determinant();
+			cache.v = v;
+			slices[index].matrixU(v, cache.u);
+			slices[index].matrixVt(v, cache.vt);
+			return (Eigen::Matrix2d::Identity() + cache.vt.transpose() * G_matrix * cache.u).determinant();
 		}
 
 		double remove_probability (Vertex v) {
-			slices[index].inverseU(v, u);
-			slices[index].inverseVt(v, vt);
-			return (Eigen::Matrix2d::Identity() + vt.transpose() * G_matrix * u).determinant();
+			cache.v = v;
+			slices[index].inverseU(v, cache.u);
+			slices[index].inverseVt(v, cache.vt);
+			return (Eigen::Matrix2d::Identity() + cache.vt.transpose() * G_matrix * cache.u).determinant();
 		}
 
 		void save_G () {
