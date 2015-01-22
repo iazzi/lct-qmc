@@ -59,6 +59,8 @@ class HubbardInteraction {
 	typedef HubbardVertex Vertex;
 	typedef Eigen::Matrix<double, Eigen::Dynamic, 2> MatrixType;
 	HubbardInteraction () : coin_flip(0.5), random_time(0.0, 1.0) {}
+	HubbardInteraction (const Parameters &p) : coin_flip(0.5), random_time(0.0, 1.0) { setup(p); }
+	HubbardInteraction (const HubbardInteraction &other) : coin_flip(0.5), random_time(0.0, 1.0) { setup(other.U, other.K); }
 
 	inline void setup (double u, double k) {
 		U = u;
