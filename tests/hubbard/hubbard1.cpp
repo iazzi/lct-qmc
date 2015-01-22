@@ -10,6 +10,7 @@ using namespace Eigen;
 const int L = 100;
 
 int main (int argc, char **argv) {
+	Parameters params(argc, argv);
 	std::mt19937_64 generator;
 	MatrixXd A = MatrixXd::Random(L, L);
 	MatrixXd H(2*L, 2*L);
@@ -17,7 +18,7 @@ int main (int argc, char **argv) {
 	H.bottomRightCorner(L, L) = A.transpose() * A;
 	SelfAdjointEigenSolver<MatrixXd> es(H);
 	HubbardInteraction I;
-	I.setup(4.0, 5.0);
+	I.setup(params);
 	I.set_lattice_eigenvectors(es.eigenvectors());
 	A.setIdentity(2*L, 2*L);
 	HubbardInteraction::Vertex v = I.generate(generator);

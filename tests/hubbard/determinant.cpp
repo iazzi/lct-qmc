@@ -24,9 +24,7 @@ int main (int argc, char **argv) {
 	std::mt19937_64 generator;
 	Parameters params(argc, argv);
 	SpinOneHalf<CubicLattice> lattice(params);
-	lattice.compute();
-	HubbardInteraction interaction;
-	interaction.setup(4.0, 5.0);
+	HubbardInteraction interaction(params);
 	auto model = make_model(lattice, interaction);
 	N = params.getInteger("N");
 	Configuration<Model<SpinOneHalf<CubicLattice>, HubbardInteraction>> conf(model);

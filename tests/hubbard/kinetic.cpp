@@ -30,16 +30,14 @@ int main (int argc, char **argv) {
 	std::uniform_real_distribution<double> d;
 	std::exponential_distribution<double> trial;
 	SpinOneHalf<CubicLattice> lattice(params);
-	lattice.compute();
-	HubbardInteraction interaction;
-	interaction.setup(4.0, 6.0);
+	HubbardInteraction interaction(params);
 	auto model = make_model(lattice, interaction);
 	Configuration<Model<SpinOneHalf<CubicLattice>, HubbardInteraction>> conf(model);
 	conf.setup(beta, 0.0, 4*beta); // beta, mu (relative to half filling), slice number
 	for (size_t i=0;i<conf.slice_number();i++) {
 		conf.set_index(i);
 		for (size_t j=0;j<lattice.volume();j++) {
-			conf.insert(interaction.generate(0.0, conf.slice_end()-conf.slice_start(), generator));
+			conf.insert(model.interaction().generate(0.0, conf.slice_end()-conf.slice_start(), generator));
 		}
 		//std::cerr << i << " -> " << conf.slice_size() << std::endl;
 	}
@@ -49,7 +47,7 @@ int main (int argc, char **argv) {
 	conf.save_G();
 	double p1 = conf.probability().first;
 	double pr = 0.0;
-	auto sweep = [&generator, &conf, &lattice, &d, &trial, &pr, &interaction](size_t M) {
+	auto sweep = [&generator, &conf, &lattice, &d, &trial, &pr, &model](size_t M) {
 		for (size_t i=0;i<M;i++) {
 			HubbardInteraction::Vertex v;
 			for (size_t j=0;j<lattice.volume();j++) {
@@ -65,7 +63,7 @@ int main (int argc, char **argv) {
 						//cerr << "remove rejected" << endl;
 					}
 				} else {
-					v = interaction.generate(0.0, conf.slice_end()-conf.slice_start(), generator);
+					v = model.interaction().generate(0.0, conf.slice_end()-conf.slice_start(), generator);
 					dp = std::log(std::fabs(conf.insert_probability(v)));
 					if (-trial(generator)<dp+conf.insert_factor()) {
 						//cerr << "inserted vertex " << v.tau << endl;

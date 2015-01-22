@@ -22,9 +22,8 @@ int main (int argc, char **argv) {
 	std::mt19937_64 generator;
 	Parameters params(argc, argv);
 	SpinOneHalf<CubicLattice> lattice(params);
-	lattice.compute();
 	HubbardInteraction interaction;
-	interaction.setup(4.0, 5.0);
+	interaction.setup(params);
 	auto model = make_model(lattice, interaction);
 	Slice<Model<SpinOneHalf<CubicLattice>, HubbardInteraction>> slice(model);
 	for (size_t i=0;i<lattice.volume();i++) {

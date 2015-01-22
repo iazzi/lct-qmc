@@ -12,12 +12,11 @@ using namespace std;
 using namespace Eigen;
 
 int main (int argc, char **argv) {
-	std::mt19937_64 generator;
 	Parameters params(argc, argv);
+	std::mt19937_64 generator;
 	SpinOneHalf<CubicLattice> lattice(params);
-	lattice.compute();
 	HubbardInteraction interaction;
-	interaction.setup(4.0, 5.0);
+	interaction.setup(params);
 	interaction.set_lattice_eigenvectors(lattice.eigenvectors());
 	auto model = make_model(lattice, interaction);
 	Slice<Model<SpinOneHalf<CubicLattice>, HubbardInteraction>> slice(model);
