@@ -58,9 +58,9 @@ class SpinOneHalf {
 			return (eigenvalues_.array() * M.diagonal().array()).sum();
 		}
 
-	SpinOneHalf (): computed(false) {}
-	SpinOneHalf (const Lattice &l): l_(l), computed(false) {}
-	SpinOneHalf (const Parameters &p): l_(p), computed(false) {}
+	SpinOneHalf (): computed(false) { compute(); }
+	SpinOneHalf (const Lattice &l): l_(l), computed(false) { compute(); }
+	SpinOneHalf (const Parameters &p): l_(p), computed(false) { compute(); }
 };
 
 
