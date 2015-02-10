@@ -1,6 +1,7 @@
 #ifndef CONFIGURATION_HPP
 #define CONFIGURATION_HPP
 
+#include "parameters.hpp"
 #include "svd.hpp"
 #include "slice.hpp"
 #include <vector>
@@ -52,6 +53,19 @@ class Configuration {
 			beta = b;
 			mu = m;
 			M = n;
+			dtau = beta/M;
+			slices.resize(M, Slice<Model>(model));
+			for (size_t i=0;i<M;i++) {
+				slices[i].setup(dtau);
+			}
+			// use block information
+			blocks.resize(model.interaction().blocks());
+		}
+
+		void setup (const Parameters &p) {
+			beta = p.getNumber("beta", 1.0);
+			mu = p.getNumber("mu", 0.0);
+			M = p.getInteger("slices", 4*beta);
 			dtau = beta/M;
 			slices.resize(M, Slice<Model>(model));
 			for (size_t i=0;i<M;i++) {
