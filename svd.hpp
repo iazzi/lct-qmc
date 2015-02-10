@@ -171,6 +171,10 @@ struct SVDHelper {
 
 	// this will only work if M<=N
 	void absorbVt () {
+		transposeInPlace();
+		absorbU();
+		transposeInPlace();
+		return;
 		const int M = Vt.rows();
 		const int N = Vt.cols();
 		int info = 0;
