@@ -202,10 +202,10 @@ class Configuration2 {
 		Eigen::MatrixXd full_propagator;
 		Eigen::MatrixXd compute_propagators_2 () {
 			size_t N = B.S.size();
-			compute_all_propagators_3(left_side[index], right_side[index], full_propagator);
-			G_matrix = full_propagator.block(N, N, N, N);
+			//compute_all_propagators_3(left_side[index], right_side[index], full_propagator);
+			//G_matrix = full_propagator.block(N, N, N, N);
 			compute_all_propagators(left_side[index], right_side[index], full_propagator);
-			std::cerr << "--> " << (G_matrix-full_propagator.bottomRightCorner(N, N)).norm() << std::endl;
+			//std::cerr << "--> " << (G_matrix-full_propagator.bottomRightCorner(N, N)).norm() << std::endl;
 			G_matrix = full_propagator.bottomRightCorner(N, N);
 			return full_propagator;
 		}
