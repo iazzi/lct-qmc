@@ -3,7 +3,7 @@ CXXFLAGS=$(MYCXXFLAGS) -std=c++11 `pkg-config --cflags eigen3 ` -Wall -I ../../
 LDFLAGS=$(MYLDFLAGS) `pkg-config --libs eigen3`
 LDLIBS=$(MYLDLIBS) `pkg-config --libs eigen3`
 
-BIN=hubbard1 hubbard2 slice determinant insert remove insert_and_remove wrap metropolis sweep kinetic
+BIN=hubbard1 hubbard2 slice determinant insert remove insert_and_remove wrap metropolis sweep kinetic configuration2 metropolis2 kinetic2
 
 all: ${BIN}
 
@@ -28,6 +28,12 @@ metropolis: metropolis.o
 sweep: sweep.o
 
 kinetic: kinetic.o
+
+configuration2: configuration2.o
+
+metropolis2: metropolis2.o
+
+kinetic2: kinetic2.o
 
 parallel:
 	$(MAKE) all MYCXXFLAGS="-O3 -march=native -DNDEBUG -DEIGEN_NO_DEBUG -fopenmp $(MYCXXFLAGS)" MYLDFLAGS="-fopenmp -lfftw3_threads $(MYLDFLAGS=)" MYLDLIBS="$(MYLDLIBS)"
