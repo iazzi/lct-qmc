@@ -23,6 +23,11 @@ struct HubbardVertex {
 	bool operator== (const HubbardVertex &w) const { return x==w.x && sigma==w.sigma && tau==w.tau; }
 };
 
+std::ostream &operator<< (std::ostream &f, HubbardVertex v) {
+	f << '(' << v.tau << ", " << v.x << ", " << v.sigma << ')';
+	return f;
+}
+
 //
 // class HubbardInteraction
 //

@@ -123,7 +123,7 @@ class Configuration2 {
 		}
 
 		void compute_all_propagators (const SVDHelper &left, const SVDHelper &right, Eigen::MatrixXd &ret) {
-			double z = std::exp(beta*mu); // FIXME: make sure this is right
+			double z = 1.0; // std::exp(beta*mu); // FIXME: make sure this is right
 			size_t N = left.S.size();
 			size_t M = (right.S.array().abs()*z>1.0).count() + (left.S.array().abs()*z>1.0).count();
 			Eigen::MatrixXd big_matrix = Eigen::MatrixXd::Zero(2*N, 2*N);
@@ -144,7 +144,7 @@ class Configuration2 {
 			//std::cerr << big_matrix << std::endl << std::endl;
 			Eigen::MatrixXd U = Eigen::MatrixXd::Zero(2*N, M), V = Eigen::MatrixXd::Zero(M, 2*N), C = Eigen::MatrixXd::Zero(M, M);
 			int j = 0;
-			for (int i=0;i<N;i++) {
+			for (int i=0;i<0;i++) {
 				if (fabs(z*left.S[i])>1.0) {
 					C(j, j) = z*left.S[i];
 					big_matrix.topRightCorner(N, N).diagonal()[i] = 0.0;
@@ -520,6 +520,40 @@ class Configuration2 {
 		void advance (int n) { set_index(2*M+index+n); }
 
 		double inverse_temperature () const { return beta; }
+
+		void check_all_det (int block) {
+			size_t a = model.interaction().block_start(block);
+			size_t b = model.interaction().block_size(block);
+			for (size_t i=0;i<M;i++) {
+				double A = 0.0, B = 0.0;
+				for (size_t j=0;j<M;j++) {
+					if (j<=i) A += slices[j].log_abs_det_block(block);
+					else B += slices[j].log_abs_det_block(block);
+				}
+				std::cerr << i << ") "<< A << ' ' << B << " <=> " << left_side[i].S.segment(a, b).array().abs().log().sum() << ' ' << right_side[i].S.segment(a, b).array().abs().log().sum() << std::endl;
+			}
+		}
+
+		void check_first_slice () {
+			Eigen::MatrixXd A = slices[0].matrix();
+			std::cerr << " * " << (A-right_side[0].matrix()).norm() << std::endl;
+		}
+
+		void check_all_prop () {
+			Eigen::MatrixXd G;
+			for (size_t i=0;i<slice_number();i++) {
+				set_index(i);
+				compute_propagators_2();
+				G = green_function();
+				//std::cerr << G << std::endl << std::endl;
+				compute_B();
+				compute_G();
+				save_G();  
+				std::cerr << "check propagators: " << (double(i)/slice_number()) << ' '
+					<< (green_function()-G).norm() << ' '
+					<< (green_function()-G).cwiseAbs().maxCoeff() << std::endl;
+			}                                       
+		}
 };
 
 #endif // CONFIGURATION2_HPP
