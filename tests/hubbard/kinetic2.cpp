@@ -104,7 +104,7 @@ int main (int argc, char **argv) {
 				<< (conf.green_function()-G).cwiseAbs().maxCoeff() << endl;
 		}
 	};
-	auto full_sweep = [&conf, &d, &trial, &pr, &model, &sweep] (mt19937_64 &generator, bool measure, measurement<double> &Kin, measurement<double> &Verts, bool check) {
+	auto full_sweep = [&conf, &d, &trial, &pr, &model, &sweep] (mt19937_64 &generator, bool measure, measurement<double> &Kin, measurement<double> &Int, measurement<double> &Verts, bool check) {
 		Eigen::MatrixXd G;
 		for (size_t i=0;i<conf.slice_number();i++) {
 			conf.set_index(i);
@@ -116,6 +116,7 @@ int main (int argc, char **argv) {
 			conf.compute_propagators_2();
 			if (measure) {
 				Kin.add(model.lattice().kinetic_energy(conf.green_function())/model.lattice().volume());
+				Int.add(model.interaction().interaction_energy(conf.green_function())/model.lattice().volume());
 				Verts.add(conf.size());
 			}
 			//std::cerr << G << std::endl << std::endl;
@@ -137,6 +138,7 @@ int main (int argc, char **argv) {
 			//G = conf.green_function();
 			if (measure) {
 				Kin.add(model.lattice().kinetic_energy(conf.green_function())/model.lattice().volume());
+				Int.add(model.interaction().interaction_energy(conf.green_function())/model.lattice().volume());
 				Verts.add(conf.size());
 			}
 			//cerr << (double(i-1)/conf.slice_number()) << ' '
@@ -154,22 +156,23 @@ int main (int argc, char **argv) {
 		}
 	};
 	measurement<double> Kin;
+	measurement<double> Int;
 	measurement<double> Verts;
 	for (size_t i=0;i<thermalization+sweeps;i++) {
-		full_sweep(generator, i>=thermalization, Kin, Verts, false);
+		full_sweep(generator, i>=thermalization, Kin, Int, Verts, false);
 		if (i>=thermalization) {
-			if (i%100==0) cerr << endl << Kin << endl << Verts << endl;
+			if (i%100==0) cerr << endl << Kin << endl << Int << endl << Verts << endl;
 		} else if (i%100==0) {
 			cerr << ' ' << (100.0*i/thermalization) << "%         \r";
 		}
 		conf.compute_B();
 		double p2 = conf.probability().first;
-		std::cerr << i << " dp = " << p1+pr-p2 << ' ' << p2-p1 << ' ' << pr << endl << endl;
+		std::cerr << i << " dp = " << p1+pr-p2 << ' ' << p2-p1 << ' ' << pr << endl;
 	}
 	//diff << endl << endl;
 	conf.compute_B();
 	double p2 = conf.probability().first;
-	cerr << endl << Kin << endl << Verts << endl;
+	cerr << endl << Kin << endl << Int << endl << Verts << endl;
 	std::cerr << "dp = " << p1+pr-p2 << ' ' << p2-p1 << ' ' << pr << endl << endl;
 	return 0;
 }
