@@ -122,15 +122,14 @@ class Configuration2 {
 			return ret;
 		}
 
-		void compute_all_propagators (const SVDHelper &left, const SVDHelper &right, Eigen::MatrixXd &ret) {
-			double z = 1.0; // std::exp(beta*mu); // FIXME: make sure this is right
+		void compute_all_propagators (const SVDHelper &left, const SVDHelper &right, Eigen::MatrixXd &ret, double zl = 1.0, double zr = 1.0) {
 			size_t N = left.S.size();
-			size_t M = (right.S.array().abs()*z>1.0).count() + (left.S.array().abs()*z>1.0).count();
+			size_t M = (right.S.array().abs()*zr>1.0).count() + (left.S.array().abs()*zl>1.0).count();
 			Eigen::MatrixXd big_matrix = Eigen::MatrixXd::Zero(2*N, 2*N);
 			big_matrix.topLeftCorner(N, N) = left.U.transpose() * right.Vt.transpose();
 			big_matrix.bottomRightCorner(N, N) = -right.U.transpose() * left.Vt.transpose();
-			big_matrix.bottomLeftCorner(N, N).diagonal() = right.S;
-			big_matrix.topRightCorner(N, N).diagonal() = left.S;
+			big_matrix.bottomLeftCorner(N, N).diagonal() = zr*right.S;
+			big_matrix.topRightCorner(N, N).diagonal() = zl*left.S;
 			//std::cerr << big_matrix << std::endl << std::endl;
 			//big_matrix.topLeftCorner(N, N) = Eigen::MatrixXd::Identity(N, N);
 			//big_matrix.bottomRightCorner(N, N) = Eigen::MatrixXd::Identity(N, N);
@@ -145,15 +144,15 @@ class Configuration2 {
 			Eigen::MatrixXd U = Eigen::MatrixXd::Zero(2*N, M), V = Eigen::MatrixXd::Zero(M, 2*N), C = Eigen::MatrixXd::Zero(M, M);
 			int j = 0;
 			for (int i=0;i<0;i++) {
-				if (fabs(z*left.S[i])>1.0) {
-					C(j, j) = z*left.S[i];
+				if (fabs(big_matrix.topRightCorner(N, N).diagonal()[i])>1.0) {
+					C(j, j) = big_matrix.topRightCorner(N, N).diagonal()[i];
 					big_matrix.topRightCorner(N, N).diagonal()[i] = 0.0;
 					U(i, j) = 1.0;
 					V(j, N+i) = 1.0;
 					j++;
 				}
-				if (fabs(z*left.S[i])>1.0) {
-					C(j, j) = z*right.S[i];
+				if (fabs(big_matrix.bottomLeftCorner(N, N).diagonal()[i])>1.0) {
+					C(j, j) = big_matrix.bottomLeftCorner(N, N).diagonal()[i];
 					big_matrix.bottomLeftCorner(N, N).diagonal()[i] = 0.0;
 					U(N+i, j) = 1.0;
 					V(j, i) = 1.0;
@@ -204,7 +203,9 @@ class Configuration2 {
 			size_t N = B.S.size();
 			//compute_all_propagators_3(left_side[index], right_side[index], full_propagator);
 			//G_matrix = full_propagator.block(N, N, N, N);
-			compute_all_propagators(left_side[index], right_side[index], full_propagator);
+			double zl = std::exp((M-index-1)*dtau*mu);
+			double zr = std::exp((index+1)*dtau*mu);
+			compute_all_propagators(left_side[index], right_side[index], full_propagator, zl, zr);
 			//std::cerr << "--> " << (G_matrix-full_propagator.bottomRightCorner(N, N)).norm() << std::endl;
 			G_matrix = full_propagator.bottomRightCorner(N, N);
 			return full_propagator;
