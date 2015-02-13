@@ -52,29 +52,35 @@ int main (int argc, char **argv) {
 	conf.compute_B();
 	conf.compute_G();
 	conf.save_G();
-	double p1 = conf.probability().first;
-	double pr = 0.0;
-	auto sweep = [&p1, &conf, &d, &trial, &pr, &model] (mt19937_64 &generator, bool check) {
+	double p1 = 0.0, ps = 0.0, pr = 0.0;
+	std::tie(p1, ps) = conf.probability();
+	auto sweep = [&p1, &conf, &d, &trial, &pr, &ps, &model] (mt19937_64 &generator, bool check) {
 		HubbardInteraction::Vertex v;
 		for (size_t j=0;j<model.lattice().volume();j++) {
-			double dp = 0.0;
+			double dp = 0.0, s = 1.0;
 			if (d(generator)<0.5) {
 				v = conf.get_vertex(d(generator)*conf.slice_size());
-				dp = std::log(std::fabs(conf.remove_probability(v)));
+				dp = conf.remove_probability(v);
+				s = dp>0.0?1.0:-1.0;
+				dp = std::log(std::fabs(dp));
 				if (-trial(generator)<dp+conf.remove_factor()) {
 					//cerr << "removed vertex " << v.tau << endl;
 					conf.remove_and_update(v);
 					pr += dp;
+					ps *= s;
 				} else {
 					//cerr << "remove rejected" << endl;
 				}
 			} else {
 				v = model.interaction().generate(0.0, conf.slice_end()-conf.slice_start(), generator);
-				dp = std::log(std::fabs(conf.insert_probability(v)));
+				dp = conf.insert_probability(v);
+				s = dp>0.0?1.0:-1.0;
+				dp = std::log(std::fabs(dp));
 				if (-trial(generator)<dp+conf.insert_factor()) {
 					//cerr << "inserted vertex " << v.tau << endl;
 					conf.insert_and_update(v);
 					pr += dp;
+					ps *= s;
 				} else {
 					//cerr << "insert rejected" << endl;
 				}
@@ -104,7 +110,7 @@ int main (int argc, char **argv) {
 				<< (conf.green_function()-G).cwiseAbs().maxCoeff() << endl;
 		}
 	};
-	auto full_sweep = [&conf, &d, &trial, &pr, &model, &sweep] (mt19937_64 &generator, bool measure, measurement<double> &Kin, measurement<double> &Int, measurement<double> &Verts, bool check) {
+	auto full_sweep = [&conf, &d, &trial, &pr, &ps, &model, &sweep] (mt19937_64 &generator, bool measure, measurement<double> &Sign, measurement<double> &Kin, measurement<double> &Int, measurement<double> &Verts, bool check) {
 		Eigen::MatrixXd G;
 		for (size_t i=0;i<conf.slice_number();i++) {
 			conf.set_index(i);
@@ -115,8 +121,9 @@ int main (int argc, char **argv) {
 			//G = conf.green_function();
 			conf.compute_propagators_2();
 			if (measure) {
-				Kin.add(model.lattice().kinetic_energy(conf.green_function())/model.lattice().volume());
-				Int.add(model.interaction().interaction_energy(conf.green_function())/model.lattice().volume());
+				Sign.add(ps);
+				Kin.add(ps*model.lattice().kinetic_energy(conf.green_function())/model.lattice().volume());
+				Int.add(ps*model.interaction().interaction_energy(conf.green_function())/model.lattice().volume());
 				Verts.add(conf.size());
 			}
 			//std::cerr << G << std::endl << std::endl;
@@ -137,8 +144,9 @@ int main (int argc, char **argv) {
 			conf.compute_propagators_2();
 			//G = conf.green_function();
 			if (measure) {
-				Kin.add(model.lattice().kinetic_energy(conf.green_function())/model.lattice().volume());
-				Int.add(model.interaction().interaction_energy(conf.green_function())/model.lattice().volume());
+				Sign.add(ps);
+				Kin.add(ps*model.lattice().kinetic_energy(conf.green_function())/model.lattice().volume());
+				Int.add(ps*model.interaction().interaction_energy(conf.green_function())/model.lattice().volume());
 				Verts.add(conf.size());
 			}
 			//cerr << (double(i-1)/conf.slice_number()) << ' '
@@ -155,13 +163,15 @@ int main (int argc, char **argv) {
 			//conf.check_all_det(1);
 		}
 	};
-	measurement<double> Kin;
-	measurement<double> Int;
-	measurement<double> Verts;
+	measurement<double> Sign("Sign");
+	measurement<double> Dens("Density");
+	measurement<double> Kin("Kinetic Energy");
+	measurement<double> Int("Interaction Energy");
+	measurement<double> Verts("Vertices");
 	for (size_t i=0;i<thermalization+sweeps;i++) {
-		full_sweep(generator, i>=thermalization, Kin, Int, Verts, false);
+		full_sweep(generator, i>=thermalization, Sign, Kin, Int, Verts, false);
 		if (i>=thermalization) {
-			if (i%100==0) cerr << endl << Kin << endl << Int << endl << Verts << endl;
+			if (i%100==0) cerr << endl << Kin << endl << Int << endl << Sign << endl;
 		} else if (i%100==0) {
 			cerr << ' ' << (100.0*i/thermalization) << "%         \r";
 		}
@@ -172,7 +182,7 @@ int main (int argc, char **argv) {
 	//diff << endl << endl;
 	conf.compute_B();
 	double p2 = conf.probability().first;
-	cerr << endl << Kin << endl << Int << endl << Verts << endl;
+	cerr << endl << Kin << endl << Int << endl << Sign << endl;
 	std::cerr << "dp = " << p1+pr-p2 << ' ' << p2-p1 << ' ' << pr << endl << endl;
 	return 0;
 }
