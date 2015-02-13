@@ -169,7 +169,8 @@ class Configuration2 {
 			}
 			//std::cerr << big_matrix << std::endl << std::endl;
 			//std::cerr << U*C*V << std::endl << std::endl;
-			big_matrix = big_matrix.fullPivLu().inverse();
+			lu.compute(big_matrix);
+			big_matrix = lu.inverse();
 			//SVDHelper svd;
 			//svd.setIdentity(2*N);
 			//svd.U = big_matrix;
@@ -272,8 +273,8 @@ class Configuration2 {
 			return slices[index].remove(v);
 		}
 
-		void insert_and_update (Vertex v, const MatrixType& matrixU, const MatrixType& matrixVt) {
-			G_matrix -= (G_matrix * matrixU) * (Eigen::Matrix2d::Identity() + matrixVt.transpose() * G_matrix * matrixU).inverse() * (matrixVt.transpose() * G_matrix);
+		void insert_and_update (Vertex v, const MatrixType& matrixU, const MatrixType& matrixVt, const Eigen::Matrix2d &mat) {
+			G_matrix -= (G_matrix * matrixU) * mat.inverse() * (matrixVt.transpose() * G_matrix);
 			G_matrix += matrixU * (matrixVt.transpose() * G_matrix);
 			B.U += matrixU * (matrixVt.transpose() * B.U);
 			insert(v);
@@ -284,11 +285,11 @@ class Configuration2 {
 			} else {
 				insert_probability(v);
 			}
-			insert_and_update(v, cache.u, cache.vt);
+			insert_and_update(v, cache.u, cache.vt, cache.matrix);
 		}
 
-		size_t remove_and_update (Vertex v, const MatrixType& inverseU, const MatrixType& inverseVt) {
-			G_matrix -= (G_matrix * inverseU) * (Eigen::Matrix2d::Identity() + inverseVt.transpose() * G_matrix * inverseU).inverse() * (inverseVt.transpose() * G_matrix);
+		size_t remove_and_update (Vertex v, const MatrixType& inverseU, const MatrixType& inverseVt, const Eigen::Matrix2d &mat) {
+			G_matrix -= (G_matrix * inverseU) * mat.inverse() * (inverseVt.transpose() * G_matrix);
 			G_matrix += inverseU * (inverseVt.transpose() * G_matrix);
 			B.U += inverseU * (inverseVt.transpose() * B.U);
 			return remove(v);
@@ -299,7 +300,7 @@ class Configuration2 {
 			} else {
 				remove_probability(v);
 			}
-			return remove_and_update(v, cache.u, cache.vt);
+			return remove_and_update(v, cache.u, cache.vt, cache.matrix);
 		}
 
 		void commit_changes () {
@@ -459,7 +460,9 @@ class Configuration2 {
 			cache.v = v;
 			slices[index].matrixU(v, cache.u);
 			slices[index].matrixVt(v, cache.vt);
-			cache.probability = (Eigen::Matrix2d::Identity() + cache.vt.transpose() * G_matrix * cache.u).determinant();
+			cache.matrix = Eigen::Matrix2d::Identity();
+			cache.matrix.noalias() += cache.vt.transpose() * G_matrix * cache.u;
+			cache.probability = cache.matrix.determinant();
 			return cache.probability;
 		}
 
@@ -467,7 +470,9 @@ class Configuration2 {
 			cache.v = v;
 			slices[index].inverseU(v, cache.u);
 			slices[index].inverseVt(v, cache.vt);
-			cache.probability = (Eigen::Matrix2d::Identity() + cache.vt.transpose() * G_matrix * cache.u).determinant();
+			cache.matrix = Eigen::Matrix2d::Identity();
+			cache.matrix.noalias() += cache.vt.transpose() * G_matrix * cache.u;
+			cache.probability = cache.matrix.determinant();
 			return cache.probability;
 		}
 
