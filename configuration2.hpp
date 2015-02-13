@@ -122,6 +122,8 @@ class Configuration2 {
 			return ret;
 		}
 
+		Eigen::FullPivLU<Eigen::MatrixXd> lu;
+
 		void compute_all_propagators (const SVDHelper &left, const SVDHelper &right, Eigen::MatrixXd &ret, double zl = 1.0, double zr = 1.0) {
 			size_t N = left.S.size();
 			size_t M = (right.S.array().abs()*zr>1.0).count() + (left.S.array().abs()*zl>1.0).count();
@@ -141,22 +143,28 @@ class Configuration2 {
 			//big_matrix.leftCols(N).applyOnTheRight(right.Vt.transpose());
 			//big_matrix.rightCols(N).applyOnTheRight(left.Vt.transpose());
 			//std::cerr << big_matrix << std::endl << std::endl;
-			Eigen::MatrixXd U = Eigen::MatrixXd::Zero(2*N, M), V = Eigen::MatrixXd::Zero(M, 2*N), C = Eigen::MatrixXd::Zero(M, M);
-			int j = 0;
-			for (int i=0;i<0;i++) {
-				if (fabs(big_matrix.topRightCorner(N, N).diagonal()[i])>1.0) {
-					C(j, j) = big_matrix.topRightCorner(N, N).diagonal()[i];
-					big_matrix.topRightCorner(N, N).diagonal()[i] = 0.0;
-					U(i, j) = 1.0;
-					V(j, N+i) = 1.0;
-					j++;
-				}
-				if (fabs(big_matrix.bottomLeftCorner(N, N).diagonal()[i])>1.0) {
-					C(j, j) = big_matrix.bottomLeftCorner(N, N).diagonal()[i];
-					big_matrix.bottomLeftCorner(N, N).diagonal()[i] = 0.0;
-					U(N+i, j) = 1.0;
-					V(j, i) = 1.0;
-					j++;
+			const bool separate_scales = false; // use the Woodbury Matrix Identity for separating scales
+			Eigen::MatrixXd U, V, C;
+			if (separate_scales) {
+				U = Eigen::MatrixXd::Zero(2*N, M);
+				V = Eigen::MatrixXd::Zero(M, 2*N);
+				C = Eigen::MatrixXd::Zero(M, M);
+				int j = 0;
+				for (int i=0;i<N;i++) {
+					if (fabs(big_matrix.topRightCorner(N, N).diagonal()[i])>1.0) {
+						C(j, j) = big_matrix.topRightCorner(N, N).diagonal()[i];
+						big_matrix.topRightCorner(N, N).diagonal()[i] = 0.0;
+						U(i, j) = 1.0;
+						V(j, N+i) = 1.0;
+						j++;
+					}
+					if (fabs(big_matrix.bottomLeftCorner(N, N).diagonal()[i])>1.0) {
+						C(j, j) = big_matrix.bottomLeftCorner(N, N).diagonal()[i];
+						big_matrix.bottomLeftCorner(N, N).diagonal()[i] = 0.0;
+						U(N+i, j) = 1.0;
+						V(j, i) = 1.0;
+						j++;
+					}
 				}
 			}
 			//std::cerr << big_matrix << std::endl << std::endl;
@@ -168,10 +176,12 @@ class Configuration2 {
 			//svd.absorbU();
 			//std::cerr << svd.S.transpose() << std::endl;
 			//big_matrix = svd.inverse();
-			C.diagonal() = C.diagonal().cwiseInverse();
-			C += V*big_matrix*U;
-			C = C.fullPivLu().inverse();
-			big_matrix -= big_matrix*U*C*V*big_matrix;
+			if (separate_scales) {
+				C.diagonal() = C.diagonal().cwiseInverse();
+				C += V*big_matrix*U;
+				C = C.fullPivLu().inverse();
+				big_matrix -= big_matrix*U*C*V*big_matrix;
+			}
 			big_matrix.topRows(N).applyOnTheLeft(right.Vt.transpose());
 			big_matrix.bottomRows(N).applyOnTheLeft(-left.Vt.transpose());
 			big_matrix.leftCols(N).applyOnTheRight(left.U.transpose());
