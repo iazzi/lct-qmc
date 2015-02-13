@@ -105,6 +105,7 @@ class measurement {
 		}
 
 		measurement () : name_("Result") {}
+		measurement (const char *n) : name_(n) {}
 
 	protected:
 };
