@@ -3,7 +3,7 @@ CXXFLAGS=$(MYCXXFLAGS) -std=c++11 `pkg-config --cflags eigen3` -Wall
 LDFLAGS=$(MYLDFLAGS) `pkg-config --libs eigen3`
 LDLIBS=$(MYLDLIBS) `pkg-config --libs eigen3` -llua
 
-all: main test_params setup_batch process_gf v3ct lct
+all: main test_params setup_batch process_gf v3ct generic
 
 process_gf: process_gf.o
 
@@ -14,6 +14,8 @@ v3ct: v3ct.o
 pqmc: pqmc.o
 
 lct: lct.o
+
+generic: generic.o
 
 lct.o: lct.cpp svd.hpp accumulator.hpp measurements.hpp hubbard.hpp slice.hpp cubiclattice.hpp model.hpp configuration.hpp
 

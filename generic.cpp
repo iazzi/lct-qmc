@@ -1,6 +1,6 @@
 #include "measurements.hpp"
 #include "configuration2.hpp"
-#include "cubiclattice.hpp"
+#include "genericlattice.hpp"
 #include "slice.hpp"
 #include "model.hpp"
 #include "hubbard.hpp"
@@ -62,11 +62,11 @@ int main (int argc, char **argv) {
 	Parameters params(argc, argv);
 	size_t thermalization = params.getInteger("thermalization", 10000);
 	size_t sweeps = params.getInteger("sweeps", 10000);
-	SpinOneHalf<CubicLattice> lattice(params);
+	SpinOneHalf<GenericLattice> lattice(params);
 	HubbardInteraction interaction(params);
 	auto model = make_model(lattice, interaction);
 	int N = params.getInteger("N");
-	Configuration2<Model<SpinOneHalf<CubicLattice>, HubbardInteraction>> conf(model);
+	Configuration2<Model<SpinOneHalf<GenericLattice>, HubbardInteraction>> conf(model);
 	conf.setup(params);
 	for (size_t i=0;i<conf.slice_number();i++) {
 		conf.set_index(i);
@@ -143,7 +143,7 @@ int main (int argc, char **argv) {
 				<< (conf.green_function()-G).cwiseAbs().maxCoeff() << endl;
 		}
 	};
-	Measurements<Model<SpinOneHalf<CubicLattice>, HubbardInteraction>> measurements;
+	Measurements<Model<SpinOneHalf<GenericLattice>, HubbardInteraction>> measurements;
 	auto full_sweep = [&conf, &d, &trial, &pr, &ps, &model, &measurements, &sweep] (mt19937_64 &generator, bool measure, bool check) {
 		Eigen::MatrixXd G;
 		for (size_t i=0;i<conf.slice_number();i++) {
