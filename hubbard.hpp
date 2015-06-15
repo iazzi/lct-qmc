@@ -21,6 +21,10 @@ struct HubbardVertex {
 		}
 	};
 	bool operator== (const HubbardVertex &w) const { return x==w.x && sigma==w.sigma && tau==w.tau; }
+	HubbardVertex (int y, double s, double t) : x(y), sigma(s), tau(t) {}
+	HubbardVertex (const HubbardVertex &v) : x(v.x), sigma(v.sigma), tau(v.tau) {}
+	HubbardVertex (double t) : x(0), sigma(0.0), tau(t) {}
+	HubbardVertex () : x(0), sigma(0.0), tau(0.0) {}
 };
 
 std::ostream &operator<< (std::ostream &f, HubbardVertex v) {
