@@ -85,6 +85,19 @@ class Slice {
 
 		// TODO: apply_matrix_on_the_right(T &A)
 
+		// apply the slice with forward propagators and direct vertices
+		template <typename T>
+		void apply_matrix (T &A, double tau) {
+			double t0 = 0.0;
+			for (auto v : verts) {
+				if (v.tau>=tau) break;
+				if (v.tau>t0) L->propagate(v.tau-t0, A);
+				t0 = v.tau;
+				I->apply_vertex_on_the_left(v, A);
+			}
+			if (tau>t0) L->propagate(tau-t0, A);
+		}
+
 		// apply the inverse slice (with backward propagators and inverse vertices)
 		template <typename T>
 		void apply_inverse (T &A) {

@@ -521,10 +521,18 @@ class Configuration2 {
 			return G_matrix;
 		}
 
+		void gf_tau (Eigen::MatrixXd &gf, double t) {
+			size_t N = B.S.size();
+			gf = full_propagator.bottomLeftCorner(N, N);
+			slices[(index+1)%M].apply_matrix(gf, t);
+		}
+
 		double slice_start () const { return dtau*index; }
 		double slice_end () const { return dtau*(index+1); }
 		size_t slice_size () const { return slices[index].size(); }
 		size_t slice_number () const { return M; } // MUST be same as slices.size()
+
+		size_t current_slice () const { return index; }
 
 		Vertex get_vertex (size_t i) const { return slices[index].get_vertex(i); }
 
