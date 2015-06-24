@@ -1,5 +1,5 @@
-#ifndef CONFIGURATION2_HPP
-#define CONFIGURATION2_HPP
+#ifndef ZEROTEMP_HPP
+#define ZEROTEMP_HPP
 
 #include "parameters.hpp"
 #include "svd.hpp"
@@ -12,7 +12,7 @@
 
 
 template <typename Model>
-class Configuration2 {
+class ZeroTemperature {
 	public:
 		typedef typename Model::Lattice Lattice;
 		typedef typename Model::Interaction Interaction;
@@ -49,7 +49,7 @@ class Configuration2 {
 			Eigen::Matrix2d matrix;
 		} cache;
 	public:
-		Configuration2 (Model &m) : model(m), index(0) {}
+		ZeroTemperature (Model &m) : model(m), index(0) {}
 
 		void setup (const Parameters &p) {
 			beta = p.getNumber("beta", 1.0);
@@ -580,5 +580,5 @@ class Configuration2 {
 		}
 };
 
-#endif // CONFIGURATION2_HPP
+#endif // ZEROTEMP_HPP
 

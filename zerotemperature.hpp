@@ -21,8 +21,8 @@ class ZeroTemperature {
 
 	private:
 		std::vector<Slice<Model>> slices;
-		std::vector<SVDHelper> right_side;
-		std::vector<SVDHelper> left_side;
+		std::vector<Eigen::MatrixXd> right_side;
+		std::vector<Eigen::MatrixXd> left_side;
 
 		Model &model;
 
@@ -55,10 +55,11 @@ class ZeroTemperature {
 			beta = p.getNumber("beta", 1.0);
 			mu = p.getNumber("mu", 0.0);
 			M = p.getInteger("slices", 4*beta);
+			//if (M%2==1) M++;
 			dtau = beta/M;
 			slices.resize(M, Slice<Model>(model));
-			right_side.resize(M);
-			left_side.resize(M);
+			right_side.resize(M+1);
+			left_side.resize(M+1);
 			for (size_t i=0;i<M;i++) {
 				slices[i].setup(dtau);
 			}
@@ -70,14 +71,20 @@ class ZeroTemperature {
 
 		void compute_right_side () {
 			if (index==0) {
-				B.setIdentity(model.lattice().dimension()); // FIXME: maybe have a direct reference to the lattice here too
+				Eigen::ArrayXd ev = model.lattice.eigenvalues();
+				size_t n = (ev <= mu).count();
+				right_side[index].resize(model.lattice().dimension(), n);
+				n = 0;
+				for (size_t i=0;i<model.size();i++) {
+					if (ev[i]<=mu) {
+						right_side[index](i, n) = 1.0;
+						i++
+					}
+				}
 			} else {
-				B = right_side[index-1];
+				right_side[index] = right_side[index-1];
+				slices[index].apply_matrix(right_side[index]);
 			}
-			slices[index].apply_matrix(B.U);
-			decompose_U();
-			fix_sign_B();
-			right_side[index] = B;
 		}
 
 		void compute_left_side () {
