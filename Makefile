@@ -29,6 +29,8 @@ setup_batch.o: setup_batch.cpp simulation.hpp
 
 setup_batch: setup_batch.o simulation.o mpfr.o
 
+zerotemp: zerotemp.o zerotemperature.hpp
+
 parallel:
 	$(MAKE) all MYCXXFLAGS="-O3 -march=native -DNDEBUG -DEIGEN_NO_DEBUG -fopenmp $(MYCXXFLAGS)" MYLDFLAGS="-fopenmp -lfftw3_threads"
 
