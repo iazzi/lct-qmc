@@ -60,7 +60,7 @@ int main (int argc, char **argv) {
 	std::uniform_real_distribution<double> d;
 	std::exponential_distribution<double> trial;
 	Parameters params(argc, argv);
-	size_t thermalization = params.getInteger("thermalization", 10000);
+	size_t thermalization = params.getInteger("thermalization", 1000);
 	size_t sweeps = params.getInteger("sweeps", 10000);
 	SpinOneHalf<GenericLattice> lattice(params);
 	HubbardInteraction interaction(params);
@@ -198,8 +198,8 @@ int main (int argc, char **argv) {
 		} else if (i%100==0) {
 			cerr << ' ' << (100.0*i/thermalization) << "%         \r";
 		}
-		conf.compute_B();
-		double p2 = conf.probability().first;
+		//conf.compute_B();
+		double p2 = 0.0; //conf.probability().first;
 		std::cerr << i << " dp = " << p1+pr-p2 << ' ' << p2-p1 << ' ' << pr << endl;
 	}
 	//diff << endl << endl;
