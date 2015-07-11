@@ -27,7 +27,7 @@ struct HubbardVertex {
 	HubbardVertex () : x(0), sigma(0.0), tau(0.0) {}
 };
 
-std::ostream &operator<< (std::ostream &f, HubbardVertex v) {
+inline std::ostream &operator<< (std::ostream &f, HubbardVertex v) {
 	f << '(' << v.tau << ", " << v.x << ", " << v.sigma << ')';
 	return f;
 }
