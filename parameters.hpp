@@ -38,6 +38,7 @@ class Parameters {
 	double getNumber (const std::string &k, double def = 0.0) const { if (contains(k)) return atof(params.at(k).c_str()); else return def; }
 	int getInteger (const std::string &k, int def = 0) const { if (contains(k)) return atoi(params.at(k).c_str()); else return def; }
 	void list () const { for (auto x : params) std::cerr << x.first << " --> " << x.second << std::endl; }
+    void setString(const std::string &k, const std::string &val) { params[k] = val; }
 };
 
 #endif // PARAMETERS_HPP
