@@ -26,15 +26,15 @@ The code depends on
 
 Here are some variable that can be set when the dependencies are not in the stadard locations.
 
-``Eigen3``
+**Eigen3**
 Here we use pkg-config to find the include path. Make sure to have the directory containing ```eigen3.pc``` in the pkg-config path. One can add more search directories for pkg-config with the environment variable ```export PKG_CONFIG_PATH=/path/to/eigen/share/pkgconfig:$PKG_CONFIG_PATH```.
 
 
-``Lua``
+**Lua**
 Set the environment variable ```export LUA_DIR=/path/to/lua/root``` to the root of the Lua installation.
 
 
-``ALPSCore``
+**ALPSCore**
 Set the environment variable ```export ALPSCore_DIR=/path/to/alpscore/root``` to the root of the ALPSCore installation.
 
 
@@ -48,5 +48,3 @@ or later with the CMake interactive interface ```ccmake .```
  * ```ENABLE_MKL``` (ON / OFF) : Whether to enable MKL support in Eigen or not
  * ```CMAKE_BUILD_TYPE``` (Release / Debug / RelWithDebInfo): Which kind of build
  * ```CMAKE_INSTALL_PREFIX``` (PATH) : where to install
-
-
