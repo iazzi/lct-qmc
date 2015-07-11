@@ -3,6 +3,7 @@
 
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
+#include <unsupported/Eigen/MatrixFunctions>
 
 #include "parameters.hpp"
 #include <fstream>
