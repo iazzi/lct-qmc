@@ -52,3 +52,9 @@ endif()
 add_executable(generic generic.cpp)
 target_link_libraries(generic ${MYTARGET_LIBRARIES})
 
+add_executable(generic_alps generic_alps.cpp lctaux_sim.cpp)
+target_link_libraries(generic_alps ${MYTARGET_LIBRARIES})
+
+add_executable(generic_mpi generic_mpi.cpp lctaux_sim.cpp)
+target_link_libraries(generic_mpi ${MYTARGET_LIBRARIES})
+
