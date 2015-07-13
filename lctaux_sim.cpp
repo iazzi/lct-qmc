@@ -34,6 +34,7 @@ void lctaux_sim::define_parameters(parameters_type & parameters) {
         .define<double>("beta", "inverse temperature of the system")
         .define<double>("U", 0., "local Hubbard interaction")
         .define<std::string>("H", "path to file containing the edge matrix")
+        .define<std::string>("V", "number of vertices")
         ;
 }
 
@@ -51,7 +52,9 @@ lctaux_sim::lctaux_sim(parameters_type const & parms, std::size_t seed_offset)
     , total_sweeps_(int(parameters["sweeps"]))
     , beta_(double(parameters["beta"]))
     , generator_(std::size_t(parameters["SEED"]) + seed_offset)
-{
+{   
+    lctaux_parameters_.list();
+    
     conf_.setup(lctaux_parameters_);
     for (size_t i=0;i<conf_.slice_number();i++) {
         conf_.set_index(i);
