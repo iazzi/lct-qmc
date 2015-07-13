@@ -77,7 +77,7 @@ lctaux_sim::lctaux_sim(parameters_type const & parms, std::size_t seed_offset)
     
     measurements
         << alps::accumulators::FullBinningAccumulator<double>("Sign")
-        << alps::accumulators::FullBinningAccumulator<double>("Density")
+        // << alps::accumulators::FullBinningAccumulator<double>("Density")
         << alps::accumulators::FullBinningAccumulator<double>("Kinetic Energy")
         << alps::accumulators::FullBinningAccumulator<double>("Interaction Energy")
         << alps::accumulators::FullBinningAccumulator<double>("Vertices")
