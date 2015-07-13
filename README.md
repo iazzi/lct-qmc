@@ -21,7 +21,7 @@ make install
 The code depends on
  * Eigen3
  * Lua
- * ALPSCore
+ * ALPSCore (with MPI support)
  * (optional) Intel MKL
 
 Here are some variable that can be set when the dependencies are not in the stadard locations.
