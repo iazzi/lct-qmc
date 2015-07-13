@@ -13,12 +13,12 @@ Parameters convert_parameters(alps::parameters_type<lctaux_sim>::type const & pa
     Parameters p(0, NULL);
     for(alps::parameters_type<lctaux_sim>::type::const_iterator it=parameters.begin();
           it!=parameters.end(); ++it) {
-        std::cout << "..." << it->first;
         if (parameters.exists(it->first)) {
             p.setString(it->first, boost::lexical_cast<std::string>(it->second));
-            std::cout << "   " << "set!" << std::endl;
         } else {
-            std::cout << "   SKIP."<< std::endl;
+            std::cerr << "ERROR: Parameter " << it->first << " has not been defined!" << std::endl;
+            parameters.print_help(std::cerr);
+            throw std::runtime_error("Parameter not defined.");
         }
     }
     return p;
@@ -53,8 +53,6 @@ lctaux_sim::lctaux_sim(parameters_type const & parms, std::size_t seed_offset)
     , beta_(double(parameters["beta"]))
     , generator_(std::size_t(parameters["SEED"]) + seed_offset)
 {   
-    lctaux_parameters_.list();
-    
     conf_.setup(lctaux_parameters_);
     for (size_t i=0;i<conf_.slice_number();i++) {
         conf_.set_index(i);
