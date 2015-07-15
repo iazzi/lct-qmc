@@ -48,3 +48,10 @@ or later with the CMake interactive interface ```ccmake .```
  * ```ENABLE_MKL``` (ON / OFF) : Whether to enable MKL support in Eigen or not
  * ```CMAKE_BUILD_TYPE``` (Release / Debug / RelWithDebInfo): Which kind of build
  * ```CMAKE_INSTALL_PREFIX``` (PATH) : where to install
+
+
+## Special installation
+The directory ```build_examples``` contains example for building the code and its dependencies on special platforms, e.g. on supercomputers or clusters using the module system.
+
+* [Build on Piz Daint](build_examples/piz_daint.md)
+
