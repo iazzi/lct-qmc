@@ -57,6 +57,7 @@ class HubbardInteraction {
 	double K;
 	size_t N;
 	size_t V;
+	size_t I;
 	double a, b;
 	std::bernoulli_distribution coin_flip;
 	std::uniform_int_distribution<size_t> random_site;
@@ -69,14 +70,14 @@ class HubbardInteraction {
 	typedef Eigen::Matrix<double, Eigen::Dynamic, 2> MatrixType;
 	HubbardInteraction () : coin_flip(0.5), random_time(0.0, 1.0) {}
 	HubbardInteraction (const Parameters &p) : coin_flip(0.5), random_time(0.0, 1.0) { setup(p); }
-	HubbardInteraction (const HubbardInteraction &other) : coin_flip(0.5), random_time(0.0, 1.0) { setup(other.U, other.K); }
+	//HubbardInteraction (const HubbardInteraction &other) : coin_flip(0.5), random_time(0.0, 1.0) { setup(other.U, other.K); }
 
-	inline void setup (double u, double k) {
-		U = u;
-		K = k;
-		a = 1.0*U/2.0/K;
-		b = sqrt(U/K+a*a);
-	}
+	//inline void setup (double u, double k) {
+		//U = u;
+		//K = k;
+		//a = 1.0*U/2.0/K;
+		//b = sqrt(U/K+a*a);
+	//}
 
 	inline void setup (const Parameters &p) {
 		U = p.getNumber("U", 4.0);
@@ -89,7 +90,13 @@ class HubbardInteraction {
 		eigenvectors = A;
 		N = A.diagonal().size();
 		V = N/2; // FIXME assert N even?
-		random_site = std::uniform_int_distribution<size_t>(0, V-1);
+		I = V;
+		random_site = std::uniform_int_distribution<size_t>(0, I-1);
+	}
+
+	void set_interactive_sites (size_t i) {
+		I = std::min(i, V);
+		random_site = std::uniform_int_distribution<size_t>(0, I-1);
 	}
 
 	template <typename G>
@@ -109,6 +116,7 @@ class HubbardInteraction {
 	}
 
 	size_t volume () const { return V; }
+	size_t interacting_sites () const { return I; }
 	size_t states () const { return N; }
 	size_t dimension () const { return N; }
 	template <typename T>
@@ -164,7 +172,7 @@ class HubbardInteraction {
 
 	double log_abs_det (const Vertex v) const { return 0.0; }
 	double log_abs_det_block (const Vertex v, size_t i) const { return std::log(std::fabs(i==0?(1.0+a+v.sigma):(1.0+a-v.sigma))); }
-	double combinatorial_factor () { return log(K*volume()); }
+	double combinatorial_factor () { return log(K*interacting_sites()); }
 
 	size_t blocks () const { return 2; }
 	size_t block_start (size_t i) const { return i==0?0:volume(); }
