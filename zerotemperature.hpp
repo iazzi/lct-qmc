@@ -34,6 +34,7 @@ class ZeroTemperature {
 		SVDHelper B; // this holds the deomposition of the matrix B
 		std::vector<SVDHelper> blocks; // helper classes for the blocks
 		SVDHelper G; // SVD decomposition of the Green function
+		Eigen::ColPivHouseholderQR<Eigen::MatrixXd> qr; // QR decomposition solver
 
 		Eigen::MatrixXd G_matrix;
 
@@ -58,8 +59,8 @@ class ZeroTemperature {
 			//if (M%2==1) M++;
 			dtau = beta/M;
 			slices.resize(M, Slice<Model>(model));
-			right_side.resize(M+1);
-			left_side.resize(M+1);
+			right_side.resize(M+0);
+			left_side.resize(M+0);
 			for (size_t i=0;i<M;i++) {
 				slices[i].setup(dtau);
 			}
@@ -72,24 +73,33 @@ class ZeroTemperature {
 		void compute_right_side () {
 			if (index==0) {
 				Eigen::ArrayXd ev = model.lattice.eigenvalues();
-				size_t n = (ev <= mu).count();
-				right_side[index].resize(model.lattice().dimension(), n);
-				n = 0;
+				right_side[index] = Eigen::MatrixXd::Zero(model.lattice().dimension(), model.lattice().dimension());
 				for (size_t i=0;i<model.size();i++) {
 					if (ev[i]<=mu) {
-						right_side[index](i, n) = 1.0;
-						i++
+						right_side[index](i, i) = 1.0;
 					}
 				}
 			} else {
 				right_side[index] = right_side[index-1];
 				slices[index].apply_matrix(right_side[index]);
 			}
+			for (size_t i=0;i<model.interaction().blocks();i++) {
+				size_t a = model.interaction().block_start(i);
+				size_t b = model.interaction().block_size(i);
+				qr.compute(right_side[index].block(a, a, b, b));
+				right_side[index].block(a, a, b, b) = qr.householderQ();
+			}
 		}
 
 		void compute_left_side () {
 			if (index==M-1) {
-				B.setIdentity(model.lattice().dimension()); // FIXME: maybe have a direct reference to the lattice here too
+				Eigen::ArrayXd ev = model.lattice.eigenvalues();
+				left_side[index] = Eigen::MatrixXd::Zero(model.lattice().dimension(), model.lattice().dimension());
+				for (size_t i=0;i<model.size();i++) {
+					if (ev[i]<=mu) {
+						left_side[index](i, i) = 1.0;
+					}
+				}
 			} else {
 				B = left_side[index+1];
 				B.Vt.applyOnTheRight(slices[index+1].matrix());
