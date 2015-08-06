@@ -64,6 +64,8 @@ class Configuration2 {
 			}
 			// use block information
 			blocks.resize(model.interaction().blocks());
+			size_t I = p.getInteger("sites", 0);
+			if (I>0) model.interaction().set_interactive_sites(I);
 		}
 
 		void set_index (size_t i) { index = i%M; }
