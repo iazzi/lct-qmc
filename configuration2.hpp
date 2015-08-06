@@ -95,7 +95,7 @@ class Configuration2 {
 		}
 
 		void start () {
-			for (int j=0;j<M;j++) {
+			for (size_t j=0;j<M;j++) {
 				set_index(j);
 				compute_right_side();
 			}
@@ -152,7 +152,7 @@ class Configuration2 {
 				V = Eigen::MatrixXd::Zero(M, 2*N);
 				C = Eigen::MatrixXd::Zero(M, M);
 				int j = 0;
-				for (int i=0;i<N;i++) {
+				for (size_t i=0;i<N;i++) {
 					if (fabs(big_matrix.topRightCorner(N, N).diagonal()[i])>1.0) {
 						C(j, j) = big_matrix.topRightCorner(N, N).diagonal()[i];
 						big_matrix.topRightCorner(N, N).diagonal()[i] = 0.0;

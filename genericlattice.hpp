@@ -15,9 +15,9 @@ class GenericLattice {
 	Eigen::VectorXd eigenvalues_;
 	Eigen::MatrixXd eigenvectors_;
 
-	bool computed;
-
 	Eigen::MatrixXd H;
+
+	bool computed;
 
 	Eigen::VectorXd cached_exp;
 
