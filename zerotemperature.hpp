@@ -12,7 +12,7 @@
 
 
 template <typename Model>
-class ZeroTemperature {
+class Configuration2 {
 	public:
 		typedef typename Model::Lattice Lattice;
 		typedef typename Model::Interaction Interaction;
@@ -21,8 +21,8 @@ class ZeroTemperature {
 
 	private:
 		std::vector<Slice<Model>> slices;
-		std::vector<Eigen::MatrixXd> right_side;
-		std::vector<Eigen::MatrixXd> left_side;
+		std::vector<SVDHelper> right_side;
+		std::vector<SVDHelper> left_side;
 
 		Model &model;
 
@@ -34,14 +34,10 @@ class ZeroTemperature {
 		SVDHelper B; // this holds the deomposition of the matrix B
 		std::vector<SVDHelper> blocks; // helper classes for the blocks
 		SVDHelper G; // SVD decomposition of the Green function
-		Eigen::ColPivHouseholderQR<Eigen::MatrixXd> qr; // QR decomposition solver
 
 		Eigen::MatrixXd G_matrix;
 
 		size_t index; // This is the index of the LAST SLICE IN B
-
-		Eigen::MatrixXd R; // a random matrix to solve degeneracies
-		Eigen::MatrixXd R2; // inverse of R
 
 		struct {
 			Vertex v;
@@ -50,56 +46,42 @@ class ZeroTemperature {
 			Eigen::Matrix2d matrix;
 		} cache;
 	public:
-		ZeroTemperature (Model &m) : model(m), index(0) {}
+		Configuration2 (Model &m) : model(m), index(0) {}
 
 		void setup (const Parameters &p) {
 			beta = p.getNumber("beta", 1.0);
 			mu = p.getNumber("mu", 0.0);
 			M = p.getInteger("slices", 4*beta);
-			//if (M%2==1) M++;
 			dtau = beta/M;
 			slices.resize(M, Slice<Model>(model));
-			right_side.resize(M+0);
-			left_side.resize(M+0);
+			right_side.resize(M);
+			left_side.resize(M);
 			for (size_t i=0;i<M;i++) {
 				slices[i].setup(dtau);
 			}
 			// use block information
 			blocks.resize(model.interaction().blocks());
+			size_t I = p.getInteger("sites", 0);
+			if (I>0) model.interaction().set_interactive_sites(I);
 		}
 
 		void set_index (size_t i) { index = i%M; }
 
 		void compute_right_side () {
 			if (index==0) {
-				Eigen::ArrayXd ev = model.lattice.eigenvalues();
-				right_side[index] = Eigen::MatrixXd::Zero(model.lattice().dimension(), model.lattice().dimension());
-				for (size_t i=0;i<model.size();i++) {
-					if (ev[i]<=mu) {
-						right_side[index](i, i) = 1.0;
-					}
-				}
+				B.setIdentity(model.lattice().dimension()); // FIXME: maybe have a direct reference to the lattice here too
 			} else {
-				right_side[index] = right_side[index-1];
-				slices[index].apply_matrix(right_side[index]);
+				B = right_side[index-1];
 			}
-			for (size_t i=0;i<model.interaction().blocks();i++) {
-				size_t a = model.interaction().block_start(i);
-				size_t b = model.interaction().block_size(i);
-				qr.compute(right_side[index].block(a, a, b, b));
-				right_side[index].block(a, a, b, b) = qr.householderQ();
-			}
+			slices[index].apply_matrix(B.U);
+			decompose_U();
+			fix_sign_B();
+			right_side[index] = B;
 		}
 
 		void compute_left_side () {
 			if (index==M-1) {
-				Eigen::ArrayXd ev = model.lattice.eigenvalues();
-				left_side[index] = Eigen::MatrixXd::Zero(model.lattice().dimension(), model.lattice().dimension());
-				for (size_t i=0;i<model.size();i++) {
-					if (ev[i]<=mu) {
-						left_side[index](i, i) = 1.0;
-					}
-				}
+				B.setIdentity(model.lattice().dimension()); // FIXME: maybe have a direct reference to the lattice here too
 			} else {
 				B = left_side[index+1];
 				B.Vt.applyOnTheRight(slices[index+1].matrix());
@@ -110,7 +92,7 @@ class ZeroTemperature {
 		}
 
 		void start () {
-			for (int j=0;j<M;j++) {
+			for (size_t j=0;j<M;j++) {
 				set_index(j);
 				compute_right_side();
 			}
@@ -167,7 +149,7 @@ class ZeroTemperature {
 				V = Eigen::MatrixXd::Zero(M, 2*N);
 				C = Eigen::MatrixXd::Zero(M, M);
 				int j = 0;
-				for (int i=0;i<N;i++) {
+				for (size_t i=0;i<N;i++) {
 					if (fabs(big_matrix.topRightCorner(N, N).diagonal()[i])>1.0) {
 						C(j, j) = big_matrix.topRightCorner(N, N).diagonal()[i];
 						big_matrix.topRightCorner(N, N).diagonal()[i] = 0.0;

@@ -39,9 +39,6 @@ class Configuration2 {
 
 		size_t index; // This is the index of the LAST SLICE IN B
 
-		Eigen::MatrixXd R; // a random matrix to solve degeneracies
-		Eigen::MatrixXd R2; // inverse of R
-
 		struct {
 			Vertex v;
 			MatrixType u, vt;
