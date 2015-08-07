@@ -131,7 +131,9 @@ class Configuration2 {
 			big_matrix.resize(2*N, 2*N);
 			big_matrix.topLeftCorner(N, N) = left.U.transpose() * right.Vt.transpose();
 			big_matrix.bottomRightCorner(N, N) = -right.U.transpose() * left.Vt.transpose();
+			big_matrix.bottomLeftCorner(N, N).setZero();
 			big_matrix.bottomLeftCorner(N, N).diagonal() = zr*right.S;
+			big_matrix.topRightCorner(N, N).setZero();
 			big_matrix.topRightCorner(N, N).diagonal() = zl*left.S;
 			//std::cerr << big_matrix << std::endl << std::endl;
 			//big_matrix.topLeftCorner(N, N) = Eigen::MatrixXd::Identity(N, N);
