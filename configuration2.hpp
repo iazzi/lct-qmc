@@ -357,61 +357,6 @@ class Configuration2 {
 			}
 		}
 
-                // Wraps B(i) with B_{i+1} and B_{i+1}^{-1}, resulting in B(i+1)
-		void wrap_B () {
-			set_index(index+1);
-                        //std::cerr << "Applying matrix on the left" << std::endl;
-			slices[index].apply_matrix(B.U);
-			decompose_U();
-                        //std::cerr << "Applying inverse on the right" << std::endl;
-			B.transposeInPlace();
-			B.U.applyOnTheLeft(slices[index].inverse().transpose());
-			decompose_U();
-			B.transposeInPlace();
-			fix_sign_B();
-		}
-
-                // Wraps B(i) with B_{i+1} and B_{i+1}^{-1}, resulting in B(i+1)
-		void check_wrap_B () {
-			set_index(index+1);
-                        std::cerr << "Applying inverse on the right" << std::endl;
-			B.transposeInPlace();
-			B.U.applyOnTheLeft(slices[index].inverse().transpose());
-			decompose_U();
-			B.transposeInPlace();
-                        fix_sign_B();
-			for (size_t i=0;i<model.interaction().blocks();i++) {
-				size_t a = model.interaction().block_start(i);
-				size_t b = model.interaction().block_size(i);
-				std::cerr << "block " << i << " -> " << B.S.segment(a, b).array().abs().log().sum() << ' ' << -slices[index].log_abs_det_block(i)+log_abs_det_block(i) << std::endl;
-			}
-			Eigen::MatrixXd t_U = B.U;
-			Eigen::MatrixXd t_Vt = B.Vt;
-			Eigen::VectorXd t_S = B.S;
-                        B.setIdentity(model.lattice().dimension()); // FIXME: maybe have a direct reference to the lattice here too
-                        for (size_t i=0;i<M-1;i++) {
-                                slices[(i+index+1)%M].apply_matrix(B.U);
-                                decompose_U();
-                        }
-                        fix_sign_B();
-			std::cerr << B.S.transpose() << std::endl;
-			std::cerr << (t_S-B.S).transpose() << std::endl << std::endl;
-			std::cerr << B.U-t_U << std::endl << std::endl;
-			t_S.swap(B.S);
-			t_U.swap(B.U);
-			t_Vt.swap(B.Vt);
-
-                        std::cerr << "Applying matrix on the left" << std::endl;
-			slices[index].apply_matrix(B.U);
-			decompose_U();
-			fix_sign_B();
-			for (size_t i=0;i<model.interaction().blocks();i++) {
-				size_t a = model.interaction().block_start(i);
-				size_t b = model.interaction().block_size(i);
-				std::cerr << "block " << i << " -> " << B.S.segment(a, b).array().abs().log().sum() << ' ' << log_abs_det_block(i) << std::endl;
-			}
-		}
-
 		void compute_G () {
 			G = B; // B
 			//G.invertInPlace(); // B^-1
