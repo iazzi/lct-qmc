@@ -1,5 +1,5 @@
-#ifndef CONFIGURATION2_HPP
-#define CONFIGURATION2_HPP
+#ifndef CONFIGURATION3_HPP
+#define CONFIGURATION3_HPP
 
 #include "parameters.hpp"
 #include "svd.hpp"
@@ -12,7 +12,7 @@
 
 
 template <typename Model>
-class Configuration2 {
+class Configuration3 {
 	public:
 		typedef typename Model::Lattice Lattice;
 		typedef typename Model::Interaction Interaction;
@@ -39,9 +39,6 @@ class Configuration2 {
 
 		size_t index; // This is the index of the LAST SLICE IN B
 
-		Eigen::MatrixXd R; // a random matrix to solve degeneracies
-		Eigen::MatrixXd R2; // inverse of R
-
 		struct {
 			Vertex v;
 			MatrixType u, vt;
@@ -49,7 +46,7 @@ class Configuration2 {
 			Eigen::Matrix2d matrix;
 		} cache;
 	public:
-		Configuration2 (Model &m) : model(m), index(0) {}
+		Configuration3 (Model &m) : model(m), index(0) {}
 
 		void setup (const Parameters &p) {
 			beta = p.getNumber("beta", 1.0);
@@ -582,5 +579,5 @@ class Configuration2 {
 		}
 };
 
-#endif // CONFIGURATION2_HPP
+#endif // CONFIGURATION3_HPP
 
