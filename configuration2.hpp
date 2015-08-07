@@ -36,6 +36,7 @@ class Configuration2 {
 		SVDHelper G; // SVD decomposition of the Green function
 
 		Eigen::MatrixXd G_matrix;
+		Eigen::MatrixXd big_matrix;
 
 		size_t index; // This is the index of the LAST SLICE IN B
 
@@ -126,7 +127,8 @@ class Configuration2 {
 		void compute_all_propagators (const SVDHelper &left, const SVDHelper &right, Eigen::MatrixXd &ret, double zl = 1.0, double zr = 1.0) {
 			size_t N = left.S.size();
 			size_t M = (right.S.array().abs()*zr>1.0).count() + (left.S.array().abs()*zl>1.0).count();
-			Eigen::MatrixXd big_matrix = Eigen::MatrixXd::Zero(2*N, 2*N);
+			//Eigen::MatrixXd big_matrix = Eigen::MatrixXd::Zero(2*N, 2*N);
+			big_matrix.resize(2*N, 2*N);
 			big_matrix.topLeftCorner(N, N) = left.U.transpose() * right.Vt.transpose();
 			big_matrix.bottomRightCorner(N, N) = -right.U.transpose() * left.Vt.transpose();
 			big_matrix.bottomLeftCorner(N, N).diagonal() = zr*right.S;
