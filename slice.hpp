@@ -98,6 +98,19 @@ class Slice {
 			if (tau>t0) L->propagate(tau-t0, A);
 		}
 
+		// apply the slice with forward propagators and direct vertices
+		template <typename T>
+		void apply_on_the_right (T &A) {
+			double t0 = beta;
+			for (auto v=verts.rbegin();v!=verts.rend();v++) {
+				//if (v.tau>=tau) break;
+				if (v.tau>t0) L->propagate_on_the_right(t0-v.tau, A);
+				t0 = v.tau;
+				I->apply_vertex_on_the_right(v, A);
+			}
+			if (t0>0.0) L->propagate_on_the_right(t0, A);
+		}
+
 		// apply the inverse slice (with backward propagators and inverse vertices)
 		template <typename T>
 		void apply_inverse (T &A) {
