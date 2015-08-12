@@ -50,7 +50,8 @@ class SpinOneHalf {
 			cached_exp *= -t;
 			cached_exp = cached_exp.array().exp();
 			//M.applyOnTheLeft(cached_exp.matrix().asDiagonal());
-			M.array().colwise() *= cached_exp.array(); // (-t*eigenvalues_.array()).exp(); // this causes allocation!
+			M.array().block(0, 0, V, V).colwise() *= cached_exp.array().head(V); // (-t*eigenvalues_.array()).exp(); // this causes allocation!
+			M.array().block(V, V, V, V).colwise() *= cached_exp.array().tail(V); // (-t*eigenvalues_.array()).exp(); // this causes allocation!
 		}
 
 	template <typename T>
