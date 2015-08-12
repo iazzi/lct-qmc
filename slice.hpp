@@ -104,9 +104,9 @@ class Slice {
 			double t0 = beta;
 			for (auto v=verts.rbegin();v!=verts.rend();v++) {
 				//if (v.tau>=tau) break;
-				if (v.tau>t0) L->propagate_on_the_right(t0-v.tau, A);
-				t0 = v.tau;
-				I->apply_vertex_on_the_right(v, A);
+				if (v->tau<t0) L->propagate_on_the_right(t0-v->tau, A);
+				t0 = v->tau;
+				I->apply_vertex_on_the_right(*v, A);
 			}
 			if (t0>0.0) L->propagate_on_the_right(t0, A);
 		}
