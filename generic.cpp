@@ -1,5 +1,6 @@
 #include "measurements.hpp"
 #include "configuration2.hpp"
+#include "lct_simulation.hpp"
 #include "genericlattice.hpp"
 #include "slice.hpp"
 #include "model.hpp"
@@ -49,7 +50,7 @@ class Measurements {
 		//}
 	}
 	void write_G (std::ostream &out) {
-		for (int i=0;i<gf.size();i++) {
+		for (size_t i=0;i<gf.size();i++) {
 			out << gf[i].mean() << endl << endl;
 		}
 	}
@@ -65,7 +66,7 @@ int main (int argc, char **argv) {
 	SpinOneHalf<GenericLattice> lattice(params);
 	HubbardInteraction interaction(params);
 	auto model = make_model(lattice, interaction);
-	int N = params.getInteger("N");
+	//int N = params.getInteger("N");
 	Configuration2<Model<SpinOneHalf<GenericLattice>, HubbardInteraction>> conf(model);
 	conf.setup(params);
 	for (size_t i=0;i<conf.slice_number();i++) {

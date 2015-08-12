@@ -1,5 +1,5 @@
-#ifndef ZEROTEMP_HPP
-#define ZEROTEMP_HPP
+#ifndef CONFIGURATION2_HPP
+#define CONFIGURATION2_HPP
 
 #include "parameters.hpp"
 #include "svd.hpp"
@@ -12,7 +12,7 @@
 
 
 template <typename Model>
-class ZeroTemperature {
+class Configuration2 {
 	public:
 		typedef typename Model::Lattice Lattice;
 		typedef typename Model::Interaction Interaction;
@@ -36,11 +36,9 @@ class ZeroTemperature {
 		SVDHelper G; // SVD decomposition of the Green function
 
 		Eigen::MatrixXd G_matrix;
+		Eigen::MatrixXd big_matrix;
 
 		size_t index; // This is the index of the LAST SLICE IN B
-
-		Eigen::MatrixXd R; // a random matrix to solve degeneracies
-		Eigen::MatrixXd R2; // inverse of R
 
 		struct {
 			Vertex v;
@@ -49,7 +47,7 @@ class ZeroTemperature {
 			Eigen::Matrix2d matrix;
 		} cache;
 	public:
-		ZeroTemperature (Model &m) : model(m), index(0) {}
+		Configuration2 (Model &m) : model(m), index(0) {}
 
 		void setup (const Parameters &p) {
 			beta = p.getNumber("beta", 1.0);
@@ -64,6 +62,8 @@ class ZeroTemperature {
 			}
 			// use block information
 			blocks.resize(model.interaction().blocks());
+			size_t I = p.getInteger("sites", 0);
+			if (I>0) model.interaction().set_interactive_sites(I);
 		}
 
 		void set_index (size_t i) { index = i%M; }
@@ -85,15 +85,35 @@ class ZeroTemperature {
 				B.setIdentity(model.lattice().dimension()); // FIXME: maybe have a direct reference to the lattice here too
 			} else {
 				B = left_side[index+1];
-				B.Vt.applyOnTheRight(slices[index+1].matrix());
+				slices[index+1].apply_on_the_right(B.Vt);
 				decompose_Vt();
 				fix_sign_B();
 			}
 			left_side[index] = B;
 		}
 
+		void check_propagation_from_right () {
+			Eigen::MatrixXd M, M1, M2;
+			M1 = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension());
+			model.lattice().propagate(0.023, M1);
+			M2 = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension());
+			model.lattice().propagate_on_the_right(0.023, M2);
+			std::cerr << "propagate " << (M1-M2).norm() << std::endl;
+			Vertex v = model.interaction().generate(0.0, 0.2);
+			M1 = M2 = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension());
+			model.interaction().apply_vertex_on_the_left(v, M1);
+			model.interaction().apply_vertex_on_the_right(v, M2);
+			std::cerr << "vertex " << (M1-M2).norm() << std::endl;
+			M = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension());
+			slices[index+1].apply_matrix(M);
+			std::cerr << "from right " << (M-slices[index+1].matrix()).norm() << std::endl;
+			M = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension());
+			slices[index+1].apply_on_the_right(M);
+			std::cerr << "from right " << (M-slices[index+1].matrix()).norm() << std::endl;
+		}
+
 		void start () {
-			for (int j=0;j<M;j++) {
+			for (size_t j=0;j<M;j++) {
 				set_index(j);
 				compute_right_side();
 			}
@@ -127,10 +147,13 @@ class ZeroTemperature {
 		void compute_all_propagators (const SVDHelper &left, const SVDHelper &right, Eigen::MatrixXd &ret, double zl = 1.0, double zr = 1.0) {
 			size_t N = left.S.size();
 			size_t M = (right.S.array().abs()*zr>1.0).count() + (left.S.array().abs()*zl>1.0).count();
-			Eigen::MatrixXd big_matrix = Eigen::MatrixXd::Zero(2*N, 2*N);
+			//Eigen::MatrixXd big_matrix = Eigen::MatrixXd::Zero(2*N, 2*N);
+			big_matrix.resize(2*N, 2*N);
 			big_matrix.topLeftCorner(N, N) = left.U.transpose() * right.Vt.transpose();
 			big_matrix.bottomRightCorner(N, N) = -right.U.transpose() * left.Vt.transpose();
+			big_matrix.bottomLeftCorner(N, N).setZero();
 			big_matrix.bottomLeftCorner(N, N).diagonal() = zr*right.S;
+			big_matrix.topRightCorner(N, N).setZero();
 			big_matrix.topRightCorner(N, N).diagonal() = zl*left.S;
 			//std::cerr << big_matrix << std::endl << std::endl;
 			//big_matrix.topLeftCorner(N, N) = Eigen::MatrixXd::Identity(N, N);
@@ -150,7 +173,7 @@ class ZeroTemperature {
 				V = Eigen::MatrixXd::Zero(M, 2*N);
 				C = Eigen::MatrixXd::Zero(M, M);
 				int j = 0;
-				for (int i=0;i<N;i++) {
+				for (size_t i=0;i<N;i++) {
 					if (fabs(big_matrix.topRightCorner(N, N).diagonal()[i])>1.0) {
 						C(j, j) = big_matrix.topRightCorner(N, N).diagonal()[i];
 						big_matrix.topRightCorner(N, N).diagonal()[i] = 0.0;
@@ -358,61 +381,6 @@ class ZeroTemperature {
 			}
 		}
 
-                // Wraps B(i) with B_{i+1} and B_{i+1}^{-1}, resulting in B(i+1)
-		void wrap_B () {
-			set_index(index+1);
-                        //std::cerr << "Applying matrix on the left" << std::endl;
-			slices[index].apply_matrix(B.U);
-			decompose_U();
-                        //std::cerr << "Applying inverse on the right" << std::endl;
-			B.transposeInPlace();
-			B.U.applyOnTheLeft(slices[index].inverse().transpose());
-			decompose_U();
-			B.transposeInPlace();
-			fix_sign_B();
-		}
-
-                // Wraps B(i) with B_{i+1} and B_{i+1}^{-1}, resulting in B(i+1)
-		void check_wrap_B () {
-			set_index(index+1);
-                        std::cerr << "Applying inverse on the right" << std::endl;
-			B.transposeInPlace();
-			B.U.applyOnTheLeft(slices[index].inverse().transpose());
-			decompose_U();
-			B.transposeInPlace();
-                        fix_sign_B();
-			for (size_t i=0;i<model.interaction().blocks();i++) {
-				size_t a = model.interaction().block_start(i);
-				size_t b = model.interaction().block_size(i);
-				std::cerr << "block " << i << " -> " << B.S.segment(a, b).array().abs().log().sum() << ' ' << -slices[index].log_abs_det_block(i)+log_abs_det_block(i) << std::endl;
-			}
-			Eigen::MatrixXd t_U = B.U;
-			Eigen::MatrixXd t_Vt = B.Vt;
-			Eigen::VectorXd t_S = B.S;
-                        B.setIdentity(model.lattice().dimension()); // FIXME: maybe have a direct reference to the lattice here too
-                        for (size_t i=0;i<M-1;i++) {
-                                slices[(i+index+1)%M].apply_matrix(B.U);
-                                decompose_U();
-                        }
-                        fix_sign_B();
-			std::cerr << B.S.transpose() << std::endl;
-			std::cerr << (t_S-B.S).transpose() << std::endl << std::endl;
-			std::cerr << B.U-t_U << std::endl << std::endl;
-			t_S.swap(B.S);
-			t_U.swap(B.U);
-			t_Vt.swap(B.Vt);
-
-                        std::cerr << "Applying matrix on the left" << std::endl;
-			slices[index].apply_matrix(B.U);
-			decompose_U();
-			fix_sign_B();
-			for (size_t i=0;i<model.interaction().blocks();i++) {
-				size_t a = model.interaction().block_start(i);
-				size_t b = model.interaction().block_size(i);
-				std::cerr << "block " << i << " -> " << B.S.segment(a, b).array().abs().log().sum() << ' ' << log_abs_det_block(i) << std::endl;
-			}
-		}
-
 		void compute_G () {
 			G = B; // B
 			//G.invertInPlace(); // B^-1
@@ -580,5 +548,5 @@ class ZeroTemperature {
 		}
 };
 
-#endif // ZEROTEMP_HPP
+#endif // CONFIGURATION2_HPP
 

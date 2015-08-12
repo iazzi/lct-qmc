@@ -60,8 +60,8 @@ int main (int argc, char **argv) {
 	std::uniform_real_distribution<double> d;
 	std::exponential_distribution<double> trial;
 	Parameters params(argc, argv);
-	size_t thermalization = params.getInteger("thermalization", 10000);
-	size_t sweeps = params.getInteger("sweeps", 10000);
+	size_t thermalization = params.getInteger("thermalization", 100);
+	size_t sweeps = params.getInteger("sweeps", 100);
 	SpinOneHalf<CubicLattice> lattice(params);
 	HubbardInteraction interaction(params);
 	auto model = make_model(lattice, interaction);
