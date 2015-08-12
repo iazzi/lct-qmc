@@ -213,25 +213,6 @@ class Configuration2 {
 			ret = Eigen::MatrixXd::Identity(2*N, 2*N) - big_matrix;
 		}
 
-		void compute_all_propagators_3 (const SVDHelper &left, const SVDHelper &right, Eigen::MatrixXd &ret) {
-			double z = std::exp(beta*mu); // FIXME: make sure this is right
-			size_t N = left.S.size();
-			Eigen::MatrixXd big_matrix = Eigen::MatrixXd::Zero(3*N, 3*N);
-			big_matrix.topLeftCorner(N, N) = right.Vt.transpose();
-			big_matrix.block(N, N, N, N) = right.U.transpose() * left.Vt.transpose();
-			big_matrix.bottomRightCorner(N, N) = left.U.transpose();
-			big_matrix.block(N, 0, N, N).diagonal() = right.S;
-			big_matrix.block(2*N, N, N, N).diagonal() = left.S;
-			big_matrix.topRightCorner(N, N) = Eigen::MatrixXd::Identity(N ,N);
-			//std::cerr << big_matrix << std::endl << std::endl;
-			big_matrix = big_matrix.fullPivLu().inverse();
-			big_matrix.topRows(N).applyOnTheLeft(right.Vt.transpose());
-			big_matrix.middleRows(N, N).applyOnTheLeft(left.Vt.transpose());
-			big_matrix.middleCols(N, N).applyOnTheRight(right.U.transpose());
-			big_matrix.rightCols(N).applyOnTheRight(left.U.transpose());
-			ret = Eigen::MatrixXd::Identity(3*N, 3*N) - big_matrix;
-		}
-
 		Eigen::MatrixXd full_propagator;
 		Eigen::MatrixXd compute_propagators_2 () {
 			size_t N = B.S.size();
@@ -243,25 +224,6 @@ class Configuration2 {
 			//std::cerr << "--> " << (G_matrix-full_propagator.bottomRightCorner(N, N)).norm() << std::endl;
 			G_matrix = full_propagator.bottomRightCorner(N, N);
 			return full_propagator;
-		}
-
-		void compute_propagators_3 () {
-			G_matrix.resize(B.S.size(), B.S.size());
-			SVDHelper L, R;
-			Eigen::MatrixXd FP;
-			for (size_t i=0;i<model.interaction().blocks();i++) {
-				size_t a = model.interaction().block_start(i);
-				size_t b = model.interaction().block_size(i);
-				R.Vt = right_side[index].Vt.block(a, a, b, b);
-				R.S = right_side[index].S.segment(a, b);
-				R.U = right_side[index].U.block(a, a, b, b);
-				L.Vt = left_side[index].Vt.block(a, a, b, b);
-				L.S = left_side[index].S.segment(a, b);
-				L.U = left_side[index].U.block(a, a, b, b);
-				compute_all_propagators(L, R, FP);
-				//blocks[i].fullSVD(B.U.block(a, a, b, b) * B.S.segment(a, b).asDiagonal());
-				G_matrix.block(a, a, b, b) = FP.bottomRightCorner(b, b);
-			}
 		}
 
 		double log_abs_det () {
