@@ -85,11 +85,31 @@ class Configuration2 {
 				B.setIdentity(model.lattice().dimension()); // FIXME: maybe have a direct reference to the lattice here too
 			} else {
 				B = left_side[index+1];
-				B.Vt.applyOnTheRight(slices[index+1].matrix());
+				slices[index+1].apply_on_the_right(B.Vt);
 				decompose_Vt();
 				fix_sign_B();
 			}
 			left_side[index] = B;
+		}
+
+		void check_propagation_from_right () {
+			Eigen::MatrixXd M, M1, M2;
+			M1 = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension());
+			model.lattice().propagate(0.023, M1);
+			M2 = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension());
+			model.lattice().propagate_on_the_right(0.023, M2);
+			std::cerr << "propagate " << (M1-M2).norm() << std::endl;
+			Vertex v = model.interaction().generate(0.0, 0.2);
+			M1 = M2 = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension());
+			model.interaction().apply_vertex_on_the_left(v, M1);
+			model.interaction().apply_vertex_on_the_right(v, M2);
+			std::cerr << "vertex " << (M1-M2).norm() << std::endl;
+			M = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension());
+			slices[index+1].apply_matrix(M);
+			std::cerr << "from right " << (M-slices[index+1].matrix()).norm() << std::endl;
+			M = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension());
+			slices[index+1].apply_on_the_right(M);
+			std::cerr << "from right " << (M-slices[index+1].matrix()).norm() << std::endl;
 		}
 
 		void start () {

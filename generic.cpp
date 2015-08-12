@@ -1,5 +1,6 @@
 #include "measurements.hpp"
 #include "configuration2.hpp"
+#include "lct_simulation.hpp"
 #include "genericlattice.hpp"
 #include "slice.hpp"
 #include "model.hpp"
