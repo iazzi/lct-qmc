@@ -104,7 +104,10 @@ class HubbardInteraction {
 		return generate(0.0, 1.0, g);
 	}
 
-	Vertex generate (double tau);
+	Vertex generate (double t0, double t1) {
+		std::mt19937_64 g;
+		return generate(t0, t1, g);
+	}
 
 	template <typename G>
 	inline Vertex generate (double t0, double t1, G &g) {
@@ -196,7 +199,7 @@ inline void HubbardInteraction::apply_vertex_on_the_left (Vertex v, Eigen::Matri
 template <>
 inline void HubbardInteraction::apply_vertex_on_the_right (Vertex v, Eigen::MatrixXd &M) {
 	M.block(0, 0, V, V) += (a+v.sigma) * (M.block(0, 0, V, V) * eigenvectors.block(0, 0, V, V).row(v.x).transpose()) * eigenvectors.block(0, 0, V, V).row(v.x);
-	M.block(V, V, V, V) += (a+v.sigma) * (M.block(V, V, V, V) * eigenvectors.block(V, V, V, V).row(v.x).transpose()) * eigenvectors.block(V, V, V, V).row(v.x);
+	M.block(V, V, V, V) += (a-v.sigma) * (M.block(V, V, V, V) * eigenvectors.block(V, V, V, V).row(v.x).transpose()) * eigenvectors.block(V, V, V, V).row(v.x);
 }
 
 template <>
