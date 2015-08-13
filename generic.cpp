@@ -61,8 +61,8 @@ int main (int argc, char **argv) {
 	std::uniform_real_distribution<double> d;
 	std::exponential_distribution<double> trial;
 	Parameters params(argc, argv);
-	size_t thermalization = params.getInteger("thermalization", 10000);
-	size_t sweeps = params.getInteger("sweeps", 10000);
+	size_t thermalization = params.getInteger("thermalization", 1000);
+	size_t sweeps = params.getInteger("sweeps", 1000);
 	SpinOneHalf<GenericLattice> lattice(params);
 	HubbardInteraction interaction(params);
 	auto model = make_model(lattice, interaction);
@@ -77,7 +77,7 @@ int main (int argc, char **argv) {
 		//std::cerr << i << " -> " << conf.slice_size() << std::endl;
 	}
 	conf.set_index(0);
-	conf.compute_right_side();
+	conf.compute_right_side(0);
 	conf.start();
 	conf.start();
 	cerr << conf.check_B_vs_last_right_side() << endl;
@@ -125,7 +125,7 @@ int main (int argc, char **argv) {
 				std::cerr << "v = " << v.x << ',' << v.tau << " dp = " << p1+pr-p2 << ' ' << p2-p1 << ' ' << pr << endl << endl;
 			}
 		}
-		conf.compute_right_side();
+		conf.compute_right_side(conf.current_slice()+1);
 	};
 	auto full_check = [&conf, &model] () {
 		Eigen::MatrixXd G;
@@ -149,7 +149,7 @@ int main (int argc, char **argv) {
 		Eigen::MatrixXd G;
 		for (size_t i=0;i<conf.slice_number();i++) {
 			conf.set_index(i);
-			conf.compute_right_side();
+			conf.compute_right_side(conf.current_slice()+1);
 			//conf.compute_B();
 			//conf.compute_G();
 			//conf.save_G();
@@ -168,7 +168,7 @@ int main (int argc, char **argv) {
 		}
 		for (size_t i=conf.slice_number();i>0;i--) {
 			conf.set_index(i-1);
-			conf.compute_left_side();
+			conf.compute_left_side(conf.current_slice()+1);
 			//std::cerr << G << std::endl << std::endl;
 			//conf.compute_B();
 			//conf.compute_G();

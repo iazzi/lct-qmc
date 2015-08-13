@@ -55,8 +55,8 @@ class Configuration2 {
 			M = p.getInteger("slices", 4*beta);
 			dtau = beta/M;
 			slices.resize(M, Slice<Model>(model));
-			right_side.resize(M);
-			left_side.resize(M);
+			right_side.resize(M+1);
+			left_side.resize(M+1);
 			for (size_t i=0;i<M;i++) {
 				slices[i].setup(dtau);
 			}
@@ -68,28 +68,29 @@ class Configuration2 {
 
 		void set_index (size_t i) { index = i%M; }
 
-		void compute_right_side () {
-			if (index==0) {
+		void compute_right_side (size_t j) {
+			if (j==0) {
 				B.setIdentity(model.lattice().dimension()); // FIXME: maybe have a direct reference to the lattice here too
 			} else {
-				B = right_side[index-1];
+				B = right_side[j-1];
+				slices[j-1].apply_matrix(B.U);
+				decompose_U();
+				fix_sign_B();
 			}
-			slices[index].apply_matrix(B.U);
-			decompose_U();
-			fix_sign_B();
-			right_side[index] = B;
+			right_side[j] = B;
 		}
 
-		void compute_left_side () {
-			if (index==M-1) {
+		void compute_left_side (size_t j) {
+			if (j==M) {
 				B.setIdentity(model.lattice().dimension()); // FIXME: maybe have a direct reference to the lattice here too
 			} else {
-				B = left_side[index+1];
-				slices[index+1].apply_on_the_right(B.Vt);
+				B = left_side[j+1];
+				slices[j].apply_on_the_right(B.Vt);
+				//B.Vt.applyOnTheRight(slices[j+1].matrix());
 				decompose_Vt();
 				fix_sign_B();
 			}
-			left_side[index] = B;
+			left_side[j] = B;
 		}
 
 		void check_propagation_from_right () {
@@ -113,13 +114,9 @@ class Configuration2 {
 		}
 
 		void start () {
-			for (size_t j=0;j<M;j++) {
-				set_index(j);
-				compute_right_side();
-			}
-			for (int j=M-1;j>=0;j--) {
-				set_index(j);
-				compute_left_side();
+			for (size_t j=0;j<=M;j++) {
+				compute_right_side(j);
+				compute_left_side(M-j);
 			}
 		}
 
@@ -134,8 +131,8 @@ class Configuration2 {
 				fix_sign_B();
 			}
 			set_index(old_index);
-			ret += (right_side[M-1].U-B.U).norm();
-			ret += (right_side[M-1].Vt-B.Vt).norm();
+			ret += (right_side[M].U-B.U).norm();
+			ret += (right_side[M].Vt-B.Vt).norm();
 			//std::cerr << (right_side[M-1].U-B.U) << std::endl << std::endl;
 			//std::cerr << (right_side[M-1].Vt-B.Vt) << std::endl << std::endl;
 			//if (ret>1.0e-6) throw -1;
@@ -220,7 +217,7 @@ class Configuration2 {
 			//G_matrix = full_propagator.block(N, N, N, N);
 			double zl = std::exp((M-index-1)*dtau*mu);
 			double zr = std::exp((index+1)*dtau*mu);
-			compute_all_propagators(left_side[index], right_side[index], full_propagator, zl, zr);
+			compute_all_propagators(left_side[index+1], right_side[index+1], full_propagator, zl, zr);
 			//std::cerr << "--> " << (G_matrix-full_propagator.bottomRightCorner(N, N)).norm() << std::endl;
 			G_matrix = full_propagator.bottomRightCorner(N, N);
 			return full_propagator;
@@ -484,13 +481,13 @@ class Configuration2 {
 					if (j<=i) A += slices[j].log_abs_det_block(block);
 					else B += slices[j].log_abs_det_block(block);
 				}
-				std::cerr << i << ") "<< A << ' ' << B << " <=> " << left_side[i].S.segment(a, b).array().abs().log().sum() << ' ' << right_side[i].S.segment(a, b).array().abs().log().sum() << std::endl;
+				std::cerr << i << ") "<< A << ' ' << B << " <=> " << left_side[i+1].S.segment(a, b).array().abs().log().sum() << ' ' << right_side[i+1].S.segment(a, b).array().abs().log().sum() << std::endl;
 			}
 		}
 
 		void check_first_slice () {
 			Eigen::MatrixXd A = slices[0].matrix();
-			std::cerr << " * " << (A-right_side[0].matrix()).norm() << std::endl;
+			std::cerr << " * " << (A-right_side[1].matrix()).norm() << std::endl;
 		}
 
 		void check_all_prop () {
