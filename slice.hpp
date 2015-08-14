@@ -181,6 +181,65 @@ class Slice {
 			if (beta>t0) L->propagate(t0-beta, vt);
 		}
 
+		void matrixU_right (const Vertex v, MatrixType &u) {
+			I->matrixU(v, u);
+			double t0 = v.tau;
+			auto w = verts.lower_bound(v);
+			for (;w!=verts.begin();) {
+				w--;
+				if (w->tau<t0) L->propagate(w->tau-t0, u);
+				t0 = w->tau;
+				I->apply_inverse_on_the_left(*w, u);
+			}
+			if (t0>0.0) L->propagate(-t0, u);
+			//std::cerr << (u-inverse()*matrixU(v)).norm() << std::endl;
+		}
+
+		void matrixVt_right (const Vertex v, MatrixType &vt) {
+			I->matrixV(v, vt);
+			double t0 = v.tau;
+			auto w = verts.lower_bound(v);
+			for (;w!=verts.begin();) {
+				w--;
+				if (w->tau<t0) L->propagate(t0-w->tau, vt);
+				t0 = w->tau;
+				I->apply_vertex_on_the_left(*w, vt);
+			}
+			if (t0>0.0) L->propagate(t0, vt);
+			//std::cerr << (vt-matrix().transpose()*matrixVt(v)).norm() << std::endl;
+		}
+
+		void inverseU_right (const Vertex v, MatrixType &u) {
+			I->matrixU(v, u);
+			u = -u;
+			I->apply_inverse_on_the_left(v, u);
+			double t0 = v.tau;
+			auto w = verts.lower_bound(v);
+			for (;w!=verts.begin();) {
+				w--;
+				if (w->tau<t0) L->propagate(w->tau-t0, u);
+				t0 = w->tau;
+				I->apply_inverse_on_the_left(*w, u);
+			}
+			if (t0>0.0) L->propagate(-t0, u);
+			//std::cerr << (u-inverse()*inverseU(v)).norm() << std::endl;
+		}
+
+		void inverseVt_right (const Vertex v, MatrixType &vt) {
+			I->matrixV(v, vt);
+			//I->apply_inverse_on_the_left(v, vt);
+			double t0 = v.tau;
+			auto w = verts.lower_bound(v);
+			for (;w!=verts.begin();) {
+				w--;
+				if (w->tau<t0) L->propagate(t0-w->tau, vt);
+				t0 = w->tau;
+				I->apply_vertex_on_the_left(*w, vt);
+			}
+			if (t0>0.0) L->propagate(t0, vt);
+			//std::cerr << (vt-matrix().transpose()*inverseVt(v)).norm() << std::endl;
+		}
+
 		MatrixType matrixU (const Vertex v) {
 			MatrixType u;
 			matrixU(v, u);

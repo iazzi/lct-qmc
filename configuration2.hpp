@@ -384,6 +384,8 @@ class Configuration2 {
 		}
 
 		double insert_probability (Vertex v) {
+			//slices[index].matrixU_right(v, cache.u);
+			//slices[index].matrixVt_right(v, cache.vt);
 			cache.v = v;
 			slices[index].matrixU(v, cache.u);
 			slices[index].matrixVt(v, cache.vt);
@@ -394,6 +396,8 @@ class Configuration2 {
 		}
 
 		double remove_probability (Vertex v) {
+			//slices[index].inverseU_right(v, cache.u);
+			//slices[index].inverseVt_right(v, cache.vt);
 			cache.v = v;
 			slices[index].inverseU(v, cache.u);
 			slices[index].inverseVt(v, cache.vt);
