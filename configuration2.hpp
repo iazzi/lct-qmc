@@ -139,7 +139,8 @@ class Configuration2 {
 			return ret;
 		}
 
-		Eigen::FullPivLU<Eigen::MatrixXd> lu;
+		//Eigen::FullPivLU<Eigen::MatrixXd> lu;
+		Eigen::PartialPivLU<Eigen::MatrixXd> lu;
 
 		void compute_all_propagators (const SVDHelper &left, const SVDHelper &right, Eigen::MatrixXd &ret, double zl = 1.0, double zr = 1.0) {
 			size_t N = left.S.size();
