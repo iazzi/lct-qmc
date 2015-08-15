@@ -124,7 +124,7 @@ int main (int argc, char **argv) {
 				std::cerr << "v = " << v.x << ',' << v.tau << " dp = " << p1+pr-p2 << ' ' << p2-p1 << ' ' << pr << endl << endl;
 			}
 		}
-		conf.compute_right_side(conf.current_slice()+1);
+		//conf.compute_right_side(conf.current_slice()+1);
 	};
 	auto full_check = [&conf, &model] () {
 		Eigen::MatrixXd G;
@@ -164,6 +164,7 @@ int main (int argc, char **argv) {
 				//<< (conf.green_function()-G).norm() << ' '
 				//<< (conf.green_function()-G).cwiseAbs().maxCoeff() << endl;
 			sweep(generator, check);
+			conf.compute_right_side(conf.current_slice()+1);
 		}
 		for (size_t i=conf.slice_number();i>0;i--) {
 			conf.set_index(i-1);
@@ -198,9 +199,9 @@ int main (int argc, char **argv) {
 		} else if (i%100==0) {
 			cerr << ' ' << (100.0*i/thermalization) << "%         \r";
 		}
-		conf.compute_B();
-		double p2 = conf.probability().first;
-		std::cerr << i << " dp = " << p1+pr-p2 << ' ' << p2-p1 << ' ' << pr << endl;
+		//conf.compute_B();
+		//double p2 = conf.probability().first;
+		//std::cerr << i << " dp = " << p1+pr-p2 << ' ' << p2-p1 << ' ' << pr << endl;
 	}
 	//diff << endl << endl;
 	conf.compute_B();
