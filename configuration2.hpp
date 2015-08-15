@@ -19,6 +19,11 @@ class Configuration2 {
 		typedef typename Model::Interaction::MatrixType MatrixType;
 		typedef typename Interaction::Vertex Vertex;
 
+		typedef enum {
+			left_to_right,
+			right_to_left
+		} sweep_direction_type;
+
 	private:
 		std::vector<Slice<Model>> slices;
 		std::vector<SVDHelper> right_side;
@@ -46,6 +51,8 @@ class Configuration2 {
 			double probability;
 			Eigen::Matrix2d matrix;
 		} cache;
+
+		sweep_direction_type sweep_direction_;
 	public:
 		Configuration2 (Model &m) : model(m), index(0) {}
 
@@ -67,6 +74,7 @@ class Configuration2 {
 		}
 
 		void set_index (size_t i) { index = i%M; }
+		void set_slice (size_t i) { index = i%M; }
 
 		void compute_right_side (size_t j) {
 			if (j==0) {
@@ -465,6 +473,9 @@ class Configuration2 {
 		size_t slice_number () const { return M; } // MUST be same as slices.size()
 
 		size_t current_slice () const { return index; }
+
+		sweep_direction_type sweep_direction () const { return sweep_direction_; }
+		void set_sweep_direction (sweep_direction_type d) { sweep_direction_ = d; }
 
 		Vertex get_vertex (size_t i) const { return slices[index].get_vertex(i); }
 
