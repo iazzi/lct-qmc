@@ -182,7 +182,7 @@ class HubbardInteraction {
 	size_t block_size (size_t i) const { return volume(); }
 
 	template <typename T>
-		double interaction_energy (const T &M) {
+		double interaction_energy (const T &M) const {
 			Eigen::ArrayXd d = (eigenvectors * M * eigenvectors.transpose()).diagonal();
 			return U * (d.head(V)*d.tail(V)).sum();
 		}

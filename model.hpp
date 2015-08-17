@@ -8,7 +8,9 @@ class Model {
 	public:
 	Model (L &a, I &b) : l(a), i(b) { i.set_lattice_eigenvectors(l.eigenvectors()); }
 	L& lattice () { return l; }
+	const L& lattice () const { return l; }
 	I& interaction () { return i; }
+	const I& interaction () const { return i; }
 	typedef L Lattice;
 	typedef I Interaction;
 };
