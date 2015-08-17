@@ -457,7 +457,7 @@ class Configuration2 {
 			return ret;
 		}
 
-		const Eigen::MatrixXd & green_function () {
+		const Eigen::MatrixXd & green_function () const {
 			return G_matrix;
 		}
 

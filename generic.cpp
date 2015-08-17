@@ -32,7 +32,7 @@ class Measurements {
 	measurement<double> Verts;
 	vector<measurement<ArrayXXd>> gf;
 	Measurements () : Sign("Sign"), Dens("Density"), Kin("Kinetic Energy"), Int("Interaction Energy"), Verts("Vertices") {}
-	void measure (Model& model, Configuration2<Model> &conf, double sign) {
+	void measure (Model& model, const Configuration2<Model> &conf, double sign) {
 		Sign.add(sign);
 		cache = conf.green_function();
 		Dens.add(sign*cache);
@@ -179,6 +179,10 @@ class LCTSimulation {
 			//conf.check_all_det(1);
 		}
 	}
+
+	double probability () const { return p1+pr; }
+	double sign () const { return ps; }
+
 };
 
 int main (int argc, char **argv) {
