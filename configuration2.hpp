@@ -483,6 +483,7 @@ class Configuration2 {
 		double remove_factor () { return -log(beta/slice_number()) +log(slice_size()+0) -model.interaction().combinatorial_factor(); }
 
 		size_t size () const { size_t ret = 0; for (const auto &s : slices) ret += s.size(); return ret; }
+		size_t vertices () const { return size(); }
 		void show_verts () const { for (const auto &s : slices) std::cerr << s.size() << std::endl; }
 		void advance (int n) { set_index(2*M+index+n); }
 

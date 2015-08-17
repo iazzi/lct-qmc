@@ -21,40 +21,6 @@ double relative_error (double a, double b) {
 }
 
 
-template <class Model>
-class Measurements {
-	MatrixXd cache;
-	public:
-	measurement<double> Sign;
-	measurement<ArrayXXd> Dens;
-	measurement<double> Kin;
-	measurement<double> Int;
-	measurement<double> Verts;
-	vector<measurement<ArrayXXd>> gf;
-	Measurements () : Sign("Sign"), Dens("Density"), Kin("Kinetic Energy"), Int("Interaction Energy"), Verts("Vertices") {}
-	void measure (Model& model, const Configuration2<Model> &conf, double sign) {
-		Sign.add(sign);
-		cache = conf.green_function();
-		Dens.add(sign*cache);
-		Kin.add(sign*model.lattice().kinetic_energy(cache)/model.lattice().volume());
-		Int.add(sign*model.interaction().interaction_energy(cache)/model.lattice().volume());
-		Verts.add(conf.size());
-		//const int D = 4;
-		//int i = conf.current_slice();
-		//gf.resize(D*conf.slice_number());
-		//double dt = (conf.slice_end()-conf.slice_start())/D;
-		//for (int j=0;j<D;j++) {
-			//conf.gf_tau(cache, j*dt);
-			//gf[D*i+j].add(cache);
-		//}
-	}
-	void write_G (std::ostream &out) {
-		for (size_t i=0;i<gf.size();i++) {
-			out << gf[i].mean() << endl << endl;
-		}
-	}
-};
-
 class LCTSimulation {
 	std::mt19937_64 generator;
 	std::uniform_real_distribution<double> d;
@@ -183,6 +149,71 @@ class LCTSimulation {
 	double probability () const { return p1+pr; }
 	double sign () const { return ps; }
 
+	size_t vertices () const { return conf.vertices(); }
+	const Eigen::MatrixXd & green_function () const {
+		return conf.green_function();
+	}
+
+	double kinetic_energy (const Eigen::MatrixXd& cache) const {
+		return model.lattice().kinetic_energy(cache);
+	}
+
+	double interaction_energy (const Eigen::MatrixXd& cache) const {
+		return model.interaction().interaction_energy(cache);
+	}
+
+	size_t volume () const { return model.lattice().volume(); }
+};
+
+template <class Model>
+class Measurements {
+	MatrixXd cache;
+	public:
+	measurement<double> Sign;
+	measurement<ArrayXXd> Dens;
+	measurement<double> Kin;
+	measurement<double> Int;
+	measurement<double> Verts;
+	vector<measurement<ArrayXXd>> gf;
+	Measurements () : Sign("Sign"), Dens("Density"), Kin("Kinetic Energy"), Int("Interaction Energy"), Verts("Vertices") {}
+	void measure (Model& model, const Configuration2<Model> &conf, double sign) {
+		Sign.add(sign);
+		cache = conf.green_function();
+		Dens.add(sign*cache);
+		Kin.add(sign*model.lattice().kinetic_energy(cache)/model.lattice().volume());
+		Int.add(sign*model.interaction().interaction_energy(cache)/model.lattice().volume());
+		Verts.add(conf.vertices());
+		//const int D = 4;
+		//int i = conf.current_slice();
+		//gf.resize(D*conf.slice_number());
+		//double dt = (conf.slice_end()-conf.slice_start())/D;
+		//for (int j=0;j<D;j++) {
+			//conf.gf_tau(cache, j*dt);
+			//gf[D*i+j].add(cache);
+		//}
+	}
+	void measure (const LCTSimulation &sim) {
+		double sign = sim.sign();
+		Sign.add(sign);
+		cache = sim.green_function();
+		Dens.add(sign*cache);
+		Kin.add(sign*sim.kinetic_energy(cache)/sim.volume());
+		Int.add(sign*sim.interaction_energy(cache)/sim.volume());
+		Verts.add(sim.vertices());
+		//const int D = 4;
+		//int i = conf.current_slice();
+		//gf.resize(D*conf.slice_number());
+		//double dt = (conf.slice_end()-conf.slice_start())/D;
+		//for (int j=0;j<D;j++) {
+			//conf.gf_tau(cache, j*dt);
+			//gf[D*i+j].add(cache);
+		//}
+	}
+	void write_G (std::ostream &out) {
+		for (size_t i=0;i<gf.size();i++) {
+			out << gf[i].mean() << endl << endl;
+		}
+	}
 };
 
 int main (int argc, char **argv) {
