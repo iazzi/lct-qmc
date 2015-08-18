@@ -1,7 +1,7 @@
 #ifndef LCTSIMULATION
 #define LCTSIMULATION
 
-#include "configuration2.hpp"
+#include "configuration.hpp"
 #include "genericlattice.hpp"
 #include "slice.hpp"
 #include "model.hpp"
@@ -26,7 +26,7 @@ class LCTSimulation {
 	SpinOneHalf<GenericLattice> lattice;
 	HubbardInteraction interaction;
 	Model<SpinOneHalf<GenericLattice>, HubbardInteraction> model;
-	Configuration2<Model<SpinOneHalf<GenericLattice>, HubbardInteraction>> conf;
+	Configuration<Model<SpinOneHalf<GenericLattice>, HubbardInteraction>> conf;
 	double p1; // probability at the start of the simulation (absolute value)
 	double pr; // probability ration of the current configuration wrt p1 (absolute values)
 	double ps; // sign of the current configuration

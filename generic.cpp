@@ -1,6 +1,6 @@
 #include "lctsimulation.hpp"
 #include "measurements.hpp"
-#include "configuration2.hpp"
+#include "configuration.hpp"
 #include "genericlattice.hpp"
 #include "slice.hpp"
 #include "model.hpp"
@@ -33,7 +33,7 @@ class Measurements {
 	measurement<double> Verts;
 	vector<measurement<ArrayXXd>> gf;
 	Measurements () : Sign("Sign"), Dens("Density"), Kin("Kinetic Energy"), Int("Interaction Energy"), Verts("Vertices") {}
-	void measure (Model& model, const Configuration2<Model> &conf, double sign) {
+	void measure (Model& model, const Configuration<Model> &conf, double sign) {
 		Sign.add(sign);
 		cache = conf.green_function();
 		Dens.add(sign*cache);
@@ -116,7 +116,7 @@ int main (int argc, char **argv) {
 		HubbardInteraction interaction(params);
 		auto model = make_model(lattice, interaction);
 		//int N = params.getInteger("N");
-		Configuration2<Model<SpinOneHalf<GenericLattice>, HubbardInteraction>> conf(model);
+		Configuration<Model<SpinOneHalf<GenericLattice>, HubbardInteraction>> conf(model);
 		Measurements<Model<SpinOneHalf<GenericLattice>, HubbardInteraction>> measurements;
 		conf.setup(params);
 		for (size_t i=0;i<conf.slice_number();i++) {
