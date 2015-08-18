@@ -11,6 +11,15 @@
 #include <random>
 
 class LCTSimulation {
+	public:
+	
+	typedef enum {
+		left_to_right,
+		right_to_left
+	} sweep_direction_type;
+
+	private:
+
 	std::mt19937_64 generator;
 	std::uniform_real_distribution<double> d;
 	std::exponential_distribution<double> trial;
@@ -21,7 +30,12 @@ class LCTSimulation {
 	double p1; // probability at the start of the simulation (absolute value)
 	double pr; // probability ration of the current configuration wrt p1 (absolute values)
 	double ps; // sign of the current configuration
+
+	sweep_direction_type sweep_direction_;
+	size_t updates_;
+
 	public:
+
 	LCTSimulation (Parameters params) :
 		lattice(params),
 		interaction(params),
@@ -152,6 +166,14 @@ class LCTSimulation {
 	}
 
 	size_t volume () const { return model.lattice().volume(); }
+
+	sweep_direction_type sweep_direction () const { return sweep_direction_; }
+	bool is_direction_left_to_right () const { return sweep_direction_==left_to_right; }
+	bool is_direction_right_to_left () const { return sweep_direction_==right_to_left; }
+	void set_sweep_direction (sweep_direction_type d) { sweep_direction_ = d; }
+	void set_direction_left_to_right () { sweep_direction_ = left_to_right; }
+	void set_direction_right_to_left () { sweep_direction_ = right_to_left; }
+
 };
 
 #endif // LCTSIMULATION
