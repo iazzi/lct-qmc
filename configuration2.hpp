@@ -29,7 +29,7 @@ class Configuration2 {
 		std::vector<SVDHelper> right_side;
 		std::vector<SVDHelper> left_side;
 
-		Model &model;
+		Model model;
 
 		double beta; // inverse temperature
 		double mu; // chemical potential
@@ -54,7 +54,7 @@ class Configuration2 {
 
 		sweep_direction_type sweep_direction_;
 	public:
-		Configuration2 (Model &m) : model(m), index(0) {}
+		Configuration2 (const Model &m) : model(m), index(0) {}
 
 		void setup (const Parameters &p) {
 			beta = p.getNumber("beta", 1.0);
