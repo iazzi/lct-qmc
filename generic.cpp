@@ -122,7 +122,7 @@ int main (int argc, char **argv) {
 		for (size_t i=0;i<conf.slice_number();i++) {
 			conf.set_index(i);
 			for (size_t j=0;j<2*lattice.volume();j++) {
-				conf.insert(model.interaction().generate(0.0, conf.slice_end()-conf.slice_start(), generator));
+				conf.insert(conf.generate_vertex(generator));
 			}
 			//std::cerr << i << " -> " << conf.slice_size() << std::endl;
 		}
@@ -159,7 +159,7 @@ int main (int argc, char **argv) {
 						//cerr << "remove rejected" << endl;
 					}
 				} else {
-					v = model.interaction().generate(0.0, conf.slice_end()-conf.slice_start(), generator);
+					v = conf.generate_vertex(generator);
 					dp = conf.insert_probability(v);
 					s = dp>0.0?1.0:-1.0;
 					dp = std::log(std::fabs(dp));

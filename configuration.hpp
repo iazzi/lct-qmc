@@ -478,6 +478,7 @@ class Configuration {
 		void set_sweep_direction (sweep_direction_type d) { sweep_direction_ = d; }
 
 		Vertex get_vertex (size_t i) const { return slices[index].get_vertex(i); }
+		Vertex generate_vertex (std::mt19937_64 &generator) { return model.interaction().generate(0.0, slice_end()-slice_start(), generator); }
 
 		double insert_factor () { return +log(beta/slice_number()) -log(slice_size()+1) +model.interaction().combinatorial_factor(); }
 		double remove_factor () { return -log(beta/slice_number()) +log(slice_size()+0) -model.interaction().combinatorial_factor(); }

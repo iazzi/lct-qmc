@@ -81,7 +81,7 @@ class LCTSimulation {
 				//cerr << "remove rejected" << endl;
 			}
 		} else {
-			v = model.interaction().generate(0.0, conf.slice_end()-conf.slice_start(), generator);
+			v = conf.generate_vertex(generator);
 			dp = conf.insert_probability(v);
 			s = dp>0.0?1.0:-1.0;
 			dp = std::log(std::fabs(dp));
