@@ -14,8 +14,8 @@ class LCTSimulation {
 	public:
 	
 	typedef enum {
-		left_to_right,
-		right_to_left
+		right_to_left = 0,
+		left_to_right = 1
 	} sweep_direction_type;
 
 	private:
@@ -40,7 +40,9 @@ class LCTSimulation {
 		lattice(params),
 		interaction(params),
 		model(lattice, interaction),
-		conf(model) {
+		conf(model),
+		sweep_direction_(right_to_left),
+		updates_(0) {
 			conf.setup(params);
 			for (size_t i=0;i<conf.slice_number();i++) {
 				conf.set_index(i);
@@ -58,6 +60,8 @@ class LCTSimulation {
 			conf.save_G();
 			p1 = 0.0, ps = 0.0, pr = 0.0;
 			std::tie(p1, ps) = conf.probability();
+			conf.set_index(0);
+			conf.compute_propagators_2();
 		}
 
 	void update (bool check = false) {
@@ -96,6 +100,7 @@ class LCTSimulation {
 			//std::cerr << "v = " << v.x << ',' << v.tau << " dp = " << p1+pr-p2 << ' ' << p2-p1 << ' ' << pr << std::endl << endl;
 		}
 		//conf.compute_right_side(conf.current_slice()+1);
+		updates_++;
 	}
 
 	void sweep (bool check = false) {
@@ -104,6 +109,36 @@ class LCTSimulation {
 			update(check);
 		}
 		//conf.compute_right_side(conf.current_slice()+1);
+		if ( (is_direction_right_to_left())
+				|| (false && is_direction_left_to_right() && conf.current_slice()==0) ) {
+			conf.compute_right_side(conf.current_slice()+1);
+		}
+	}
+
+	void next () {
+		if (is_direction_right_to_left()) {
+			if (conf.current_slice()+1<conf.slice_number()) {
+				conf.set_index(conf.current_slice()+1);
+				conf.compute_right_side(conf.current_slice()+1);
+				conf.compute_propagators_2();
+			} else {
+				//conf.set_index(conf.current_slice()-1);
+				conf.compute_left_side(conf.current_slice()+1);
+				conf.compute_propagators_2();
+				set_direction_left_to_right();
+			}
+		} else {
+			if (conf.current_slice()>0) {
+				conf.set_index(conf.current_slice()-1);
+				conf.compute_left_side(conf.current_slice()+1);
+				conf.compute_propagators_2();
+			} else {
+				//conf.set_index(conf.current_slice()+1);
+				conf.compute_right_side(conf.current_slice()+1);
+				conf.compute_propagators_2();
+				set_direction_left_to_right();
+			}
+		}
 	}
 
 	void full_sweep (bool check = false) {
@@ -111,34 +146,14 @@ class LCTSimulation {
 		for (size_t i=0;i<conf.slice_number();i++) {
 			conf.set_index(i);
 			conf.compute_right_side(conf.current_slice()+1);
-			//conf.compute_B();
-			//conf.compute_G();
-			//conf.save_G();
-			//G = conf.green_function();
 			conf.compute_propagators_2();
-			//std::cerr << G << std::endl << std::endl;
-			//cerr << (double(i)/conf.slice_number()) << ' '
-				//<< conf.inverse_temperature() << ' '
-				//<< model.interaction().dimension() << ' '
-				//<< (conf.green_function()-G).norm() << ' '
-				//<< (conf.green_function()-G).cwiseAbs().maxCoeff() << endl;
 			sweep(check);
 			conf.compute_right_side(conf.current_slice()+1);
 		}
 		for (size_t i=conf.slice_number();i>0;i--) {
 			conf.set_index(i-1);
 			conf.compute_left_side(conf.current_slice()+1);
-			//std::cerr << G << std::endl << std::endl;
-			//conf.compute_B();
-			//conf.compute_G();
-			//conf.save_G();
 			conf.compute_propagators_2();
-			//G = conf.green_function();
-			//cerr << (double(i-1)/conf.slice_number()) << ' '
-			//<< conf.inverse_temperature() << ' '
-			//<< model.interaction().dimension() << ' '
-			//<< (conf.green_function()-G).norm() << ' '
-			//<< (conf.green_function()-G).cwiseAbs().maxCoeff() << endl;
 			sweep(check);
 		}
 		if (check) {
@@ -166,6 +181,7 @@ class LCTSimulation {
 	}
 
 	size_t volume () const { return model.lattice().volume(); }
+	size_t full_sweep_size () const { return 2*conf.slice_number(); }
 
 	sweep_direction_type sweep_direction () const { return sweep_direction_; }
 	bool is_direction_left_to_right () const { return sweep_direction_==left_to_right; }
@@ -174,6 +190,7 @@ class LCTSimulation {
 	void set_direction_left_to_right () { sweep_direction_ = left_to_right; }
 	void set_direction_right_to_left () { sweep_direction_ = right_to_left; }
 
+	double exact_probability () { conf.compute_B(); return conf.probability().first; }
 };
 
 #endif // LCTSIMULATION

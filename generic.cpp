@@ -79,8 +79,17 @@ int main (int argc, char **argv) {
 		size_t thermalization = params.getInteger("thermalization", 1000);
 		size_t sweeps = params.getInteger("sweeps", 1000);
 		LCTSimulation sim(params);
+		Measurements<Model<SpinOneHalf<GenericLattice>, HubbardInteraction>> measurements;
 		for (size_t i=0;i<thermalization+sweeps;i++) {
-			sim.full_sweep(generator, i>=thermalization, false);
+			//sim.full_sweep(false);
+			for (size_t j=0;j<sim.full_sweep_size();j++) {
+				//std::cerr << "dp = " << sim.exact_probability()-sim.probability() << ' '  << j << ' ' << sim.is_direction_right_to_left() << endl << endl;
+				sim.sweep();
+				sim.next();
+				if (i>=thermalization) {
+					measurements.measure(sim);
+				}
+			}
 			if (i>=thermalization) {
 				if (i%100==0) cerr << endl << measurements.Kin << endl << measurements.Int << endl << measurements.Sign << endl;
 			} else if (i%100==0) {
@@ -90,6 +99,12 @@ int main (int argc, char **argv) {
 			//double p2 = conf.probability().first;
 			//std::cerr << i << " dp = " << p1+pr-p2 << ' ' << p2-p1 << ' ' << pr << endl;
 		}
+		double p2 = sim.exact_probability();
+		cerr << endl << measurements.Kin << endl << measurements.Int << endl << measurements.Sign << endl;
+		std::cerr << "dp = " << sim.exact_probability()-sim.probability() << endl << endl;
+		ofstream out("gf.dat");
+		measurements.write_G(out);
+		return 0;
 	} else {
 		std::mt19937_64 generator;
 		std::uniform_real_distribution<double> d;
@@ -102,6 +117,7 @@ int main (int argc, char **argv) {
 		auto model = make_model(lattice, interaction);
 		//int N = params.getInteger("N");
 		Configuration2<Model<SpinOneHalf<GenericLattice>, HubbardInteraction>> conf(model);
+		Measurements<Model<SpinOneHalf<GenericLattice>, HubbardInteraction>> measurements;
 		conf.setup(params);
 		for (size_t i=0;i<conf.slice_number();i++) {
 			conf.set_index(i);
@@ -114,7 +130,7 @@ int main (int argc, char **argv) {
 		conf.compute_right_side(0);
 		conf.start();
 		conf.start();
-		cerr << conf.check_B_vs_last_right_side() << endl;
+		//cerr << conf.check_B_vs_last_right_side() << endl;
 		//ofstream diff ("diff.dat", ios::app);
 		//diff << "\"V=" << model.interaction().dimension() << " beta=" << conf.inverse_temperature() << "\"" << endl;
 		conf.compute_B();
@@ -122,6 +138,9 @@ int main (int argc, char **argv) {
 		conf.save_G();
 		double p1 = 0.0, ps = 0.0, pr = 0.0;
 		std::tie(p1, ps) = conf.probability();
+		conf.set_index(0);
+		//conf.compute_right_side(conf.current_slice()+1);
+		conf.compute_propagators_2();
 		auto sweep = [&p1, &conf, &d, &trial, &pr, &ps, &model] (mt19937_64 &generator, bool check) {
 			HubbardInteraction::Vertex v;
 			for (size_t j=0;j<model.lattice().volume();j++) {
@@ -178,7 +197,6 @@ int main (int argc, char **argv) {
 					<< (conf.green_function()-G).cwiseAbs().maxCoeff() << endl;
 			}
 		};
-		Measurements<Model<SpinOneHalf<GenericLattice>, HubbardInteraction>> measurements;
 		auto full_sweep = [&conf, &d, &trial, &pr, &ps, &model, &measurements, &sweep] (mt19937_64 &generator, bool measure, bool check) {
 			Eigen::MatrixXd G;
 			for (size_t i=0;i<conf.slice_number();i++) {
@@ -246,7 +264,7 @@ int main (int argc, char **argv) {
 		ofstream out("gf.dat");
 		measurements.write_G(out);
 		return 0;
-}
+	}
 }
 
 
