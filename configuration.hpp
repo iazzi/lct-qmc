@@ -55,6 +55,7 @@ class Configuration {
 		sweep_direction_type sweep_direction_;
 	public:
 		Configuration (const Model &m) : model(m), index(0) {}
+		Configuration (const Parameters &p) : model(p), index(0) {}
 
 		void setup (const Parameters &p) {
 			beta = p.getNumber("beta", 1.0);
@@ -488,7 +489,16 @@ class Configuration {
 		void show_verts () const { for (const auto &s : slices) std::cerr << s.size() << std::endl; }
 		void advance (int n) { set_index(2*M+index+n); }
 
+		size_t volume () const { return model.lattice().volume(); }
 		double inverse_temperature () const { return beta; }
+
+		double kinetic_energy (const Eigen::MatrixXd& cache) const {
+			return model.lattice().kinetic_energy(cache);
+		}
+
+		double interaction_energy (const Eigen::MatrixXd& cache) const {
+			return model.interaction().interaction_energy(cache);
+		}
 
 		void check_all_det (int block) {
 			size_t a = model.interaction().block_start(block);

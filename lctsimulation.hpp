@@ -23,9 +23,6 @@ class LCTSimulation {
 	std::mt19937_64 generator;
 	std::uniform_real_distribution<double> d;
 	std::exponential_distribution<double> trial;
-	SpinOneHalf<GenericLattice> lattice;
-	HubbardInteraction interaction;
-	Model<SpinOneHalf<GenericLattice>, HubbardInteraction> model;
 	Configuration<Model<SpinOneHalf<GenericLattice>, HubbardInteraction>> conf;
 	double p1; // probability at the start of the simulation (absolute value)
 	double pr; // probability ration of the current configuration wrt p1 (absolute values)
@@ -37,17 +34,14 @@ class LCTSimulation {
 	public:
 
 	LCTSimulation (Parameters params) :
-		lattice(params),
-		interaction(params),
-		model(lattice, interaction),
-		conf(model),
+		conf(params),
 		sweep_direction_(right_to_left),
 		updates_(0) {
 			conf.setup(params);
 			for (size_t i=0;i<conf.slice_number();i++) {
 				conf.set_index(i);
-				for (size_t j=0;j<2*lattice.volume();j++) {
-					conf.insert(model.interaction().generate(0.0, conf.slice_end()-conf.slice_start(), generator));
+				for (size_t j=0;j<2*conf.volume();j++) {
+					conf.insert(conf.generate_vertex(generator));
 				}
 				//std::cerr << i << " -> " << conf.slice_size() << std::endl;
 			}
@@ -105,7 +99,7 @@ class LCTSimulation {
 
 	void sweep (bool check = false) {
 		HubbardInteraction::Vertex v;
-		for (size_t j=0;j<model.lattice().volume();j++) {
+		for (size_t j=0;j<conf.volume();j++) {
 			update(check);
 		}
 		//conf.compute_right_side(conf.current_slice()+1);
@@ -173,14 +167,14 @@ class LCTSimulation {
 	}
 
 	double kinetic_energy (const Eigen::MatrixXd& cache) const {
-		return model.lattice().kinetic_energy(cache);
+		return conf.kinetic_energy(cache);
 	}
 
 	double interaction_energy (const Eigen::MatrixXd& cache) const {
-		return model.interaction().interaction_energy(cache);
+		return conf.interaction_energy(cache);
 	}
 
-	size_t volume () const { return model.lattice().volume(); }
+	size_t volume () const { return conf.volume(); }
 	size_t full_sweep_size () const { return 2*conf.slice_number(); }
 
 	sweep_direction_type sweep_direction () const { return sweep_direction_; }
