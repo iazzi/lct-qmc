@@ -83,7 +83,8 @@ int main (int argc, char **argv) {
 		for (size_t i=0;i<thermalization+sweeps;i++) {
 			//sim.full_sweep(false);
 			for (size_t j=0;j<sim.full_sweep_size();j++) {
-				//std::cerr << "dp = " << sim.exact_probability()-sim.probability() << ' '  << j << ' ' << sim.is_direction_right_to_left() << endl << endl;
+				//std::cerr << "dp = " << sim.exact_probability()-sim.probability() << ' ' << sim.probability_difference() << ' ' << j << ' ' << sim.is_direction_right_to_left() << endl << endl;
+				sim.prepare();
 				sim.sweep();
 				sim.next();
 				if (i>=thermalization) {

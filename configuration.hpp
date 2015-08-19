@@ -162,17 +162,6 @@ class Configuration {
 			big_matrix.bottomLeftCorner(N, N).diagonal() = zr*right.S;
 			big_matrix.topRightCorner(N, N).setZero();
 			big_matrix.topRightCorner(N, N).diagonal() = zl*left.S;
-			//std::cerr << big_matrix << std::endl << std::endl;
-			//big_matrix.topLeftCorner(N, N) = Eigen::MatrixXd::Identity(N, N);
-			//big_matrix.bottomRightCorner(N, N) = Eigen::MatrixXd::Identity(N, N);
-			//big_matrix.bottomLeftCorner(N, N) = -right.matrix();
-			//big_matrix.topRightCorner(N, N) = left.matrix();
-			//std::cerr << big_matrix << std::endl << std::endl;
-			//big_matrix.topRows(N).applyOnTheLeft(left.U.transpose());
-			//big_matrix.bottomRows(N).applyOnTheLeft(right.U.transpose());
-			//big_matrix.leftCols(N).applyOnTheRight(right.Vt.transpose());
-			//big_matrix.rightCols(N).applyOnTheRight(left.Vt.transpose());
-			//std::cerr << big_matrix << std::endl << std::endl;
 			const bool separate_scales = false; // use the Woodbury Matrix Identity for separating scales
 			Eigen::MatrixXd U, V, C;
 			if (separate_scales) {
@@ -197,16 +186,8 @@ class Configuration {
 					}
 				}
 			}
-			//std::cerr << big_matrix << std::endl << std::endl;
-			//std::cerr << U*C*V << std::endl << std::endl;
 			lu.compute(big_matrix);
 			big_matrix = lu.inverse();
-			//SVDHelper svd;
-			//svd.setIdentity(2*N);
-			//svd.U = big_matrix;
-			//svd.absorbU();
-			//std::cerr << svd.S.transpose() << std::endl;
-			//big_matrix = svd.inverse();
 			if (separate_scales) {
 				C.diagonal() = C.diagonal().cwiseInverse();
 				C += V*big_matrix*U;
@@ -304,12 +285,26 @@ class Configuration {
 			return remove_and_update(v, cache.u, cache.vt, cache.matrix);
 		}
 
+		void insert_and_update_right (Vertex v, const MatrixType& matrixU, const MatrixType& matrixVt, const Eigen::Matrix2d &mat) {
+			G_matrix -= (G_matrix * matrixU) * mat.inverse() * (matrixVt.transpose() * G_matrix);
+			G_matrix += (G_matrix * matrixU) * matrixVt.transpose();
+			B.U += matrixU * (matrixVt.transpose() * B.U);
+			insert(v);
+		}
+
 		void insert_and_update_right (Vertex v) {
 			if (v==cache.v) {
 			} else {
 				insert_probability_right(v);
 			}
-			insert_and_update(v, cache.u, cache.vt, cache.matrix);
+			insert_and_update_right(v, cache.u, cache.vt, cache.matrix);
+		}
+
+		size_t remove_and_update_right (Vertex v, const MatrixType& inverseU, const MatrixType& inverseVt, const Eigen::Matrix2d &mat) {
+			G_matrix -= (G_matrix * inverseU) * mat.inverse() * (inverseVt.transpose() * G_matrix);
+			G_matrix += (G_matrix * inverseU) * inverseVt.transpose();
+			B.U += inverseU * (inverseVt.transpose() * B.U);
+			return remove(v);
 		}
 
 		size_t remove_and_update_right (Vertex v) {
@@ -317,7 +312,7 @@ class Configuration {
 			} else {
 				remove_probability_right(v);
 			}
-			return remove_and_update(v, cache.u, cache.vt, cache.matrix);
+			return remove_and_update_right(v, cache.u, cache.vt, cache.matrix);
 		}
 
 		void commit_changes () {
