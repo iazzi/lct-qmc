@@ -97,6 +97,9 @@ class LCTSimulation {
 		updates_++;
 	}
 
+	void prepare () {
+	}
+
 	void sweep (bool check = false) {
 		HubbardInteraction::Vertex v;
 		for (size_t j=0;j<conf.volume();j++) {
@@ -130,13 +133,13 @@ class LCTSimulation {
 				//conf.set_index(conf.current_slice()+1);
 				conf.compute_right_side(conf.current_slice()+1);
 				conf.compute_propagators_2();
-				set_direction_left_to_right();
+				set_direction_right_to_left();
 			}
 		}
 	}
 
 	void full_sweep (bool check = false) {
-		Eigen::MatrixXd G;
+		set_direction_right_to_left();
 		for (size_t i=0;i<conf.slice_number();i++) {
 			conf.set_index(i);
 			conf.compute_right_side(conf.current_slice()+1);
@@ -144,6 +147,7 @@ class LCTSimulation {
 			sweep(check);
 			conf.compute_right_side(conf.current_slice()+1);
 		}
+		set_direction_left_to_right();
 		for (size_t i=conf.slice_number();i>0;i--) {
 			conf.set_index(i-1);
 			conf.compute_left_side(conf.current_slice()+1);
