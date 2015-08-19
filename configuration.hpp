@@ -224,8 +224,6 @@ class Configuration {
 
 		Eigen::MatrixXd compute_propagators_2 () {
 			size_t N = B.S.size();
-			//compute_all_propagators_3(left_side[index], right_side[index], full_propagator);
-			//G_matrix = full_propagator.block(N, N, N, N);
 			double zl = std::exp((M-index-1)*dtau*mu);
 			double zr = std::exp((index+1)*dtau*mu);
 			compute_all_propagators(left_side[index+1], right_side[index+1], full_propagator, zl, zr);
@@ -236,8 +234,6 @@ class Configuration {
 
 		Eigen::MatrixXd compute_propagators_2_right () {
 			size_t N = B.S.size();
-			//compute_all_propagators_3(left_side[index], right_side[index], full_propagator);
-			//G_matrix = full_propagator.block(N, N, N, N);
 			double zl = std::exp((M-index)*dtau*mu);
 			double zr = std::exp((index)*dtau*mu);
 			compute_all_propagators(left_side[index], right_side[index], full_propagator, zl, zr);
@@ -304,6 +300,22 @@ class Configuration {
 			if (v==cache.v) {
 			} else {
 				remove_probability(v);
+			}
+			return remove_and_update(v, cache.u, cache.vt, cache.matrix);
+		}
+
+		void insert_and_update_right (Vertex v) {
+			if (v==cache.v) {
+			} else {
+				insert_probability_right(v);
+			}
+			insert_and_update(v, cache.u, cache.vt, cache.matrix);
+		}
+
+		size_t remove_and_update_right (Vertex v) {
+			if (v==cache.v) {
+			} else {
+				remove_probability_right(v);
 			}
 			return remove_and_update(v, cache.u, cache.vt, cache.matrix);
 		}
@@ -424,6 +436,30 @@ class Configuration {
 			cache.v = v;
 			slices[index].inverseU(v, cache.u);
 			slices[index].inverseVt(v, cache.vt);
+			cache.matrix = Eigen::Matrix2d::Identity();
+			cache.matrix.noalias() += cache.vt.transpose() * G_matrix * cache.u;
+			cache.probability = cache.matrix.determinant();
+			return cache.probability;
+		}
+
+		double insert_probability_right (Vertex v) {
+			//slices[index].matrixU_right(v, cache.u);
+			//slices[index].matrixVt_right(v, cache.vt);
+			cache.v = v;
+			slices[index].matrixU_right(v, cache.u);
+			slices[index].matrixVt_right(v, cache.vt);
+			cache.matrix = Eigen::Matrix2d::Identity();
+			cache.matrix.noalias() += cache.vt.transpose() * G_matrix * cache.u;
+			cache.probability = cache.matrix.determinant();
+			return cache.probability;
+		}
+
+		double remove_probability_right (Vertex v) {
+			//slices[index].inverseU_right(v, cache.u);
+			//slices[index].inverseVt_right(v, cache.vt);
+			cache.v = v;
+			slices[index].inverseU_right(v, cache.u);
+			slices[index].inverseVt_right(v, cache.vt);
 			cache.matrix = Eigen::Matrix2d::Identity();
 			cache.matrix.noalias() += cache.vt.transpose() * G_matrix * cache.u;
 			cache.probability = cache.matrix.determinant();
