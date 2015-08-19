@@ -221,6 +221,7 @@ class Configuration {
 		}
 
 		Eigen::MatrixXd full_propagator;
+
 		Eigen::MatrixXd compute_propagators_2 () {
 			size_t N = B.S.size();
 			//compute_all_propagators_3(left_side[index], right_side[index], full_propagator);
@@ -228,6 +229,18 @@ class Configuration {
 			double zl = std::exp((M-index-1)*dtau*mu);
 			double zr = std::exp((index+1)*dtau*mu);
 			compute_all_propagators(left_side[index+1], right_side[index+1], full_propagator, zl, zr);
+			//std::cerr << "--> " << (G_matrix-full_propagator.bottomRightCorner(N, N)).norm() << std::endl;
+			G_matrix = full_propagator.bottomRightCorner(N, N);
+			return full_propagator;
+		}
+
+		Eigen::MatrixXd compute_propagators_2_right () {
+			size_t N = B.S.size();
+			//compute_all_propagators_3(left_side[index], right_side[index], full_propagator);
+			//G_matrix = full_propagator.block(N, N, N, N);
+			double zl = std::exp((M-index)*dtau*mu);
+			double zr = std::exp((index)*dtau*mu);
+			compute_all_propagators(left_side[index], right_side[index], full_propagator, zl, zr);
 			//std::cerr << "--> " << (G_matrix-full_propagator.bottomRightCorner(N, N)).norm() << std::endl;
 			G_matrix = full_propagator.bottomRightCorner(N, N);
 			return full_propagator;
