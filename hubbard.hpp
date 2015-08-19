@@ -182,7 +182,7 @@ class HubbardInteraction {
 	size_t block_size (size_t i) const { return volume(); }
 
 	template <typename T>
-		double interaction_energy (const T &M) {
+		double interaction_energy (const T &M) const {
 			Eigen::ArrayXd d = (eigenvectors * M * eigenvectors.transpose()).diagonal();
 			return U * (d.head(V)*d.tail(V)).sum();
 		}
@@ -198,8 +198,10 @@ inline void HubbardInteraction::apply_vertex_on_the_left (Vertex v, Eigen::Matri
 
 template <>
 inline void HubbardInteraction::apply_vertex_on_the_right (Vertex v, Eigen::MatrixXd &M) {
-	M.block(0, 0, V, V) += (a+v.sigma) * (M.block(0, 0, V, V) * eigenvectors.block(0, 0, V, V).row(v.x).transpose()) * eigenvectors.block(0, 0, V, V).row(v.x);
-	M.block(V, V, V, V) += (a-v.sigma) * (M.block(V, V, V, V) * eigenvectors.block(V, V, V, V).row(v.x).transpose()) * eigenvectors.block(V, V, V, V).row(v.x);
+	cached_vec.noalias() = M.block(0, 0, V, V) * eigenvectors.block(0, 0, V, V).row(v.x).transpose();
+	M.block(0, 0, V, V).noalias() += (a+v.sigma) * cached_vec * eigenvectors.block(0, 0, V, V).row(v.x);
+	cached_vec.noalias() = M.block(V, V, V, V) * eigenvectors.block(V, V, V, V).row(v.x).transpose();
+	M.block(V, V, V, V).noalias() += (a-v.sigma) * cached_vec * eigenvectors.block(V, V, V, V).row(v.x);
 }
 
 template <>

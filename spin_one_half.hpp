@@ -63,7 +63,7 @@ class SpinOneHalf {
 		}
 
 	template <typename T>
-		double kinetic_energy (const T &M) {
+		double kinetic_energy (const T &M) const {
 			return (eigenvalues_.array() * M.diagonal().array()).sum();
 		}
 
