@@ -1,7 +1,7 @@
 include Makefile.conf
-CXXFLAGS=$(MYCXXFLAGS) -std=c++11 -Wall
-LDFLAGS=$(MYLDFLAGS) 
-LDLIBS=$(MYLDLIBS)  -llua
+CXXFLAGS=$(MYCXXFLAGS) -std=c++11 `pkg-config --cflags eigen3` -Wall
+LDFLAGS=$(MYLDFLAGS) `pkg-config --libs eigen3`
+LDLIBS=$(MYLDLIBS) `pkg-config --libs eigen3` -llua
 
 all: generic
 
@@ -38,7 +38,7 @@ mkl:
 	$(MAKE) all MYCXXFLAGS="-O3 -march=native -DNDEBUG -DEIGEN_NO_DEBUG -DEIGEN_USE_MKL_ALL $(MYCXXFLAGS)" MYLDFLAGS="$(MYLDFLAGS)" MYLDLIBS="$(MYLDLIBS)"
 
 optimized:
-	$(MAKE) all MYCXXFLAGS="-O3 -march=native -DNDEBUG -DEIGEN_NO_DEBUG -DEIGEN_USE_MKL_ALL $(MYCXXFLAGS)" MYLDFLAGS="$(MYLDFLAGS)" MYLDLIBS="$(MYLDLIBS)"
+	$(MAKE) all MYCXXFLAGS="-O3 -march=native -DNDEBUG -DEIGEN_NO_DEBUG $(MYCXXFLAGS)" MYLDFLAGS="$(MYLDFLAGS)" MYLDLIBS="$(MYLDLIBS)"
 
 debug:
 	$(MAKE) all MYCXXFLAGS="-g -ggdb -O0 $(MYCXXFLAGS)" MYLDFLAGS="-g -ggdb -O0 $(MYLDFLAGS)" MYLDLIBS="$(MYLDLIBS)"
