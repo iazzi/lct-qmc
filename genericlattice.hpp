@@ -16,9 +16,9 @@ class GenericLattice {
 	Eigen::VectorXd eigenvalues_;
 	Eigen::MatrixXd eigenvectors_;
 
-	bool computed;
-
 	Eigen::MatrixXd H;
+
+	bool computed;
 
 	Eigen::VectorXd cached_exp;
 
@@ -66,7 +66,18 @@ class GenericLattice {
 			cached_exp = eigenvalues_;
 			cached_exp *= -t;
 			cached_exp = cached_exp.array().exp();
-			M.applyOnTheLeft(cached_exp.matrix().asDiagonal());
+			M.array().colwise() *= cached_exp.array();
+			//M.applyOnTheLeft(cached_exp.matrix().asDiagonal());
+			//M.array().colwise() *= (-t*eigenvalues_.array()).exp(); // this causes allocation!
+		}
+
+	template <typename T>
+		void propagate_on_the_right (double t, T& M) {
+			cached_exp = eigenvalues_;
+			cached_exp *= -t;
+			cached_exp = cached_exp.array().exp();
+			M.array().rowwise() *= cached_exp.array();
+			//M.applyOnTheRight(cached_exp.matrix().asDiagonal());
 			//M.array().colwise() *= (-t*eigenvalues_.array()).exp(); // this causes allocation!
 		}
 

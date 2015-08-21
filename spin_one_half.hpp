@@ -54,7 +54,16 @@ class SpinOneHalf {
 		}
 
 	template <typename T>
-		double kinetic_energy (const T &M) {
+		void propagate_on_the_right (double t, T& M) {
+			cached_exp = eigenvalues_;
+			cached_exp *= -t;
+			cached_exp = cached_exp.array().exp();
+			//M.applyOnTheLeft(cached_exp.matrix().asDiagonal());
+			M.array().rowwise() *= cached_exp.transpose().array(); // (-t*eigenvalues_.array()).exp(); // this causes allocation!
+		}
+
+	template <typename T>
+		double kinetic_energy (const T &M) const {
 			return (eigenvalues_.array() * M.diagonal().array()).sum();
 		}
 

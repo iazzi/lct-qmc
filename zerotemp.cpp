@@ -1,5 +1,5 @@
 #include "measurements.hpp"
-#include "zerotemperature.hpp"
+#include "configuration2.hpp"
 #include "genericlattice.hpp"
 #include "slice.hpp"
 #include "model.hpp"
@@ -32,7 +32,7 @@ class Measurements {
 	measurement<double> Verts;
 	vector<measurement<ArrayXXd>> gf;
 	Measurements () : Sign("Sign"), Dens("Density"), Kin("Kinetic Energy"), Int("Interaction Energy"), Verts("Vertices") {}
-	void measure (Model& model, ZeroTemperature<Model> &conf, double sign) {
+	void measure (Model& model, Configuration2<Model> &conf, double sign) {
 		Sign.add(sign);
 		cache = conf.green_function();
 		Dens.add(sign*cache);
@@ -49,7 +49,7 @@ class Measurements {
 		//}
 	}
 	void write_G (std::ostream &out) {
-		for (int i=0;i<gf.size();i++) {
+		for (size_t i=0;i<gf.size();i++) {
 			out << gf[i].mean() << endl << endl;
 		}
 	}
@@ -65,8 +65,8 @@ int main (int argc, char **argv) {
 	SpinOneHalf<GenericLattice> lattice(params);
 	HubbardInteraction interaction(params);
 	auto model = make_model(lattice, interaction);
-	int N = params.getInteger("N");
-	ZeroTemperature<Model<SpinOneHalf<GenericLattice>, HubbardInteraction>> conf(model);
+	//int N = params.getInteger("N");
+	Configuration2<Model<SpinOneHalf<GenericLattice>, HubbardInteraction>> conf(model);
 	conf.setup(params);
 	for (size_t i=0;i<conf.slice_number();i++) {
 		conf.set_index(i);
