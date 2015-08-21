@@ -6,6 +6,7 @@
 #include "slice.hpp"
 #include <vector>
 #include <cmath>
+#include <random>
 
 //FIXME
 #include <iostream>
