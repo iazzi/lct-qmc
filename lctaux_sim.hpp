@@ -1,6 +1,6 @@
 #pragma once
 
-#include "configuration2.hpp"
+#include "configuration.hpp"
 #include "genericlattice.hpp"
 #include "slice.hpp"
 #include "model.hpp"
@@ -20,7 +20,7 @@
 
 class lctaux_sim : public alps::mcbase {
     typedef Model<SpinOneHalf<GenericLattice>, HubbardInteraction> model_type;
-    typedef Configuration2<model_type> configuration_type;
+    typedef Configuration<model_type> configuration_type;
     typedef SpinOneHalf<GenericLattice> lattice_type;
     
     
