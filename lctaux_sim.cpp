@@ -40,7 +40,7 @@ void lctaux_sim::define_parameters(parameters_type & parameters) {
 
 
 lctaux_sim::lctaux_sim(parameters_type const & parms, std::size_t seed_offset)
-    : LCTSimulation(convert_parameters(parms))
+    : LCTSimulation(convert_parameters(parms), seed_offset)
     , alps::mcbase(parms, seed_offset)
     , sweeps_(0)
     , iteration_(0)
