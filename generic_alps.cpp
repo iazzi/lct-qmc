@@ -30,13 +30,16 @@ int main(int argc, const char *argv[]) {
 
         mysim sim(parameters);
         sim.run(alps::stop_callback(int(parameters["timelimit"])));
-
+        
         // sim.save(checkpoint_file);
 
         using alps::collect_results;
         alps::results_type<mysim>::type results = collect_results(sim);
 
         std::cout << results << std::endl;
+        double p2 = sim.exact_probability();
+        std::cout << "dp = " << sim.exact_probability()-sim.probability() << ' ' << sim.probability() << std::endl << std::endl;
+    
         alps::hdf5::archive ar(parameters["outputfile"], "w");
         ar["/parameters"] << parameters;
         ar["/simulation/results"] << results;
