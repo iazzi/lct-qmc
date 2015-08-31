@@ -135,7 +135,7 @@ class Slice {
 			return ret;
 		}
 
-		void matrixU (const Vertex v, MatrixType &u) {
+		void matrixU (const Vertex &v, MatrixType &u) {
 			I->matrixU(v, u);
 			double t0 = v.tau;
 			for (auto w = verts.upper_bound(v);w!=verts.end();w++) {
@@ -146,7 +146,7 @@ class Slice {
 			if (beta>t0) L->propagate(beta-t0, u);
 		}
 
-		void matrixVt (const Vertex v, MatrixType &vt) {
+		void matrixVt (const Vertex &v, MatrixType &vt) {
 			I->matrixV(v, vt);
 			double t0 = v.tau;
 			for (auto w = verts.upper_bound(v);w!=verts.end();w++) {
@@ -157,7 +157,7 @@ class Slice {
 			if (beta>t0) L->propagate(t0-beta, vt);
 		}
 
-		void inverseU (const Vertex v, MatrixType &u) {
+		void inverseU (const Vertex &v, MatrixType &u) {
 			I->matrixU(v, u);
 			u = -u;
 			double t0 = v.tau;
@@ -169,7 +169,7 @@ class Slice {
 			if (beta>t0) L->propagate(beta-t0, u);
 		}
 
-		void inverseVt (const Vertex v, MatrixType &vt) {
+		void inverseVt (const Vertex &v, MatrixType &vt) {
 			I->matrixV(v, vt);
 			I->apply_inverse_on_the_left(v, vt);
 			double t0 = v.tau;
@@ -181,7 +181,7 @@ class Slice {
 			if (beta>t0) L->propagate(t0-beta, vt);
 		}
 
-		void matrixU_right (const Vertex v, MatrixType &u) {
+		void matrixU_right (const Vertex &v, MatrixType &u) {
 			I->matrixU(v, u);
 			double t0 = v.tau;
 			auto w = verts.lower_bound(v);
@@ -195,7 +195,7 @@ class Slice {
 			//std::cerr << (u-inverse()*matrixU(v)).norm() << std::endl;
 		}
 
-		void matrixVt_right (const Vertex v, MatrixType &vt) {
+		void matrixVt_right (const Vertex &v, MatrixType &vt) {
 			I->matrixV(v, vt);
 			double t0 = v.tau;
 			auto w = verts.lower_bound(v);
@@ -209,7 +209,7 @@ class Slice {
 			//std::cerr << (vt-matrix().transpose()*matrixVt(v)).norm() << std::endl;
 		}
 
-		void inverseU_right (const Vertex v, MatrixType &u) {
+		void inverseU_right (const Vertex &v, MatrixType &u) {
 			I->matrixU(v, u);
 			u = -u;
 			I->apply_inverse_on_the_left(v, u);
@@ -225,7 +225,7 @@ class Slice {
 			//std::cerr << (u-inverse()*inverseU(v)).norm() << std::endl;
 		}
 
-		void inverseVt_right (const Vertex v, MatrixType &vt) {
+		void inverseVt_right (const Vertex &v, MatrixType &vt) {
 			I->matrixV(v, vt);
 			//I->apply_inverse_on_the_left(v, vt);
 			double t0 = v.tau;
@@ -240,25 +240,25 @@ class Slice {
 			//std::cerr << (vt-matrix().transpose()*inverseVt(v)).norm() << std::endl;
 		}
 
-		MatrixType matrixU (const Vertex v) {
+		MatrixType matrixU (const Vertex &v) {
 			MatrixType u;
 			matrixU(v, u);
 			return u;
 		}
 
-		MatrixType matrixVt (const Vertex v) {
+		MatrixType matrixVt (const Vertex &v) {
 			MatrixType vt;
 			matrixVt(v, vt);
 			return vt;
 		}
 
-		MatrixType inverseU (const Vertex v) {
+		MatrixType inverseU (const Vertex &v) {
 			MatrixType u;
 			inverseU(v, u);
 			return u;
 		}
 
-		MatrixType inverseVt (const Vertex v) {
+		MatrixType inverseVt (const Vertex &v) {
 			MatrixType vt;
 			inverseVt(v, vt);
 			return vt;

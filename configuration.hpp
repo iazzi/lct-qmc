@@ -248,22 +248,22 @@ class Configuration {
 			return B.S.array().abs().log().abs().maxCoeff();
 		}
 
-		void insert (Vertex v) {
+		void insert (const Vertex &v) {
 			slices[index].insert(v);
 		}
 
-		size_t remove (Vertex v) {
+		size_t remove (const Vertex &v) {
 			return slices[index].remove(v);
 		}
 
-		void insert_and_update (Vertex v, const MatrixType& matrixU, const MatrixType& matrixVt, const Eigen::Matrix2d &mat) {
+		void insert_and_update (const Vertex &v, const MatrixType& matrixU, const MatrixType& matrixVt, const Eigen::Matrix2d &mat) {
 			G_matrix -= (G_matrix * matrixU) * mat.inverse() * (matrixVt.transpose() * G_matrix);
 			G_matrix += matrixU * (matrixVt.transpose() * G_matrix);
 			B.U += matrixU * (matrixVt.transpose() * B.U);
 			insert(v);
 		}
 
-		void insert_and_update (Vertex v) {
+		void insert_and_update (const Vertex &v) {
 			if (v==cache.v) {
 			} else {
 				insert_probability(v);
@@ -271,14 +271,14 @@ class Configuration {
 			insert_and_update(v, cache.u, cache.vt, cache.matrix);
 		}
 
-		size_t remove_and_update (Vertex v, const MatrixType& inverseU, const MatrixType& inverseVt, const Eigen::Matrix2d &mat) {
+		size_t remove_and_update (const Vertex &v, const MatrixType& inverseU, const MatrixType& inverseVt, const Eigen::Matrix2d &mat) {
 			G_matrix -= (G_matrix * inverseU) * mat.inverse() * (inverseVt.transpose() * G_matrix);
 			G_matrix += inverseU * (inverseVt.transpose() * G_matrix);
 			B.U += inverseU * (inverseVt.transpose() * B.U);
 			return remove(v);
 		}
 
-		size_t remove_and_update (Vertex v) {
+		size_t remove_and_update (const Vertex &v) {
 			if (v==cache.v) {
 			} else {
 				remove_probability(v);
@@ -286,14 +286,14 @@ class Configuration {
 			return remove_and_update(v, cache.u, cache.vt, cache.matrix);
 		}
 
-		void insert_and_update_right (Vertex v, const MatrixType& matrixU, const MatrixType& matrixVt, const Eigen::Matrix2d &mat) {
+		void insert_and_update_right (const Vertex &v, const MatrixType& matrixU, const MatrixType& matrixVt, const Eigen::Matrix2d &mat) {
 			G_matrix -= (G_matrix * matrixU) * mat.inverse() * (matrixVt.transpose() * G_matrix);
 			G_matrix += (G_matrix * matrixU) * matrixVt.transpose();
 			B.U += matrixU * (matrixVt.transpose() * B.U);
 			insert(v);
 		}
 
-		void insert_and_update_right (Vertex v) {
+		void insert_and_update_right (const Vertex &v) {
 			if (v==cache.v) {
 			} else {
 				insert_probability_right(v);
@@ -301,14 +301,14 @@ class Configuration {
 			insert_and_update_right(v, cache.u, cache.vt, cache.matrix);
 		}
 
-		size_t remove_and_update_right (Vertex v, const MatrixType& inverseU, const MatrixType& inverseVt, const Eigen::Matrix2d &mat) {
+		size_t remove_and_update_right (const Vertex &v, const MatrixType& inverseU, const MatrixType& inverseVt, const Eigen::Matrix2d &mat) {
 			G_matrix -= (G_matrix * inverseU) * mat.inverse() * (inverseVt.transpose() * G_matrix);
 			G_matrix += (G_matrix * inverseU) * inverseVt.transpose();
 			B.U += inverseU * (inverseVt.transpose() * B.U);
 			return remove(v);
 		}
 
-		size_t remove_and_update_right (Vertex v) {
+		size_t remove_and_update_right (const Vertex &v) {
 			if (v==cache.v) {
 			} else {
 				remove_probability_right(v);
@@ -414,7 +414,7 @@ class Configuration {
 			return ret;
 		}
 
-		double insert_probability (Vertex v) {
+		double insert_probability (const Vertex &v) {
 			//slices[index].matrixU_right(v, cache.u);
 			//slices[index].matrixVt_right(v, cache.vt);
 			cache.v = v;
@@ -426,7 +426,7 @@ class Configuration {
 			return cache.probability;
 		}
 
-		double remove_probability (Vertex v) {
+		double remove_probability (const Vertex &v) {
 			//slices[index].inverseU_right(v, cache.u);
 			//slices[index].inverseVt_right(v, cache.vt);
 			cache.v = v;
@@ -438,7 +438,7 @@ class Configuration {
 			return cache.probability;
 		}
 
-		double insert_probability_right (Vertex v) {
+		double insert_probability_right (const Vertex &v) {
 			//slices[index].matrixU_right(v, cache.u);
 			//slices[index].matrixVt_right(v, cache.vt);
 			cache.v = v;
@@ -450,7 +450,7 @@ class Configuration {
 			return cache.probability;
 		}
 
-		double remove_probability_right (Vertex v) {
+		double remove_probability_right (const Vertex &v) {
 			//slices[index].inverseU_right(v, cache.u);
 			//slices[index].inverseVt_right(v, cache.vt);
 			cache.v = v;
