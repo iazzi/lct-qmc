@@ -80,7 +80,7 @@ class Configuration {
 
 		void compute_right_side (size_t j) {
 			if (j==0) {
-				B.setIdentity(model.lattice().dimension()); // FIXME: maybe have a direct reference to the lattice here too
+				B.setIdentity(model.interaction().dimension());
 			} else {
 				B = right_side[j-1];
 				slices[j-1].apply_matrix(B.U);
@@ -92,7 +92,7 @@ class Configuration {
 
 		void compute_left_side (size_t j) {
 			if (j==M) {
-				B.setIdentity(model.lattice().dimension()); // FIXME: maybe have a direct reference to the lattice here too
+				B.setIdentity(model.interaction().dimension());
 			} else {
 				B = left_side[j+1];
 				slices[j].apply_on_the_right(B.Vt);
@@ -105,20 +105,20 @@ class Configuration {
 
 		void check_propagation_from_right () {
 			Eigen::MatrixXd M, M1, M2;
-			M1 = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension());
+			M1 = Eigen::MatrixXd::Identity(model.interaction().dimension(), model.interaction().dimension());
 			model.interaction().propagate(0.023, M1);
-			M2 = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension());
+			M2 = Eigen::MatrixXd::Identity(model.interaction().dimension(), model.interaction().dimension());
 			model.interaction().propagate_on_the_right(0.023, M2);
 			std::cerr << "propagate " << (M1-M2).norm() << std::endl;
 			Vertex v = model.interaction().generate(0.0, 0.2);
-			M1 = M2 = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension());
+			M1 = M2 = Eigen::MatrixXd::Identity(model.interaction().dimension(), model.interaction().dimension());
 			model.interaction().apply_vertex_on_the_left(v, M1);
 			model.interaction().apply_vertex_on_the_right(v, M2);
 			std::cerr << "vertex " << (M1-M2).norm() << std::endl;
-			M = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension());
+			M = Eigen::MatrixXd::Identity(model.interaction().dimension(), model.interaction().dimension());
 			slices[index+1].apply_matrix(M);
 			std::cerr << "from right " << (M-slices[index+1].matrix()).norm() << std::endl;
-			M = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension());
+			M = Eigen::MatrixXd::Identity(model.interaction().dimension(), model.interaction().dimension());
 			slices[index+1].apply_on_the_right(M);
 			std::cerr << "from right " << (M-slices[index+1].matrix()).norm() << std::endl;
 		}
@@ -134,7 +134,7 @@ class Configuration {
 			double ret = 0.0;
 			size_t old_index = index;
 			set_index(M-1);
-			B.setIdentity(model.lattice().dimension()); // FIXME: maybe have a direct reference to the lattice here too
+			B.setIdentity(model.interaction().dimension());
 			for (size_t i=0;i<M;i++) {
 				slices[(i+index+1)%M].apply_matrix(B.U);
 				decompose_U();
@@ -362,7 +362,7 @@ class Configuration {
 		}
 
 		void compute_B () {
-			B.setIdentity(model.lattice().dimension()); // FIXME: maybe have a direct reference to the lattice here too
+			B.setIdentity(model.interaction().dimension());
 			for (size_t i=0;i<M;i++) {
 				slices[(i+index+1)%M].apply_matrix(B.U);
 				decompose_U();
@@ -534,11 +534,11 @@ class Configuration {
 		void show_verts () const { for (const auto &s : slices) std::cerr << s.size() << std::endl; }
 		void advance (int n) { set_index(2*M+index+n); }
 
-		size_t volume () const { return model.lattice().volume(); }
+		size_t volume () const { return model.interaction().volume(); }
 		double inverse_temperature () const { return beta; }
 
 		double kinetic_energy (const Eigen::MatrixXd& cache) const {
-			return model.lattice().kinetic_energy(cache);
+			return model.interaction().kinetic_energy(cache);
 		}
 
 		double interaction_energy (const Eigen::MatrixXd& cache) const {

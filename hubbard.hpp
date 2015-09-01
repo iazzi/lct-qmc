@@ -127,6 +127,7 @@ class HubbardInteraction {
 	size_t interacting_sites () const { return I; }
 	size_t states () const { return N; }
 	size_t dimension () const { return N; }
+
 	template <typename T>
 		void apply_vertex_on_the_left (const Vertex &v, T &M) {
 			M += (a+v.sigma) * eigenvectors_.row(v.x).transpose() * (eigenvectors_.row(v.x) * M)
@@ -187,10 +188,15 @@ class HubbardInteraction {
 	size_t block_size (size_t i) const { return volume(); }
 
 	template <typename T>
-		double interaction_energy (const T &M) const {
-			Eigen::ArrayXd d = (eigenvectors_ * M * eigenvectors_.transpose()).diagonal();
-			return U * (d.head(V)*d.tail(V)).sum();
-		}
+	double kinetic_energy (const T &M) const {
+		return (eigenvalues_.array() * M.diagonal().array()).sum();
+	}
+
+	template <typename T>
+	double interaction_energy (const T &M) const {
+		Eigen::ArrayXd d = (eigenvectors_ * M * eigenvectors_.transpose()).diagonal();
+		return U * (d.head(V)*d.tail(V)).sum();
+	}
 
 	Eigen::VectorXd eigenvalues () const { return eigenvalues_; }
 	Eigen::MatrixXd eigenvectors () const { return eigenvectors_; }
