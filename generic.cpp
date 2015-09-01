@@ -37,8 +37,8 @@ class Measurements {
 		Sign.add(sign);
 		cache = conf.green_function();
 		Dens.add(sign*cache);
-		Kin.add(sign*model.lattice().kinetic_energy(cache)/model.lattice().volume());
-		Int.add(sign*model.interaction().interaction_energy(cache)/model.lattice().volume());
+		Kin.add(sign*model.interaction().kinetic_energy(cache)/model.interaction().volume());
+		Int.add(sign*model.interaction().interaction_energy(cache)/model.interaction().volume());
 		Verts.add(conf.vertices());
 		//const int D = 4;
 		//int i = conf.current_slice();
@@ -144,7 +144,7 @@ int main (int argc, char **argv) {
 		conf.compute_propagators_2();
 		auto sweep = [&p1, &conf, &d, &trial, &pr, &ps, &model] (mt19937_64 &generator, bool check) {
 			HubbardInteraction::Vertex v;
-			for (size_t j=0;j<model.lattice().volume();j++) {
+			for (size_t j=0;j<model.interaction().volume();j++) {
 				double dp = 0.0, s = 1.0;
 				if (d(generator)<0.5) {
 					v = conf.get_vertex(d(generator)*conf.slice_size());
