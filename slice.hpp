@@ -17,7 +17,6 @@ class Slice {
 		typedef typename Interaction::Vertex Vertex;
 		typedef typename Interaction::MatrixType MatrixType;
 	private:
-		Lattice *L;
 		Interaction *I;
 
 		std::set<Vertex, typename Vertex::Compare> verts;
@@ -29,8 +28,8 @@ class Slice {
 		Eigen::MatrixXd matrix_inv_;
 
 	public:
-		Slice (Model &m) : L(&m.lattice()), I(&m.interaction()), N(m.interaction().dimension()), beta(1.0) {}
-		Slice (const Slice &s) : L(s.L), I(s.I), N(s.N), beta(s.beta) {}
+		Slice (Model &m) : I(&m.interaction()), N(m.interaction().dimension()), beta(1.0) {}
+		Slice (const Slice &s) : I(s.I), N(s.N), beta(s.beta) {}
 
 		void setup (double b) {
 			beta = b;
