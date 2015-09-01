@@ -6,6 +6,7 @@
 #include "slice.hpp"
 #include <vector>
 #include <cmath>
+#include <random>
 
 //FIXME
 #include <iostream>
@@ -79,7 +80,7 @@ class Configuration {
 
 		void compute_right_side (size_t j) {
 			if (j==0) {
-				B.setIdentity(model.lattice().dimension()); // FIXME: maybe have a direct reference to the lattice here too
+				B.setIdentity(model.interaction().dimension());
 			} else {
 				B = right_side[j-1];
 				slices[j-1].apply_matrix(B.U);
@@ -91,7 +92,7 @@ class Configuration {
 
 		void compute_left_side (size_t j) {
 			if (j==M) {
-				B.setIdentity(model.lattice().dimension()); // FIXME: maybe have a direct reference to the lattice here too
+				B.setIdentity(model.interaction().dimension());
 			} else {
 				B = left_side[j+1];
 				slices[j].apply_on_the_right(B.Vt);
@@ -104,20 +105,20 @@ class Configuration {
 
 		void check_propagation_from_right () {
 			Eigen::MatrixXd M, M1, M2;
-			M1 = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension());
-			model.lattice().propagate(0.023, M1);
-			M2 = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension());
-			model.lattice().propagate_on_the_right(0.023, M2);
+			M1 = Eigen::MatrixXd::Identity(model.interaction().dimension(), model.interaction().dimension());
+			model.interaction().propagate(0.023, M1);
+			M2 = Eigen::MatrixXd::Identity(model.interaction().dimension(), model.interaction().dimension());
+			model.interaction().propagate_on_the_right(0.023, M2);
 			std::cerr << "propagate " << (M1-M2).norm() << std::endl;
 			Vertex v = model.interaction().generate(0.0, 0.2);
-			M1 = M2 = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension());
+			M1 = M2 = Eigen::MatrixXd::Identity(model.interaction().dimension(), model.interaction().dimension());
 			model.interaction().apply_vertex_on_the_left(v, M1);
 			model.interaction().apply_vertex_on_the_right(v, M2);
 			std::cerr << "vertex " << (M1-M2).norm() << std::endl;
-			M = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension());
+			M = Eigen::MatrixXd::Identity(model.interaction().dimension(), model.interaction().dimension());
 			slices[index+1].apply_matrix(M);
 			std::cerr << "from right " << (M-slices[index+1].matrix()).norm() << std::endl;
-			M = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension());
+			M = Eigen::MatrixXd::Identity(model.interaction().dimension(), model.interaction().dimension());
 			slices[index+1].apply_on_the_right(M);
 			std::cerr << "from right " << (M-slices[index+1].matrix()).norm() << std::endl;
 		}
@@ -133,7 +134,7 @@ class Configuration {
 			double ret = 0.0;
 			size_t old_index = index;
 			set_index(M-1);
-			B.setIdentity(model.lattice().dimension()); // FIXME: maybe have a direct reference to the lattice here too
+			B.setIdentity(model.interaction().dimension());
 			for (size_t i=0;i<M;i++) {
 				slices[(i+index+1)%M].apply_matrix(B.U);
 				decompose_U();
@@ -247,22 +248,22 @@ class Configuration {
 			return B.S.array().abs().log().abs().maxCoeff();
 		}
 
-		void insert (Vertex v) {
+		void insert (const Vertex &v) {
 			slices[index].insert(v);
 		}
 
-		size_t remove (Vertex v) {
+		size_t remove (const Vertex &v) {
 			return slices[index].remove(v);
 		}
 
-		void insert_and_update (Vertex v, const MatrixType& matrixU, const MatrixType& matrixVt, const Eigen::Matrix2d &mat) {
+		void insert_and_update (const Vertex &v, const MatrixType& matrixU, const MatrixType& matrixVt, const Eigen::Matrix2d &mat) {
 			G_matrix -= (G_matrix * matrixU) * mat.inverse() * (matrixVt.transpose() * G_matrix);
 			G_matrix += matrixU * (matrixVt.transpose() * G_matrix);
 			B.U += matrixU * (matrixVt.transpose() * B.U);
 			insert(v);
 		}
 
-		void insert_and_update (Vertex v) {
+		void insert_and_update (const Vertex &v) {
 			if (v==cache.v) {
 			} else {
 				insert_probability(v);
@@ -270,14 +271,14 @@ class Configuration {
 			insert_and_update(v, cache.u, cache.vt, cache.matrix);
 		}
 
-		size_t remove_and_update (Vertex v, const MatrixType& inverseU, const MatrixType& inverseVt, const Eigen::Matrix2d &mat) {
+		size_t remove_and_update (const Vertex &v, const MatrixType& inverseU, const MatrixType& inverseVt, const Eigen::Matrix2d &mat) {
 			G_matrix -= (G_matrix * inverseU) * mat.inverse() * (inverseVt.transpose() * G_matrix);
 			G_matrix += inverseU * (inverseVt.transpose() * G_matrix);
 			B.U += inverseU * (inverseVt.transpose() * B.U);
 			return remove(v);
 		}
 
-		size_t remove_and_update (Vertex v) {
+		size_t remove_and_update (const Vertex &v) {
 			if (v==cache.v) {
 			} else {
 				remove_probability(v);
@@ -285,14 +286,14 @@ class Configuration {
 			return remove_and_update(v, cache.u, cache.vt, cache.matrix);
 		}
 
-		void insert_and_update_right (Vertex v, const MatrixType& matrixU, const MatrixType& matrixVt, const Eigen::Matrix2d &mat) {
+		void insert_and_update_right (const Vertex &v, const MatrixType& matrixU, const MatrixType& matrixVt, const Eigen::Matrix2d &mat) {
 			G_matrix -= (G_matrix * matrixU) * mat.inverse() * (matrixVt.transpose() * G_matrix);
 			G_matrix += (G_matrix * matrixU) * matrixVt.transpose();
 			B.U += matrixU * (matrixVt.transpose() * B.U);
 			insert(v);
 		}
 
-		void insert_and_update_right (Vertex v) {
+		void insert_and_update_right (const Vertex &v) {
 			if (v==cache.v) {
 			} else {
 				insert_probability_right(v);
@@ -300,14 +301,14 @@ class Configuration {
 			insert_and_update_right(v, cache.u, cache.vt, cache.matrix);
 		}
 
-		size_t remove_and_update_right (Vertex v, const MatrixType& inverseU, const MatrixType& inverseVt, const Eigen::Matrix2d &mat) {
+		size_t remove_and_update_right (const Vertex &v, const MatrixType& inverseU, const MatrixType& inverseVt, const Eigen::Matrix2d &mat) {
 			G_matrix -= (G_matrix * inverseU) * mat.inverse() * (inverseVt.transpose() * G_matrix);
 			G_matrix += (G_matrix * inverseU) * inverseVt.transpose();
 			B.U += inverseU * (inverseVt.transpose() * B.U);
 			return remove(v);
 		}
 
-		size_t remove_and_update_right (Vertex v) {
+		size_t remove_and_update_right (const Vertex &v) {
 			if (v==cache.v) {
 			} else {
 				remove_probability_right(v);
@@ -361,7 +362,7 @@ class Configuration {
 		}
 
 		void compute_B () {
-			B.setIdentity(model.lattice().dimension()); // FIXME: maybe have a direct reference to the lattice here too
+			B.setIdentity(model.interaction().dimension());
 			for (size_t i=0;i<M;i++) {
 				slices[(i+index+1)%M].apply_matrix(B.U);
 				decompose_U();
@@ -413,7 +414,7 @@ class Configuration {
 			return ret;
 		}
 
-		double insert_probability (Vertex v) {
+		double insert_probability (const Vertex &v) {
 			//slices[index].matrixU_right(v, cache.u);
 			//slices[index].matrixVt_right(v, cache.vt);
 			cache.v = v;
@@ -425,7 +426,7 @@ class Configuration {
 			return cache.probability;
 		}
 
-		double remove_probability (Vertex v) {
+		double remove_probability (const Vertex &v) {
 			//slices[index].inverseU_right(v, cache.u);
 			//slices[index].inverseVt_right(v, cache.vt);
 			cache.v = v;
@@ -437,7 +438,7 @@ class Configuration {
 			return cache.probability;
 		}
 
-		double insert_probability_right (Vertex v) {
+		double insert_probability_right (const Vertex &v) {
 			//slices[index].matrixU_right(v, cache.u);
 			//slices[index].matrixVt_right(v, cache.vt);
 			cache.v = v;
@@ -449,7 +450,7 @@ class Configuration {
 			return cache.probability;
 		}
 
-		double remove_probability_right (Vertex v) {
+		double remove_probability_right (const Vertex &v) {
 			//slices[index].inverseU_right(v, cache.u);
 			//slices[index].inverseVt_right(v, cache.vt);
 			cache.v = v;
@@ -533,11 +534,11 @@ class Configuration {
 		void show_verts () const { for (const auto &s : slices) std::cerr << s.size() << std::endl; }
 		void advance (int n) { set_index(2*M+index+n); }
 
-		size_t volume () const { return model.lattice().volume(); }
+		size_t volume () const { return model.interaction().volume(); }
 		double inverse_temperature () const { return beta; }
 
 		double kinetic_energy (const Eigen::MatrixXd& cache) const {
-			return model.lattice().kinetic_energy(cache);
+			return model.interaction().kinetic_energy(cache);
 		}
 
 		double interaction_energy (const Eigen::MatrixXd& cache) const {

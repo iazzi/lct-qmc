@@ -33,7 +33,8 @@ class LCTSimulation {
 
 	public:
 
-	LCTSimulation (Parameters params) :
+	LCTSimulation (Parameters params, size_t seed_offset=0) :
+		generator(params.getInteger("SEED",42)+seed_offset),
 		conf(params),
 		sweep_direction_(right_to_left),
 		updates_(0) {
