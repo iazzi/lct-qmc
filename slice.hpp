@@ -12,7 +12,6 @@
 template <typename Model>
 class Slice {
 	public:
-		typedef typename Model::Lattice Lattice;
 		typedef typename Model::Interaction Interaction;
 		typedef typename Interaction::Vertex Vertex;
 		typedef typename Interaction::MatrixType MatrixType;

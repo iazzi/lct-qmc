@@ -13,7 +13,6 @@ class Model {
 	Model (const Parameters &params) : l(params), i(params) { i.set_lattice_eigenvectors(l.eigenvectors()); i.set_lattice_eigenvalues(l.eigenvalues()); }
 	I& interaction () { return i; }
 	const I& interaction () const { return i; }
-	typedef L Lattice;
 	typedef I Interaction;
 	template <typename T> void propagate (double t, const T &M) { l.propagate(t, M); }
 	template <typename T> void propagate_right (double t, const T &M) { l.propagate_right(t, M); }

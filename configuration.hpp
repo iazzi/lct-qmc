@@ -15,7 +15,6 @@
 template <typename Model>
 class Configuration {
 	public:
-		typedef typename Model::Lattice Lattice;
 		typedef typename Model::Interaction Interaction;
 		typedef typename Model::Interaction::MatrixType MatrixType;
 		typedef typename Interaction::Vertex Vertex;
