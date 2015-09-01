@@ -106,9 +106,9 @@ class Configuration {
 		void check_propagation_from_right () {
 			Eigen::MatrixXd M, M1, M2;
 			M1 = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension());
-			model.lattice().propagate(0.023, M1);
+			model.interaction().propagate(0.023, M1);
 			M2 = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension());
-			model.lattice().propagate_on_the_right(0.023, M2);
+			model.interaction().propagate_on_the_right(0.023, M2);
 			std::cerr << "propagate " << (M1-M2).norm() << std::endl;
 			Vertex v = model.interaction().generate(0.0, 0.2);
 			M1 = M2 = Eigen::MatrixXd::Identity(model.lattice().dimension(), model.lattice().dimension());

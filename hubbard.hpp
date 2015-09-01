@@ -194,6 +194,22 @@ class HubbardInteraction {
 
 	Eigen::VectorXd eigenvalues () const { return eigenvalues_; }
 	Eigen::MatrixXd eigenvectors () const { return eigenvectors_; }
+
+	template <typename T>
+	void propagate (double t, T& M) {
+		cached_vec = eigenvalues_;
+		cached_vec *= -t;
+		cached_vec = cached_vec.array().exp();
+		M.array().colwise() *= cached_vec.array(); // (-t*eigenvalues_.array()).exp(); // this causes allocation!
+	}
+
+	template <typename T>
+		void propagate_on_the_right (double t, T& M) {
+		cached_vec = eigenvalues_;
+		cached_vec *= -t;
+		cached_vec = cached_vec.array().exp();
+		M.array().rowwise() *= cached_vec.transpose().array(); // (-t*eigenvalues_.array()).exp(); // this causes allocation!
+	}
 };
 
 template <>
@@ -227,6 +243,7 @@ inline void HubbardInteraction::apply_inverse_on_the_left (const Vertex &v, Hubb
 	double D = eigenvectors_.block(V, V, V, V).row(v.x) * M.col(1).tail(V);
 	M.col(1).tail(V).noalias() -= (a-v.sigma)/(1.0+a-v.sigma) * eigenvectors_.block(V, V, V, V).row(v.x).transpose() * D;
 }
+
 
 #endif // HUBBARD_HPP
 

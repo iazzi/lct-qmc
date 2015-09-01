@@ -57,11 +57,11 @@ class Slice {
 			matrix_inv_.setIdentity(N, N);
 			double t0 = beta;
 			for (auto v=verts.rbegin();v!=verts.rend();v++) {
-				if (v->tau<t0) L->propagate(v->tau-t0, matrix_inv_);
+				if (v->tau<t0) I->propagate(v->tau-t0, matrix_inv_);
 				t0 = v->tau;
 				I->apply_inverse_on_the_left(*v, matrix_inv_);
 			}
-			if (0.0<t0) L->propagate(-t0, matrix_inv_);
+			if (0.0<t0) I->propagate(-t0, matrix_inv_);
 			return matrix_inv_;
 		}
 
@@ -70,11 +70,11 @@ class Slice {
 		void apply_matrix (T &A) {
 			double t0 = 0.0;
 			for (auto v : verts) {
-				if (v.tau>t0) L->propagate(v.tau-t0, A);
+				if (v.tau>t0) I->propagate(v.tau-t0, A);
 				t0 = v.tau;
 				I->apply_vertex_on_the_left(v, A);
 			}
-			if (beta>t0) L->propagate(beta-t0, A);
+			if (beta>t0) I->propagate(beta-t0, A);
 		}
 
 		// TODO: apply_matrix_on_the_right(T &A)
@@ -98,11 +98,11 @@ class Slice {
 			double t0 = beta;
 			for (auto v=verts.rbegin();v!=verts.rend();v++) {
 				//if (v.tau>=tau) break;
-				if (v->tau<t0) L->propagate_on_the_right(t0-v->tau, A);
+				if (v->tau<t0) I->propagate_on_the_right(t0-v->tau, A);
 				t0 = v->tau;
 				I->apply_vertex_on_the_right(*v, A);
 			}
-			if (t0>0.0) L->propagate_on_the_right(t0, A);
+			if (t0>0.0) I->propagate_on_the_right(t0, A);
 		}
 
 		// apply the inverse slice (with backward propagators and inverse vertices)
@@ -110,11 +110,11 @@ class Slice {
 		void apply_inverse (T &A) {
 			double t0 = beta;
 			for (auto v=verts.rbegin();v!=verts.rend();v++) {
-				if (v->tau<t0) L->propagate(v->tau-t0, A);
+				if (v->tau<t0) I->propagate(v->tau-t0, A);
 				t0 = v->tau;
 				I->apply_inverse_on_the_left(*v, A);
 			}
-			if (0.0<t0) L->propagate(-t0, A);
+			if (0.0<t0) I->propagate(-t0, A);
 		}
 
 		// TODO: apply_inverse_on_the_right(T &A)
@@ -139,22 +139,22 @@ class Slice {
 			I->matrixU(v, u);
 			double t0 = v.tau;
 			for (auto w = verts.upper_bound(v);w!=verts.end();w++) {
-				if (w->tau>t0) L->propagate(w->tau-t0, u);
+				if (w->tau>t0) I->propagate(w->tau-t0, u);
 				t0 = w->tau;
 				I->apply_vertex_on_the_left(*w, u);
 			}
-			if (beta>t0) L->propagate(beta-t0, u);
+			if (beta>t0) I->propagate(beta-t0, u);
 		}
 
 		void matrixVt (const Vertex &v, MatrixType &vt) {
 			I->matrixV(v, vt);
 			double t0 = v.tau;
 			for (auto w = verts.upper_bound(v);w!=verts.end();w++) {
-				if (w->tau>t0) L->propagate(t0-w->tau, vt);
+				if (w->tau>t0) I->propagate(t0-w->tau, vt);
 				t0 = w->tau;
 				I->apply_inverse_on_the_left(*w, vt);
 			}
-			if (beta>t0) L->propagate(t0-beta, vt);
+			if (beta>t0) I->propagate(t0-beta, vt);
 		}
 
 		void inverseU (const Vertex &v, MatrixType &u) {
@@ -162,11 +162,11 @@ class Slice {
 			u = -u;
 			double t0 = v.tau;
 			for (auto w = verts.upper_bound(v);w!=verts.end();w++) {
-				if (w->tau>t0) L->propagate(w->tau-t0, u);
+				if (w->tau>t0) I->propagate(w->tau-t0, u);
 				t0 = w->tau;
 				I->apply_vertex_on_the_left(*w, u);
 			}
-			if (beta>t0) L->propagate(beta-t0, u);
+			if (beta>t0) I->propagate(beta-t0, u);
 		}
 
 		void inverseVt (const Vertex &v, MatrixType &vt) {
@@ -174,11 +174,11 @@ class Slice {
 			I->apply_inverse_on_the_left(v, vt);
 			double t0 = v.tau;
 			for (auto w = verts.upper_bound(v);w!=verts.end();w++) {
-				if (w->tau>t0) L->propagate(t0-w->tau, vt);
+				if (w->tau>t0) I->propagate(t0-w->tau, vt);
 				t0 = w->tau;
 				I->apply_inverse_on_the_left(*w, vt);
 			}
-			if (beta>t0) L->propagate(t0-beta, vt);
+			if (beta>t0) I->propagate(t0-beta, vt);
 		}
 
 		void matrixU_right (const Vertex &v, MatrixType &u) {
@@ -187,11 +187,11 @@ class Slice {
 			auto w = verts.lower_bound(v);
 			for (;w!=verts.begin();) {
 				w--;
-				if (w->tau<t0) L->propagate(w->tau-t0, u);
+				if (w->tau<t0) I->propagate(w->tau-t0, u);
 				t0 = w->tau;
 				I->apply_inverse_on_the_left(*w, u);
 			}
-			if (t0>0.0) L->propagate(-t0, u);
+			if (t0>0.0) I->propagate(-t0, u);
 			//std::cerr << (u-inverse()*matrixU(v)).norm() << std::endl;
 		}
 
@@ -201,11 +201,11 @@ class Slice {
 			auto w = verts.lower_bound(v);
 			for (;w!=verts.begin();) {
 				w--;
-				if (w->tau<t0) L->propagate(t0-w->tau, vt);
+				if (w->tau<t0) I->propagate(t0-w->tau, vt);
 				t0 = w->tau;
 				I->apply_vertex_on_the_left(*w, vt);
 			}
-			if (t0>0.0) L->propagate(t0, vt);
+			if (t0>0.0) I->propagate(t0, vt);
 			//std::cerr << (vt-matrix().transpose()*matrixVt(v)).norm() << std::endl;
 		}
 
@@ -217,11 +217,11 @@ class Slice {
 			auto w = verts.lower_bound(v);
 			for (;w!=verts.begin();) {
 				w--;
-				if (w->tau<t0) L->propagate(w->tau-t0, u);
+				if (w->tau<t0) I->propagate(w->tau-t0, u);
 				t0 = w->tau;
 				I->apply_inverse_on_the_left(*w, u);
 			}
-			if (t0>0.0) L->propagate(-t0, u);
+			if (t0>0.0) I->propagate(-t0, u);
 			//std::cerr << (u-inverse()*inverseU(v)).norm() << std::endl;
 		}
 
@@ -232,11 +232,11 @@ class Slice {
 			auto w = verts.lower_bound(v);
 			for (;w!=verts.begin();) {
 				w--;
-				if (w->tau<t0) L->propagate(t0-w->tau, vt);
+				if (w->tau<t0) I->propagate(t0-w->tau, vt);
 				t0 = w->tau;
 				I->apply_vertex_on_the_left(*w, vt);
 			}
-			if (t0>0.0) L->propagate(t0, vt);
+			if (t0>0.0) I->propagate(t0, vt);
 			//std::cerr << (vt-matrix().transpose()*inverseVt(v)).norm() << std::endl;
 		}
 
