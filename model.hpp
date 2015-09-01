@@ -8,6 +8,7 @@ class Model {
 	I i;
 	public:
 	Model (const Model &m) : i(m.i) { i.set_lattice_eigenvectors(i.eigenvectors()); i.set_lattice_eigenvalues(i.eigenvalues()); }
+	Model (const L&a, const I &b) : i(b) { i.set_lattice_eigenvectors(b.eigenvectors()); i.set_lattice_eigenvalues(b.eigenvalues()); }
 	Model (const I &b) : i(b) { i.set_lattice_eigenvectors(i.eigenvectors()); i.set_lattice_eigenvalues(i.eigenvalues()); }
 	Model (const Parameters &params) : i(params) { L l(params); i.set_lattice_eigenvectors(l.eigenvectors()); i.set_lattice_eigenvalues(l.eigenvalues()); }
 	I& interaction () { return i; }

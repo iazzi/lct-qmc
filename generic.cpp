@@ -115,7 +115,7 @@ int main (int argc, char **argv) {
 		size_t sweeps = params.getInteger("sweeps", 1000);
 		SpinOneHalf<GenericLattice> lattice(params);
 		HubbardInteraction interaction(params);
-		auto model = make_model(lattice, interaction);
+		Model<SpinOneHalf<GenericLattice>, HubbardInteraction> model(lattice, interaction);
 		//int N = params.getInteger("N");
 		Configuration<Model<SpinOneHalf<GenericLattice>, HubbardInteraction>> conf(model);
 		Measurements<Model<SpinOneHalf<GenericLattice>, HubbardInteraction>> measurements;
