@@ -52,7 +52,8 @@ inline std::ostream &operator<< (std::ostream &f, HubbardVertex v) {
 // The MatrixType type contains
 //
 class HubbardInteraction {
-	Eigen::MatrixXd eigenvectors;
+	Eigen::VectorXd eigenvalues_;
+	Eigen::MatrixXd eigenvectors_;
 	double U;
 	double K;
 	size_t N;
@@ -87,11 +88,15 @@ class HubbardInteraction {
 	}
 
 	void set_lattice_eigenvectors (const Eigen::MatrixXd &A) {
-		eigenvectors = A;
+		eigenvectors_ = A;
 		N = A.diagonal().size();
 		V = N/2; // FIXME assert N even?
 		I = V;
 		random_site = std::uniform_int_distribution<size_t>(0, I-1);
+	}
+
+	void set_lattice_eigenvalues (const Eigen::VectorXd &v) {
+		eigenvalues_ = v;
 	}
 
 	void set_interactive_sites (size_t i) {
@@ -124,38 +129,38 @@ class HubbardInteraction {
 	size_t dimension () const { return N; }
 	template <typename T>
 		void apply_vertex_on_the_left (const Vertex &v, T &M) {
-			M += (a+v.sigma) * eigenvectors.row(v.x).transpose() * (eigenvectors.row(v.x) * M)
-				+ (a-v.sigma) * eigenvectors.row(v.x+V).transpose() * (eigenvectors.row(v.x+V) * M);
+			M += (a+v.sigma) * eigenvectors_.row(v.x).transpose() * (eigenvectors_.row(v.x) * M)
+				+ (a-v.sigma) * eigenvectors_.row(v.x+V).transpose() * (eigenvectors_.row(v.x+V) * M);
 		}
 
 	template <typename T>
 		void apply_vertex_on_the_right (const Vertex &v, T &M) {
-			M += (a+v.sigma) * (M * eigenvectors.row(v.x).transpose()) * eigenvectors.row(v.x)
-				+ (a-v.sigma) * (M * eigenvectors.row(v.x+V).transpose()) * eigenvectors.row(v.x+V);
+			M += (a+v.sigma) * (M * eigenvectors_.row(v.x).transpose()) * eigenvectors_.row(v.x)
+				+ (a-v.sigma) * (M * eigenvectors_.row(v.x+V).transpose()) * eigenvectors_.row(v.x+V);
 		}
 
 	template <typename T>
 		void apply_inverse_on_the_left (const Vertex &v, T &M) {
-			M -= (a+v.sigma)/(1.0+a+v.sigma) * eigenvectors.row(v.x).transpose() * (eigenvectors.row(v.x) * M)
-				+ (a-v.sigma)/(1.0+a-v.sigma) * eigenvectors.row(v.x+V).transpose() * (eigenvectors.row(v.x+V) * M);
+			M -= (a+v.sigma)/(1.0+a+v.sigma) * eigenvectors_.row(v.x).transpose() * (eigenvectors_.row(v.x) * M)
+				+ (a-v.sigma)/(1.0+a-v.sigma) * eigenvectors_.row(v.x+V).transpose() * (eigenvectors_.row(v.x+V) * M);
 		}
 
 	template <typename T>
 		void apply_inverse_on_the_right (const Vertex &v, T &M) {
-			M -= (a+v.sigma)/(1.0+a+v.sigma) * (M * eigenvectors.row(v.x).transpose()) * eigenvectors.row(v.x)
-				+ (a-v.sigma)/(1.0+a-v.sigma) * (M * eigenvectors.row(v.x+V).transpose()) * eigenvectors.row(v.x+V);
+			M -= (a+v.sigma)/(1.0+a+v.sigma) * (M * eigenvectors_.row(v.x).transpose()) * eigenvectors_.row(v.x)
+				+ (a-v.sigma)/(1.0+a-v.sigma) * (M * eigenvectors_.row(v.x+V).transpose()) * eigenvectors_.row(v.x+V);
 		}
 
 	void matrixU (const Vertex &v, MatrixType &ret) const {
 		ret.resize(N, 2);
-		ret.col(0) = (a+v.sigma) * eigenvectors.row(v.x).transpose();
-		ret.col(1) = (a-v.sigma) * eigenvectors.row(v.x+V).transpose();
+		ret.col(0) = (a+v.sigma) * eigenvectors_.row(v.x).transpose();
+		ret.col(1) = (a-v.sigma) * eigenvectors_.row(v.x+V).transpose();
 	}
 
 	void matrixV (const Vertex &v, MatrixType &ret) const {
 		ret.resize(N, 2);
-		ret.col(0) = eigenvectors.row(v.x).transpose();
-		ret.col(1) = eigenvectors.row(v.x+V).transpose();
+		ret.col(0) = eigenvectors_.row(v.x).transpose();
+		ret.col(1) = eigenvectors_.row(v.x+V).transpose();
 	}
 
 	MatrixType matrixU (const Vertex &v) const {
@@ -183,41 +188,44 @@ class HubbardInteraction {
 
 	template <typename T>
 		double interaction_energy (const T &M) const {
-			Eigen::ArrayXd d = (eigenvectors * M * eigenvectors.transpose()).diagonal();
+			Eigen::ArrayXd d = (eigenvectors_ * M * eigenvectors_.transpose()).diagonal();
 			return U * (d.head(V)*d.tail(V)).sum();
 		}
+
+	Eigen::VectorXd eigenvalues () const { return eigenvalues_; }
+	Eigen::MatrixXd eigenvectors () const { return eigenvectors_; }
 };
 
 template <>
 inline void HubbardInteraction::apply_vertex_on_the_left (const Vertex &v, Eigen::MatrixXd &M) {
-	cached_vec.noalias() = M.block(0, 0, V, V).transpose() * eigenvectors.block(0, 0, V, V).row(v.x).transpose();
-	M.block(0, 0, V, V).noalias() += (a+v.sigma) * eigenvectors.block(0, 0, V, V).row(v.x).transpose() * cached_vec.transpose();
-	cached_vec.noalias() = M.block(V, V, V, V).transpose() * eigenvectors.block(V, V, V, V).row(v.x).transpose();
-	M.block(V, V, V, V).noalias() += (a-v.sigma) * eigenvectors.block(V, V, V, V).row(v.x).transpose() * cached_vec.transpose();
+	cached_vec.noalias() = M.block(0, 0, V, V).transpose() * eigenvectors_.block(0, 0, V, V).row(v.x).transpose();
+	M.block(0, 0, V, V).noalias() += (a+v.sigma) * eigenvectors_.block(0, 0, V, V).row(v.x).transpose() * cached_vec.transpose();
+	cached_vec.noalias() = M.block(V, V, V, V).transpose() * eigenvectors_.block(V, V, V, V).row(v.x).transpose();
+	M.block(V, V, V, V).noalias() += (a-v.sigma) * eigenvectors_.block(V, V, V, V).row(v.x).transpose() * cached_vec.transpose();
 }
 
 template <>
 inline void HubbardInteraction::apply_vertex_on_the_right (const Vertex &v, Eigen::MatrixXd &M) {
-	cached_vec.noalias() = M.block(0, 0, V, V) * eigenvectors.block(0, 0, V, V).row(v.x).transpose();
-	M.block(0, 0, V, V).noalias() += (a+v.sigma) * cached_vec * eigenvectors.block(0, 0, V, V).row(v.x);
-	cached_vec.noalias() = M.block(V, V, V, V) * eigenvectors.block(V, V, V, V).row(v.x).transpose();
-	M.block(V, V, V, V).noalias() += (a-v.sigma) * cached_vec * eigenvectors.block(V, V, V, V).row(v.x);
+	cached_vec.noalias() = M.block(0, 0, V, V) * eigenvectors_.block(0, 0, V, V).row(v.x).transpose();
+	M.block(0, 0, V, V).noalias() += (a+v.sigma) * cached_vec * eigenvectors_.block(0, 0, V, V).row(v.x);
+	cached_vec.noalias() = M.block(V, V, V, V) * eigenvectors_.block(V, V, V, V).row(v.x).transpose();
+	M.block(V, V, V, V).noalias() += (a-v.sigma) * cached_vec * eigenvectors_.block(V, V, V, V).row(v.x);
 }
 
 template <>
 inline void HubbardInteraction::apply_vertex_on_the_left (const Vertex &v, HubbardInteraction::MatrixType &M) {
-	double C = eigenvectors.block(0, 0, V, V).row(v.x) * M.col(0).head(V);
-	M.col(0).head(V).noalias() += (a+v.sigma) * eigenvectors.block(0, 0, V, V).row(v.x).transpose() * C;
-	double D = eigenvectors.block(V, V, V, V).row(v.x) * M.col(1).tail(V);
-	M.col(1).tail(V).noalias() += (a-v.sigma) * eigenvectors.block(V, V, V, V).row(v.x).transpose() * D;
+	double C = eigenvectors_.block(0, 0, V, V).row(v.x) * M.col(0).head(V);
+	M.col(0).head(V).noalias() += (a+v.sigma) * eigenvectors_.block(0, 0, V, V).row(v.x).transpose() * C;
+	double D = eigenvectors_.block(V, V, V, V).row(v.x) * M.col(1).tail(V);
+	M.col(1).tail(V).noalias() += (a-v.sigma) * eigenvectors_.block(V, V, V, V).row(v.x).transpose() * D;
 }
 
 template <>
 inline void HubbardInteraction::apply_inverse_on_the_left (const Vertex &v, HubbardInteraction::MatrixType &M) {
-	double C = eigenvectors.block(0, 0, V, V).row(v.x) * M.col(0).head(V);
-	M.col(0).head(V).noalias() -= (a+v.sigma)/(1.0+a+v.sigma) * eigenvectors.block(0, 0, V, V).row(v.x).transpose() * C;
-	double D = eigenvectors.block(V, V, V, V).row(v.x) * M.col(1).tail(V);
-	M.col(1).tail(V).noalias() -= (a-v.sigma)/(1.0+a-v.sigma) * eigenvectors.block(V, V, V, V).row(v.x).transpose() * D;
+	double C = eigenvectors_.block(0, 0, V, V).row(v.x) * M.col(0).head(V);
+	M.col(0).head(V).noalias() -= (a+v.sigma)/(1.0+a+v.sigma) * eigenvectors_.block(0, 0, V, V).row(v.x).transpose() * C;
+	double D = eigenvectors_.block(V, V, V, V).row(v.x) * M.col(1).tail(V);
+	M.col(1).tail(V).noalias() -= (a-v.sigma)/(1.0+a-v.sigma) * eigenvectors_.block(V, V, V, V).row(v.x).transpose() * D;
 }
 
 #endif // HUBBARD_HPP
