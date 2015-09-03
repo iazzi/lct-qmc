@@ -9,10 +9,18 @@
 // FIXME
 #include <iostream>
 
+typedef Eigen::Matrix<double, Eigen::Dynamic, 2> VertexMatrix;
+
+struct VertexUpdateData {
+	VertexMatrix U, V;
+	Eigen::Matrix2d mat, inv;
+};
+
 struct HubbardVertex {
 	double sigma;
 	double tau;
 	int x;
+	VertexUpdateData data;
 	struct Compare {
 		bool operator() (const HubbardVertex& a, const HubbardVertex& b) {
 			return (a.tau<b.tau) || (a.tau==b.tau && a.x<b.x)
@@ -120,7 +128,22 @@ class HubbardInteraction {
 		ret.sigma = coin_flip(g)?(+b):(-b);
 		ret.x = random_site(g);
 		ret.tau = t0 + random_time(g)*(t1-t0);
+		prepare(ret);
 		return ret;
+	}
+
+	void prepare (Vertex &v) {
+		cached_vec = eigenvalues_;
+		cached_vec *= -v.tau;
+		cached_vec = cached_vec.array().exp();
+		v.data.U.resize(N, 2);
+		v.data.U.col(0) = eigenvectors_.row(v.x).transpose();
+		v.data.U.col(1) = eigenvectors_.row(v.x+V).transpose();
+		v.data.V = v.data.U;
+		v.data.U.array().colwise() /= cached_vec.array();
+		v.data.V.array().colwise() *= cached_vec.array();
+		v.data.mat << (a+v.sigma), 0.0, 0.0, (a-v.sigma);
+		v.data.inv << (a+v.sigma)/(1.0+a+v.sigma), 0.0, 0.0, (a-v.sigma)/(1.0+a-v.sigma);
 	}
 
 	size_t volume () const { return V; }
@@ -150,6 +173,10 @@ class HubbardInteraction {
 		void apply_inverse_on_the_right (const Vertex &v, T &M) {
 			M -= (a+v.sigma)/(1.0+a+v.sigma) * (M * eigenvectors_.row(v.x).transpose()) * eigenvectors_.row(v.x)
 				+ (a-v.sigma)/(1.0+a-v.sigma) * (M * eigenvectors_.row(v.x+V).transpose()) * eigenvectors_.row(v.x+V);
+		}
+
+	template <typename T>
+		void apply_displaced_vertex_on_the_left (const Vertex &v, T &M) {
 		}
 
 	void matrixU (const Vertex &v, MatrixType &ret) const {
