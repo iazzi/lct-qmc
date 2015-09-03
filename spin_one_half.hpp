@@ -15,8 +15,6 @@ class SpinOneHalf {
 
 	bool computed;
 
-	Eigen::VectorXd cached_exp;
-
 	public:
 
 	void setup (const Parameters &p) {
@@ -43,29 +41,6 @@ class SpinOneHalf {
 	size_t volume () const { return V; }
 	size_t states () const { return 2*V; }
 	size_t dimension () const { return 2*V; }
-
-	template <typename T>
-		void propagate (double t, T& M) {
-			cached_exp = eigenvalues_;
-			cached_exp *= -t;
-			cached_exp = cached_exp.array().exp();
-			//M.applyOnTheLeft(cached_exp.matrix().asDiagonal());
-			M.array().colwise() *= cached_exp.array(); // (-t*eigenvalues_.array()).exp(); // this causes allocation!
-		}
-
-	template <typename T>
-		void propagate_on_the_right (double t, T& M) {
-			cached_exp = eigenvalues_;
-			cached_exp *= -t;
-			cached_exp = cached_exp.array().exp();
-			//M.applyOnTheLeft(cached_exp.matrix().asDiagonal());
-			M.array().rowwise() *= cached_exp.transpose().array(); // (-t*eigenvalues_.array()).exp(); // this causes allocation!
-		}
-
-	template <typename T>
-		double kinetic_energy (const T &M) const {
-			return (eigenvalues_.array() * M.diagonal().array()).sum();
-		}
 
 	SpinOneHalf (): computed(false) { compute(); }
 	SpinOneHalf (const Lattice &l): l_(l), computed(false) { compute(); }
