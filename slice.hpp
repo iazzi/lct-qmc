@@ -9,10 +9,9 @@
 //FIXME
 #include <iostream>
 
-template <typename Model>
+template <typename Interaction>
 class Slice {
 	public:
-		typedef typename Model::Interaction Interaction;
 		typedef typename Interaction::Vertex Vertex;
 		typedef typename Interaction::MatrixType MatrixType;
 	private:
@@ -27,7 +26,7 @@ class Slice {
 		Eigen::MatrixXd matrix_inv_;
 
 	public:
-		Slice (Model &m) : I(&m.interaction()), N(m.interaction().dimension()), beta(1.0) {}
+		Slice (Interaction *i) : I(i), N(i->dimension()), beta(1.0) {}
 		Slice (const Slice &s) : I(s.I), N(s.N), beta(s.beta) {}
 
 		void setup (double b) {

@@ -25,7 +25,7 @@ class Configuration {
 		} sweep_direction_type;
 
 	private:
-		std::vector<Slice<Model>> slices;
+		std::vector<Slice<Interaction>> slices;
 		std::vector<SVDHelper> right_side;
 		std::vector<SVDHelper> left_side;
 
@@ -62,7 +62,7 @@ class Configuration {
 			mu = p.getNumber("mu", 0.0);
 			M = p.getInteger("slices", 4*beta);
 			dtau = beta/M;
-			slices.resize(M, Slice<Model>(model));
+			slices.resize(M, Slice<Interaction>(&model.interaction()));
 			right_side.resize(M+1);
 			left_side.resize(M+1);
 			for (size_t i=0;i<M;i++) {
