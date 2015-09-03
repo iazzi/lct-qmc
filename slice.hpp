@@ -51,17 +51,17 @@ class Slice {
 			return matrix_;
 		}
 
-		Eigen::MatrixXd inverse () {
-			matrix_inv_.setIdentity(N, N);
-			double t0 = beta;
-			for (auto v=verts.rbegin();v!=verts.rend();v++) {
-				if (v->tau<t0) I->propagate(v->tau-t0, matrix_inv_);
-				t0 = v->tau;
-				I->apply_inverse_on_the_left(*v, matrix_inv_);
-			}
-			if (0.0<t0) I->propagate(-t0, matrix_inv_);
-			return matrix_inv_;
-		}
+		//Eigen::MatrixXd inverse () {
+			//matrix_inv_.setIdentity(N, N);
+			//double t0 = beta;
+			//for (auto v=verts.rbegin();v!=verts.rend();v++) {
+				//if (v->tau<t0) I->propagate(v->tau-t0, matrix_inv_);
+				//t0 = v->tau;
+				//I->apply_inverse_on_the_left(*v, matrix_inv_);
+			//}
+			//if (0.0<t0) I->propagate(-t0, matrix_inv_);
+			//return matrix_inv_;
+		//}
 
 		// apply the slice with forward propagators and direct vertices
 		template <typename T>
