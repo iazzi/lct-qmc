@@ -30,7 +30,7 @@ struct HubbardVertex {
 	};
 	bool operator== (const HubbardVertex &w) const { return x==w.x && sigma==w.sigma && tau==w.tau; }
 	HubbardVertex (int y, double s, double t) : sigma(s), tau(t), x(y) {}
-	HubbardVertex (const HubbardVertex &v) : sigma(v.sigma), tau(v.tau), x(v.x) {}
+	HubbardVertex (const HubbardVertex &v) : sigma(v.sigma), tau(v.tau), x(v.x), data(v.data) {}
 	HubbardVertex (double t) : sigma(0.0), tau(t), x(0) {}
 	HubbardVertex () : sigma(0.0), tau(0.0), x(0) {}
 };
