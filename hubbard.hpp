@@ -13,14 +13,14 @@ typedef Eigen::Matrix<double, Eigen::Dynamic, 2> VertexMatrix;
 
 struct VertexUpdateData {
 	VertexMatrix U, V;
-	Eigen::Matrix2d mat, inv;
+	Eigen::Vector2d mat, inv;
 };
 
 struct HubbardVertex {
 	double sigma;
 	double tau;
-	int x;
 	VertexUpdateData data;
+	int x;
 	struct Compare {
 		bool operator() (const HubbardVertex& a, const HubbardVertex& b) {
 			return (a.tau<b.tau) || (a.tau==b.tau && a.x<b.x)
@@ -30,7 +30,7 @@ struct HubbardVertex {
 	};
 	bool operator== (const HubbardVertex &w) const { return x==w.x && sigma==w.sigma && tau==w.tau; }
 	HubbardVertex (int y, double s, double t) : sigma(s), tau(t), x(y) {}
-	HubbardVertex (const HubbardVertex &v) : sigma(v.sigma), tau(v.tau), x(v.x), data(v.data) {}
+	HubbardVertex (const HubbardVertex &v) : sigma(v.sigma), tau(v.tau), data(v.data), x(v.x) {}
 	HubbardVertex (double t) : sigma(0.0), tau(t), x(0) {}
 	HubbardVertex () : sigma(0.0), tau(0.0), x(0) {}
 };
@@ -142,8 +142,8 @@ class HubbardInteraction {
 		v.data.V = v.data.U;
 		v.data.U.array().colwise() /= cached_vec.array();
 		v.data.V.array().colwise() *= cached_vec.array();
-		v.data.mat << (a+v.sigma), 0.0, 0.0, (a-v.sigma);
-		v.data.inv << (a+v.sigma)/(1.0+a+v.sigma), 0.0, 0.0, (a-v.sigma)/(1.0+a-v.sigma);
+		v.data.mat << (a+v.sigma), (a-v.sigma);
+		v.data.inv << (a+v.sigma)/(1.0+a+v.sigma), (a-v.sigma)/(1.0+a-v.sigma);
 	}
 
 	size_t volume () const { return V; }
@@ -177,6 +177,34 @@ class HubbardInteraction {
 
 	template <typename T>
 		void apply_displaced_vertex_on_the_left (const Vertex &v, T &M) {
+			cached_mat.noalias() = M.transpose() * v.data.V;
+			cached_mat.col(0) *= v.data.mat(0);
+			cached_mat.col(1) *= v.data.mat(1);
+			M += v.data.U * cached_mat.transpose();
+		}
+
+	template <typename T>
+		void apply_displaced_vertex_on_the_right (const Vertex &v, T &M) {
+			cached_mat.noalias() = M * v.data.U;
+			cached_mat.col(0) *= v.data.mat(0);
+			cached_mat.col(1) *= v.data.mat(1);
+			M += cached_mat * v.data.V.transpose();
+		}
+
+	template <typename T>
+		void apply_displaced_inverse_on_the_left (const Vertex &v, T &M) {
+			cached_mat.noalias() = M.transpose() * v.data.U;
+			cached_mat.col(0) *= v.data.inv(0);
+			cached_mat.col(1) *= v.data.inv(1);
+			M += v.data.V * cached_mat.transpose();
+		}
+
+	template <typename T>
+		void apply_displaced_inverse_on_the_right (const Vertex &v, T &M) {
+			cached_mat.noalias() = M * v.data.V;
+			cached_mat.col(0) *= v.data.inv(0);
+			cached_mat.col(1) *= v.data.inv(1);
+			M += cached_mat * v.data.U.transpose();
 		}
 
 	void matrixU (const Vertex &v, MatrixType &ret) const {
