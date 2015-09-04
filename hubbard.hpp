@@ -72,8 +72,8 @@ class HubbardInteraction {
 	std::uniform_int_distribution<size_t> random_site;
 	std::uniform_real_distribution<double> random_time;
 
-	Eigen::MatrixXd cached_block;
 	Eigen::VectorXd cached_vec;
+	VertexMatrix cached_mat;
 	public:
 	typedef HubbardVertex Vertex;
 	typedef Eigen::Matrix<double, Eigen::Dynamic, 2> MatrixType;
@@ -128,7 +128,7 @@ class HubbardInteraction {
 		ret.sigma = coin_flip(g)?(+b):(-b);
 		ret.x = random_site(g);
 		ret.tau = t0 + random_time(g)*(t1-t0);
-		prepare(ret);
+		//prepare(ret);
 		return ret;
 	}
 
@@ -273,6 +273,9 @@ class HubbardInteraction {
 	}
 };
 
+#define HUBBARD_BLOCKS
+#ifdef HUBBARD_BLOCKS
+
 template <>
 inline void HubbardInteraction::apply_vertex_on_the_left (const Vertex &v, Eigen::MatrixXd &M) {
 	cached_vec.noalias() = M.block(0, 0, V, V).transpose() * eigenvectors_.block(0, 0, V, V).row(v.x).transpose();
@@ -290,6 +293,22 @@ inline void HubbardInteraction::apply_vertex_on_the_right (const Vertex &v, Eige
 }
 
 template <>
+inline void HubbardInteraction::apply_inverse_on_the_left (const Vertex &v, Eigen::MatrixXd &M) {
+	cached_vec.noalias() = M.block(0, 0, V, V).transpose() * eigenvectors_.block(0, 0, V, V).row(v.x).transpose();
+	M.block(0, 0, V, V).noalias() -= (a+v.sigma)/(1.0+a+v.sigma) * eigenvectors_.block(0, 0, V, V).row(v.x).transpose() * cached_vec.transpose();
+	cached_vec.noalias() = M.block(V, V, V, V).transpose() * eigenvectors_.block(V, V, V, V).row(v.x).transpose();
+	M.block(V, V, V, V).noalias() -= (a-v.sigma)/(1.0+a-v.sigma) * eigenvectors_.block(V, V, V, V).row(v.x).transpose() * cached_vec.transpose();
+}
+
+template <>
+inline void HubbardInteraction::apply_inverse_on_the_right (const Vertex &v, Eigen::MatrixXd &M) {
+	cached_vec.noalias() = M.block(0, 0, V, V) * eigenvectors_.block(0, 0, V, V).row(v.x).transpose();
+	M.block(0, 0, V, V).noalias() -= (a+v.sigma)/(1.0+a+v.sigma) * cached_vec * eigenvectors_.block(0, 0, V, V).row(v.x);
+	cached_vec.noalias() = M.block(V, V, V, V) * eigenvectors_.block(V, V, V, V).row(v.x).transpose();
+	M.block(V, V, V, V).noalias() -= (a-v.sigma)/(1.0+a-v.sigma) * cached_vec * eigenvectors_.block(V, V, V, V).row(v.x);
+}
+
+template <>
 inline void HubbardInteraction::apply_vertex_on_the_left (const Vertex &v, HubbardInteraction::MatrixType &M) {
 	double C = eigenvectors_.block(0, 0, V, V).row(v.x) * M.col(0).head(V);
 	M.col(0).head(V).noalias() += (a+v.sigma) * eigenvectors_.block(0, 0, V, V).row(v.x).transpose() * C;
@@ -304,6 +323,8 @@ inline void HubbardInteraction::apply_inverse_on_the_left (const Vertex &v, Hubb
 	double D = eigenvectors_.block(V, V, V, V).row(v.x) * M.col(1).tail(V);
 	M.col(1).tail(V).noalias() -= (a-v.sigma)/(1.0+a-v.sigma) * eigenvectors_.block(V, V, V, V).row(v.x).transpose() * D;
 }
+
+#endif // HUBBARD_BLOCKS
 
 
 #endif // HUBBARD_HPP
