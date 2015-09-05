@@ -128,7 +128,7 @@ class HubbardInteraction {
 		ret.sigma = coin_flip(g)?(+b):(-b);
 		ret.x = random_site(g);
 		ret.tau = t0 + random_time(g)*(t1-t0);
-		//prepare(ret);
+		prepare(ret);
 		return ret;
 	}
 
@@ -193,18 +193,18 @@ class HubbardInteraction {
 
 	template <typename T>
 		void apply_displaced_inverse_on_the_left (const Vertex &v, T &M) {
-			cached_mat.noalias() = M.transpose() * v.data.U;
+			cached_mat.noalias() = M.transpose() * v.data.V;
 			cached_mat.col(0) *= v.data.inv(0);
 			cached_mat.col(1) *= v.data.inv(1);
-			M += v.data.V * cached_mat.transpose();
+			M -= v.data.U * cached_mat.transpose();
 		}
 
 	template <typename T>
 		void apply_displaced_inverse_on_the_right (const Vertex &v, T &M) {
-			cached_mat.noalias() = M * v.data.V;
+			cached_mat.noalias() = M * v.data.U;
 			cached_mat.col(0) *= v.data.inv(0);
 			cached_mat.col(1) *= v.data.inv(1);
-			M += cached_mat * v.data.U.transpose();
+			M -= cached_mat * v.data.V.transpose();
 		}
 
 	void matrixU (const Vertex &v, MatrixType &ret) const {
@@ -273,7 +273,7 @@ class HubbardInteraction {
 	}
 };
 
-#define HUBBARD_BLOCKS
+//#define HUBBARD_BLOCKS
 #ifdef HUBBARD_BLOCKS
 
 template <>
