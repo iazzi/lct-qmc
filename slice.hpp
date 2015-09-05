@@ -44,11 +44,11 @@ class Slice {
 			return *iter;
 		}
 
-		Eigen::MatrixXd matrix () {
-			matrix_.setIdentity(N, N);
-			apply_matrix(matrix_);
-			return matrix_;
-		}
+		//Eigen::MatrixXd matrix () {
+			//matrix_.setIdentity(N, N);
+			//apply_matrix(matrix_);
+			//return matrix_;
+		//}
 
 		//Eigen::MatrixXd inverse () {
 			//matrix_inv_.setIdentity(N, N);
@@ -103,16 +103,16 @@ class Slice {
 		}
 
 		// apply the inverse slice (with backward propagators and inverse vertices)
-		template <typename T>
-		void apply_inverse (T &A) {
-			double t0 = beta;
-			for (auto v=verts.rbegin();v!=verts.rend();v++) {
-				if (v->tau<t0) I->propagate(v->tau-t0, A);
-				t0 = v->tau;
-				I->apply_inverse_on_the_left(*v, A);
-			}
-			if (0.0<t0) I->propagate(-t0, A);
-		}
+		//template <typename T>
+		//void apply_inverse (T &A) {
+			//double t0 = beta;
+			//for (auto v=verts.rbegin();v!=verts.rend();v++) {
+				//if (v->tau<t0) I->propagate(v->tau-t0, A);
+				//t0 = v->tau;
+				//I->apply_inverse_on_the_left(*v, A);
+			//}
+			//if (0.0<t0) I->propagate(-t0, A);
+		//}
 
 		// TODO: apply_inverse_on_the_right(T &A)
 
