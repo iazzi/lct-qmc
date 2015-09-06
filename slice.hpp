@@ -26,12 +26,8 @@ class Slice {
 		Eigen::MatrixXd matrix_inv_;
 
 	public:
-		Slice (Interaction *i) : I(i), N(i->dimension()), beta(1.0) {}
+		Slice (Interaction *i, double b = 1.0) : I(i), N(i->dimension()), beta(b) {}
 		Slice (const Slice &s) : I(s.I), N(s.N), beta(s.beta) {}
-
-		void setup (double b) {
-			beta = b;
-		}
 
 		size_t size () const { return verts.size(); }
 		void insert (const Vertex &v) { verts.insert(v); }

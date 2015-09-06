@@ -62,12 +62,12 @@ class Configuration {
 			mu = p.getNumber("mu", 0.0);
 			M = p.getInteger("slices", 4*beta);
 			dtau = beta/M;
-			slices.resize(M, Slice<Interaction>(&model.interaction()));
+			slices.resize(M, Slice<Interaction>(&model.interaction(), dtau));
 			right_side.resize(M+1);
 			left_side.resize(M+1);
-			for (size_t i=0;i<M;i++) {
-				slices[i].setup(dtau);
-			}
+			//for (size_t i=0;i<M;i++) {
+				//slices[i].setup(dtau);
+			//}
 			// use block information
 			blocks.resize(model.interaction().blocks());
 			size_t I = p.getInteger("sites", 0);
