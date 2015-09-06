@@ -273,7 +273,7 @@ class HubbardInteraction {
 	}
 };
 
-//#define HUBBARD_BLOCKS
+#define HUBBARD_BLOCKS
 #ifdef HUBBARD_BLOCKS
 
 template <>
@@ -338,6 +338,38 @@ inline void HubbardInteraction::apply_displaced_vertex_on_the_right (const Verte
 	M.block(0, 0, V, V).noalias() += v.data.mat[0] * cached_vec * v.data.V.block(0, 0, V, 1).transpose();
 	cached_vec.noalias() = M.block(V, V, V, V) * v.data.U.block(V, 1, V, 1);
 	M.block(V, V, V, V).noalias() += v.data.mat[1] * cached_vec * v.data.V.block(V, 1, V, 1).transpose();
+}
+
+template <>
+inline void HubbardInteraction::apply_displaced_vertex_on_the_left (const Vertex &v, HubbardInteraction::MatrixType &M) {
+	double C = ( v.data.V.block(0, 0, V, 1).transpose() * M.col(0).head(V) )(0, 0);
+	M.col(0).head(V).noalias() += v.data.mat[0] * v.data.U.block(0, 0, V, 1) * C;
+	double D = ( v.data.V.block(V, 1, V, 1).transpose() * M.col(1).tail(V) )(0, 0);
+	M.col(1).tail(V).noalias() += v.data.mat[1] * v.data.U.block(V, 1, V, 1) * D;
+}
+
+template <>
+inline void HubbardInteraction::apply_displaced_inverse_on_the_left (const Vertex &v, HubbardInteraction::MatrixType &M) {
+	double C = ( v.data.V.block(0, 0, V, 1).transpose() * M.col(0).head(V) )(0, 0);
+	M.col(0).head(V).noalias() -= v.data.inv[0] * v.data.U.block(0, 0, V, 1) * C;
+	double D = ( v.data.V.block(V, 1, V, 1).transpose() * M.col(1).tail(V) )(0, 0);
+	M.col(1).tail(V).noalias() -= v.data.inv[1] * v.data.U.block(V, 1, V, 1) * D;
+}
+
+template <>
+inline void HubbardInteraction::apply_displaced_vertex_on_the_right (const Vertex &v, Eigen::Matrix<double, 2, Eigen::Dynamic> &M) {
+	double C = ( M.row(0).head(V) * v.data.U.block(0, 0, V, 1) )(0, 0);
+	M.row(0).head(V).noalias() += v.data.mat[0] * v.data.V.block(0, 0, V, 1).transpose() * C;
+	double D = ( M.row(1).tail(V) * v.data.U.block(V, 1, V, 1))(0, 0);
+	M.row(1).tail(V).noalias() += v.data.mat[1] * v.data.V.block(V, 1, V, 1).transpose() * D;
+}
+
+template <>
+inline void HubbardInteraction::apply_displaced_inverse_on_the_right (const Vertex &v, Eigen::Matrix<double, 2, Eigen::Dynamic> &M) {
+	double C = ( M.row(0).head(V) * v.data.U.block(0, 0, V, 1) )(0, 0);
+	M.row(0).head(V).noalias() -= v.data.inv[0] * v.data.V.block(0, 0, V, 1).transpose() * C;
+	double D = ( M.row(1).tail(V) * v.data.U.block(V, 1, V, 1))(0, 0);
+	M.row(1).tail(V).noalias() -= v.data.inv[1] * v.data.V.block(V, 1, V, 1).transpose() * D;
 }
 
 #endif // HUBBARD_BLOCKS
