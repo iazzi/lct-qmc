@@ -273,7 +273,7 @@ class HubbardInteraction {
 	}
 };
 
-#define HUBBARD_BLOCKS
+//#define HUBBARD_BLOCKS
 #ifdef HUBBARD_BLOCKS
 
 template <>
