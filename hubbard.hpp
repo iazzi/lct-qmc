@@ -273,7 +273,7 @@ class HubbardInteraction {
 	}
 };
 
-//#define HUBBARD_BLOCKS
+#define HUBBARD_BLOCKS
 #ifdef HUBBARD_BLOCKS
 
 template <>
@@ -322,6 +322,22 @@ inline void HubbardInteraction::apply_inverse_on_the_left (const Vertex &v, Hubb
 	M.col(0).head(V).noalias() -= (a+v.sigma)/(1.0+a+v.sigma) * eigenvectors_.block(0, 0, V, V).row(v.x).transpose() * C;
 	double D = eigenvectors_.block(V, V, V, V).row(v.x) * M.col(1).tail(V);
 	M.col(1).tail(V).noalias() -= (a-v.sigma)/(1.0+a-v.sigma) * eigenvectors_.block(V, V, V, V).row(v.x).transpose() * D;
+}
+
+template <>
+inline void HubbardInteraction::apply_displaced_vertex_on_the_left (const Vertex &v, Eigen::MatrixXd &M) {
+	cached_vec.noalias() = M.block(0, 0, V, V).transpose() * v.data.V.block(0, 0, V, 1);
+	M.block(0, 0, V, V).noalias() += v.data.mat[0] * v.data.U.block(0, 0, V, 1) * cached_vec.transpose();
+	cached_vec.noalias() = M.block(V, V, V, V).transpose() * v.data.V.block(V, 1, V, 1);
+	M.block(V, V, V, V).noalias() += v.data.mat[1] * v.data.U.block(V, 1, V, 1) * cached_vec.transpose();
+}
+
+template <>
+inline void HubbardInteraction::apply_displaced_vertex_on_the_right (const Vertex &v, Eigen::MatrixXd &M) {
+	cached_vec.noalias() = M.block(0, 0, V, V) * v.data.U.block(0, 0, V, 1);
+	M.block(0, 0, V, V).noalias() += v.data.mat[0] * cached_vec * v.data.V.block(0, 0, V, 1).transpose();
+	cached_vec.noalias() = M.block(V, V, V, V) * v.data.U.block(V, 1, V, 1);
+	M.block(V, V, V, V).noalias() += v.data.mat[1] * cached_vec * v.data.V.block(V, 1, V, 1).transpose();
 }
 
 #endif // HUBBARD_BLOCKS
