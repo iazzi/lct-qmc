@@ -16,10 +16,5 @@ class Model {
 	typedef I Interaction;
 };
 
-template <class L, class I> 
-Model<L, I> make_model (L &a, I &b) {
-	return Model<L, I>(a, b);
-}
-
 #endif // MODEL_HPP
 

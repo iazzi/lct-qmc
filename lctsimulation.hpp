@@ -90,8 +90,8 @@ class LCTSimulation {
 			}
 		}
 		if (check) {
-			conf.compute_B();
-			double p2 = conf.probability().first;
+			//conf.compute_B();
+			//double p2 = conf.probability().first;
 			//std::cerr << "v = " << v.x << ',' << v.tau << " dp = " << p1+pr-p2 << ' ' << p2-p1 << ' ' << pr << std::endl << endl;
 		}
 		//conf.compute_right_side(conf.current_slice()+1);
@@ -129,8 +129,8 @@ class LCTSimulation {
 			}
 		}
 		if (check) {
-			conf.compute_B();
-			double p2 = conf.probability().first;
+			//conf.compute_B();
+			//double p2 = conf.probability().first;
 			//std::cerr << "v = " << v.x << ',' << v.tau << " dp = " << p1+pr-p2 << ' ' << p2-p1 << ' ' << pr << std::endl << endl;
 		}
 		//conf.compute_right_side(conf.current_slice()+1);

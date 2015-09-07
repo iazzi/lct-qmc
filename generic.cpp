@@ -83,7 +83,7 @@ int main (int argc, char **argv) {
 			//double p2 = conf.probability().first;
 			//std::cerr << i << " dp = " << p1+pr-p2 << ' ' << p2-p1 << ' ' << pr << endl;
 		}
-		double p2 = sim.exact_probability();
+		//double p2 = sim.exact_probability();
 		cerr << endl << measurements.Kin << endl << measurements.Int << endl << measurements.Sign << endl;
 		std::cerr << "dp = " << sim.exact_probability()-sim.probability() << ' ' << sim.probability() << endl << endl;
 		ofstream out("gf.dat");
