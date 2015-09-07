@@ -22,9 +22,6 @@ class Slice {
 		size_t N;
 		double beta;
 
-		Eigen::MatrixXd matrix_;
-		Eigen::MatrixXd matrix_inv_;
-
 	public:
 		Slice (Interaction *i, double b = 1.0) : I(i), N(i->dimension()), beta(b) {}
 		Slice (const Slice &s) : I(s.I), N(s.N), beta(s.beta) {}
