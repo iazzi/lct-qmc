@@ -19,11 +19,6 @@ class Configuration {
 		typedef typename Model::Interaction::MatrixType MatrixType;
 		typedef typename Interaction::Vertex Vertex;
 
-		typedef enum {
-			left_to_right,
-			right_to_left
-		} sweep_direction_type;
-
 	private:
 		std::vector<Slice<Interaction>> slices;
 		std::vector<SVDHelper> right_side;
@@ -52,7 +47,8 @@ class Configuration {
 			Eigen::Matrix2d matrix;
 		} cache;
 
-		sweep_direction_type sweep_direction_;
+		//Eigen::FullPivLU<Eigen::MatrixXd> lu;
+		Eigen::PartialPivLU<Eigen::MatrixXd> lu;
 	public:
 		Configuration (const Model &m) : model(m), index(0) {}
 		Configuration (const Parameters &p) : model(p), index(0) {}
@@ -73,9 +69,6 @@ class Configuration {
 			size_t I = p.getInteger("sites", 0);
 			if (I>0) model.interaction().set_interactive_sites(I);
 		}
-
-		void set_index (size_t i) { index = i%M; }
-		void set_slice (size_t i) { index = i%M; }
 
 		void compute_right_side (size_t j) {
 			if (j==0) {
@@ -102,54 +95,12 @@ class Configuration {
 			left_side[j] = B;
 		}
 
-		void check_propagation_from_right () {
-			Eigen::MatrixXd M, M1, M2;
-			M1 = Eigen::MatrixXd::Identity(model.interaction().dimension(), model.interaction().dimension());
-			model.interaction().propagate(0.023, M1);
-			M2 = Eigen::MatrixXd::Identity(model.interaction().dimension(), model.interaction().dimension());
-			model.interaction().propagate_on_the_right(0.023, M2);
-			std::cerr << "propagate " << (M1-M2).norm() << std::endl;
-			Vertex v = model.interaction().generate(0.0, 0.2);
-			M1 = M2 = Eigen::MatrixXd::Identity(model.interaction().dimension(), model.interaction().dimension());
-			model.interaction().apply_displaced_vertex_on_the_left(v, M1);
-			model.interaction().apply_displaced_vertex_on_the_right(v, M2);
-			std::cerr << "vertex " << (M1-M2).norm() << std::endl;
-			M = Eigen::MatrixXd::Identity(model.interaction().dimension(), model.interaction().dimension());
-			slices[index+1].apply_matrix(M);
-			std::cerr << "from right " << (M-slices[index+1].matrix()).norm() << std::endl;
-			M = Eigen::MatrixXd::Identity(model.interaction().dimension(), model.interaction().dimension());
-			slices[index+1].apply_on_the_right(M);
-			std::cerr << "from right " << (M-slices[index+1].matrix()).norm() << std::endl;
-		}
-
 		void start () {
 			for (size_t j=0;j<=M;j++) {
 				compute_right_side(j);
 				compute_left_side(M-j);
 			}
 		}
-
-		double check_B_vs_last_right_side () {
-			double ret = 0.0;
-			size_t old_index = index;
-			set_index(M-1);
-			B.setIdentity(model.interaction().dimension());
-			for (size_t i=0;i<M;i++) {
-				slices[(i+index+1)%M].apply_matrix(B.U);
-				decompose_U();
-				fix_sign_B();
-			}
-			set_index(old_index);
-			ret += (right_side[M].U-B.U).norm();
-			ret += (right_side[M].Vt-B.Vt).norm();
-			//std::cerr << (right_side[M-1].U-B.U) << std::endl << std::endl;
-			//std::cerr << (right_side[M-1].Vt-B.Vt) << std::endl << std::endl;
-			//if (ret>1.0e-6) throw -1;
-			return ret;
-		}
-
-		//Eigen::FullPivLU<Eigen::MatrixXd> lu;
-		Eigen::PartialPivLU<Eigen::MatrixXd> lu;
 
 		void compute_all_propagators (const SVDHelper &left, const SVDHelper &right, Eigen::MatrixXd &ret, double zl = 1.0, double zr = 1.0) {
 			size_t N = left.S.size();
@@ -315,11 +266,6 @@ class Configuration {
 			return remove_and_update_right(v, cache.u, cache.vt, cache.matrix);
 		}
 
-		void commit_changes () {
-			decompose_U();
-			fix_sign_B();
-		}
-
 		void fix_sign_B () {
 			for (int i=0;i<B.U.cols();i++) {
 				double s = B.U.col(i).sum();
@@ -414,8 +360,6 @@ class Configuration {
 		}
 
 		double insert_probability (const Vertex &v) {
-			//slices[index].matrixU_right(v, cache.u);
-			//slices[index].matrixVt_right(v, cache.vt);
 			cache.v = v;
 			slices[index].matrixU(v, cache.u);
 			slices[index].matrixVt(v, cache.vt);
@@ -426,8 +370,6 @@ class Configuration {
 		}
 
 		double remove_probability (const Vertex &v) {
-			//slices[index].inverseU_right(v, cache.u);
-			//slices[index].inverseVt_right(v, cache.vt);
 			cache.v = v;
 			slices[index].inverseU(v, cache.u);
 			slices[index].inverseVt(v, cache.vt);
@@ -438,8 +380,6 @@ class Configuration {
 		}
 
 		double insert_probability_right (const Vertex &v) {
-			//slices[index].matrixU_right(v, cache.u);
-			//slices[index].matrixVt_right(v, cache.vt);
 			cache.v = v;
 			slices[index].matrixU_right(v, cache.u);
 			slices[index].matrixVt_right(v, cache.vt);
@@ -450,8 +390,6 @@ class Configuration {
 		}
 
 		double remove_probability_right (const Vertex &v) {
-			//slices[index].inverseU_right(v, cache.u);
-			//slices[index].inverseVt_right(v, cache.vt);
 			cache.v = v;
 			slices[index].inverseU_right(v, cache.u);
 			slices[index].inverseVt_right(v, cache.vt);
@@ -459,51 +397,6 @@ class Configuration {
 			cache.matrix.noalias() += cache.vt.transpose() * G_matrix * cache.u;
 			cache.probability = cache.matrix.determinant();
 			return cache.probability;
-		}
-
-		void save_G () {
-			G_matrix = G.matrix();
-		}
-
-		double check_and_save_G () {
-			double ret = 0.0;
-			Eigen::MatrixXd A;
-			A = G.matrix();
-			//std::cerr << B.U << std::endl << std::endl;
-			//std::cerr << B.Vt << std::endl << std::endl;
-			//std::cerr << G_matrix.array() << std::endl << std::endl;
-			//std::cerr << ((A-G_matrix).array().abs()>1e-9) << std::endl << std::endl;
-			//std::cerr << cache.col(0).normalized().transpose() << std::endl << std::endl;
-			//std::cerr << (G_matrix_up-A).col(0).normalized().transpose() << std::endl << std::endl;
-			//Eigen::VectorXd B = (G_matrix_up-A).col(0).normalized();
-			//Eigen::JacobiSVD<Eigen::MatrixXd> svd(G_matrix_up, Eigen::ComputeThinU | Eigen::ComputeThinV);
-			//std::cerr << (svd.solve(B)).transpose().normalized() << std::endl << std::endl;
-			ret += (G_matrix-A).norm();
-			G_matrix.swap(A);
-			return ret;
-		}
-
-		double check_B () {
-			double ret = 0.0;
-			Eigen::MatrixXd t_U, t_Vt;
-			t_U = B.U;
-			t_Vt = B.Vt;
-			//tmp = B.matrix();
-			//std::cerr << B.S.array().abs().log().sum() << std::endl;
-                        compute_B();
-			//fix_sign_B();
-			//std::cerr << B.S.array().abs().log().sum() << std::endl;
-                        //std::cerr << t_U << std::endl << std::endl;
-                        //std::cerr << std::endl;
-                        //std::cerr << t_U-B.U << std::endl;
-			ret += (t_U-B.U).norm();
-			ret += (t_Vt-B.Vt).norm();
-			//if (ret>1.0e-6) throw -1;
-			return ret;
-		}
-
-		const Eigen::MatrixXd & green_function () const {
-			return G_matrix;
 		}
 
 		void gf_tau (Eigen::MatrixXd &gf, double t) {
@@ -517,10 +410,9 @@ class Configuration {
 		size_t slice_size () const { return slices[index].size(); }
 		size_t slice_number () const { return M; } // MUST be same as slices.size()
 
+		void set_index (size_t i) { index = i%M; }
+		void set_slice (size_t i) { index = i%M; }
 		size_t current_slice () const { return index; }
-
-		sweep_direction_type sweep_direction () const { return sweep_direction_; }
-		void set_sweep_direction (sweep_direction_type d) { sweep_direction_ = d; }
 
 		Vertex get_vertex (size_t i) const { return slices[index].get_vertex(i); }
 		Vertex generate_vertex (std::mt19937_64 &generator) { return model.interaction().generate(0.0, slice_end()-slice_start(), generator); }
@@ -536,13 +428,13 @@ class Configuration {
 		size_t volume () const { return model.interaction().volume(); }
 		double inverse_temperature () const { return beta; }
 
-		double kinetic_energy (const Eigen::MatrixXd& cache) const {
-			return model.interaction().kinetic_energy(cache);
-		}
+		// observables
 
-		double interaction_energy (const Eigen::MatrixXd& cache) const {
-			return model.interaction().interaction_energy(cache);
-		}
+		double kinetic_energy (const Eigen::MatrixXd& cache) const { return model.interaction().kinetic_energy(cache); }
+		double interaction_energy (const Eigen::MatrixXd& cache) const { return model.interaction().interaction_energy(cache); }
+		const Eigen::MatrixXd & green_function () const { return G_matrix; }
+
+		// CHECKS go below this
 
 		void check_all_det (int block) {
 			size_t a = model.interaction().block_start(block);
@@ -571,11 +463,87 @@ class Configuration {
 				//std::cerr << G << std::endl << std::endl;
 				compute_B();
 				compute_G();
-				save_G();  
+				G_matrix = G.matrix();
 				std::cerr << "check propagators: " << (double(i)/slice_number()) << ' '
 					<< (green_function()-G).norm() << ' '
 					<< (green_function()-G).cwiseAbs().maxCoeff() << std::endl;
 			}                                       
+		}
+
+		double check_B () {
+			double ret = 0.0;
+			Eigen::MatrixXd t_U, t_Vt;
+			t_U = B.U;
+			t_Vt = B.Vt;
+			//tmp = B.matrix();
+			//std::cerr << B.S.array().abs().log().sum() << std::endl;
+                        compute_B();
+			//fix_sign_B();
+			//std::cerr << B.S.array().abs().log().sum() << std::endl;
+                        //std::cerr << t_U << std::endl << std::endl;
+                        //std::cerr << std::endl;
+                        //std::cerr << t_U-B.U << std::endl;
+			ret += (t_U-B.U).norm();
+			ret += (t_Vt-B.Vt).norm();
+			//if (ret>1.0e-6) throw -1;
+			return ret;
+		}
+
+		double check_and_save_G () {
+			double ret = 0.0;
+			Eigen::MatrixXd A;
+			A = G.matrix();
+			//std::cerr << B.U << std::endl << std::endl;
+			//std::cerr << B.Vt << std::endl << std::endl;
+			//std::cerr << G_matrix.array() << std::endl << std::endl;
+			//std::cerr << ((A-G_matrix).array().abs()>1e-9) << std::endl << std::endl;
+			//std::cerr << cache.col(0).normalized().transpose() << std::endl << std::endl;
+			//std::cerr << (G_matrix_up-A).col(0).normalized().transpose() << std::endl << std::endl;
+			//Eigen::VectorXd B = (G_matrix_up-A).col(0).normalized();
+			//Eigen::JacobiSVD<Eigen::MatrixXd> svd(G_matrix_up, Eigen::ComputeThinU | Eigen::ComputeThinV);
+			//std::cerr << (svd.solve(B)).transpose().normalized() << std::endl << std::endl;
+			ret += (G_matrix-A).norm();
+			G_matrix.swap(A);
+			return ret;
+		}
+
+		void check_propagation_from_right () {
+			Eigen::MatrixXd M, M1, M2;
+			M1 = Eigen::MatrixXd::Identity(model.interaction().dimension(), model.interaction().dimension());
+			model.interaction().propagate(0.023, M1);
+			M2 = Eigen::MatrixXd::Identity(model.interaction().dimension(), model.interaction().dimension());
+			model.interaction().propagate_on_the_right(0.023, M2);
+			std::cerr << "propagate " << (M1-M2).norm() << std::endl;
+			Vertex v = model.interaction().generate(0.0, 0.2);
+			M1 = M2 = Eigen::MatrixXd::Identity(model.interaction().dimension(), model.interaction().dimension());
+			model.interaction().apply_displaced_vertex_on_the_left(v, M1);
+			model.interaction().apply_displaced_vertex_on_the_right(v, M2);
+			std::cerr << "vertex " << (M1-M2).norm() << std::endl;
+			M = Eigen::MatrixXd::Identity(model.interaction().dimension(), model.interaction().dimension());
+			slices[index+1].apply_matrix(M);
+			std::cerr << "from right " << (M-slices[index+1].matrix()).norm() << std::endl;
+			M = Eigen::MatrixXd::Identity(model.interaction().dimension(), model.interaction().dimension());
+			slices[index+1].apply_on_the_right(M);
+			std::cerr << "from right " << (M-slices[index+1].matrix()).norm() << std::endl;
+		}
+
+		double check_B_vs_last_right_side () {
+			double ret = 0.0;
+			size_t old_index = index;
+			set_index(M-1);
+			B.setIdentity(model.interaction().dimension());
+			for (size_t i=0;i<M;i++) {
+				slices[(i+index+1)%M].apply_matrix(B.U);
+				decompose_U();
+				fix_sign_B();
+			}
+			set_index(old_index);
+			ret += (right_side[M].U-B.U).norm();
+			ret += (right_side[M].Vt-B.Vt).norm();
+			//std::cerr << (right_side[M-1].U-B.U) << std::endl << std::endl;
+			//std::cerr << (right_side[M-1].Vt-B.Vt) << std::endl << std::endl;
+			//if (ret>1.0e-6) throw -1;
+			return ret;
 		}
 };
 

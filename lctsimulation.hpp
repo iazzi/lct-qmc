@@ -51,8 +51,6 @@ class LCTSimulation {
 			conf.start();
 			conf.start();
 			conf.compute_B();
-			conf.compute_G();
-			conf.save_G();
 			p1 = 0.0, ps = 0.0, pr = 0.0;
 			std::tie(p1, ps) = conf.probability();
 			conf.set_index(0);
