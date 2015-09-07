@@ -14,8 +14,6 @@ class Model {
 	I& interaction () { return i; }
 	const I& interaction () const { return i; }
 	typedef I Interaction;
-	template <typename T> void propagate (double t, const T &M) { i.propagate(t, M); }
-	template <typename T> void propagate_right (double t, const T &M) { i.propagate_right(t, M); }
 };
 
 template <class L, class I> 
