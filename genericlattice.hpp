@@ -23,16 +23,11 @@ class GenericLattice {
 	public:
 
 	void setup (const Parameters &p) {
-		// get dimensions
-		if (p.contains("V")) {
-			V = p.getInteger("V");
-		} else {
-			V = 1;
-		}
 		if (p.contains("H")) {
-			H.resize(V, V);
 			std::string fn = p.getString("H");
 			std::ifstream in(fn);
+			in >> V;
+			H.resize(V, V);
 			for (size_t x=0;x<V;x++) {
 				for (size_t y=0;y<V;y++) {
 					double z;
