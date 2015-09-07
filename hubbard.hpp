@@ -11,7 +11,7 @@
 
 typedef Eigen::Matrix<double, Eigen::Dynamic, 2> HubbardVertexMatrix;
 
-struct VertexUpdateData {
+struct HubbardVertexUpdateData {
 	HubbardVertexMatrix U, V;
 	Eigen::Vector2d mat, inv;
 };
@@ -19,7 +19,7 @@ struct VertexUpdateData {
 struct HubbardVertex {
 	double sigma;
 	double tau;
-	VertexUpdateData data;
+	HubbardVertexUpdateData data;
 	int x;
 	struct Compare {
 		bool operator() (const HubbardVertex& a, const HubbardVertex& b) {
