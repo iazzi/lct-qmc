@@ -57,39 +57,36 @@ class Measurements {
 };
 
 int main (int argc, char **argv) {
-	if (true) {
-		Parameters params(argc, argv);
-		size_t thermalization = params.getInteger("thermalization", 1000);
-		size_t sweeps = params.getInteger("sweeps", 1000);
-		LCTSimulation sim(params);
-		Measurements measurements;
-		for (size_t i=0;i<thermalization+sweeps;i++) {
-			//sim.full_sweep(false);
-			for (size_t j=0;j<sim.full_sweep_size();j++) {
-				//std::cerr << "dp = " << sim.exact_probability()-sim.probability() << ' ' << sim.probability_difference() << ' ' << j << ' ' << sim.is_direction_right_to_left() << endl << endl;
-				sim.prepare();
-				sim.sweep();
-				sim.next();
-				if (i>=thermalization) {
-					measurements.measure(sim);
-				}
-			}
+	Parameters params(argc, argv);
+	size_t thermalization = params.getInteger("thermalization", 1000);
+	size_t sweeps = params.getInteger("sweeps", 1000);
+	LCTSimulation sim(params);
+	Measurements measurements;
+	for (size_t i=0;i<thermalization+sweeps;i++) {
+		//sim.full_sweep(false);
+		for (size_t j=0;j<sim.full_sweep_size();j++) {
+			//std::cerr << "dp = " << sim.exact_probability()-sim.probability() << ' ' << sim.probability_difference() << ' ' << j << ' ' << sim.is_direction_right_to_left() << endl << endl;
+			sim.prepare();
+			sim.sweep();
+			sim.next();
 			if (i>=thermalization) {
-				if (i%100==0) cerr << endl << measurements.Kin << endl << measurements.Int << endl << measurements.Sign << endl;
-			} else if (i%100==0) {
-				cerr << ' ' << (100.0*i/thermalization) << "%         \r";
+				measurements.measure(sim);
 			}
-			//conf.compute_B();
-			//double p2 = conf.probability().first;
-			//std::cerr << i << " dp = " << p1+pr-p2 << ' ' << p2-p1 << ' ' << pr << endl;
 		}
-		//double p2 = sim.exact_probability();
-		cerr << endl << measurements.Kin << endl << measurements.Int << endl << measurements.Sign << endl;
-		std::cerr << "dp = " << sim.exact_probability()-sim.probability() << ' ' << sim.probability() << endl << endl;
-		ofstream out("gf.dat");
-		measurements.write_G(out);
-	} else {
+		if (i>=thermalization) {
+			if (i%100==0) cerr << endl << measurements.Kin << endl << measurements.Int << endl << measurements.Sign << endl;
+		} else if (i%100==0) {
+			cerr << ' ' << (100.0*i/thermalization) << "%         \r";
+		}
+		//conf.compute_B();
+		//double p2 = conf.probability().first;
+		//std::cerr << i << " dp = " << p1+pr-p2 << ' ' << p2-p1 << ' ' << pr << endl;
 	}
+	//double p2 = sim.exact_probability();
+	cerr << endl << measurements.Kin << endl << measurements.Int << endl << measurements.Sign << endl;
+	std::cerr << "dp = " << sim.exact_probability()-sim.probability() << ' ' << sim.probability() << endl << endl;
+	ofstream out("gf.dat");
+	measurements.write_G(out);
 	return 0;
 }
 
