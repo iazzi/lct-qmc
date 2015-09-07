@@ -152,84 +152,61 @@ class HubbardInteraction {
 	size_t dimension () const { return N; }
 
 	template <typename T>
-		void apply_vertex_on_the_left (const Vertex &v, T &M) {
-			M += (a+v.sigma) * eigenvectors_.row(v.x).transpose() * (eigenvectors_.row(v.x) * M)
-				+ (a-v.sigma) * eigenvectors_.row(v.x+V).transpose() * (eigenvectors_.row(v.x+V) * M);
-		}
-
-	template <typename T>
-		void apply_vertex_on_the_right (const Vertex &v, T &M) {
-			M += (a+v.sigma) * (M * eigenvectors_.row(v.x).transpose()) * eigenvectors_.row(v.x)
-				+ (a-v.sigma) * (M * eigenvectors_.row(v.x+V).transpose()) * eigenvectors_.row(v.x+V);
-		}
-
-	template <typename T>
-		void apply_inverse_on_the_left (const Vertex &v, T &M) {
-			M -= (a+v.sigma)/(1.0+a+v.sigma) * eigenvectors_.row(v.x).transpose() * (eigenvectors_.row(v.x) * M)
-				+ (a-v.sigma)/(1.0+a-v.sigma) * eigenvectors_.row(v.x+V).transpose() * (eigenvectors_.row(v.x+V) * M);
-		}
-
-	template <typename T>
-		void apply_inverse_on_the_right (const Vertex &v, T &M) {
-			M -= (a+v.sigma)/(1.0+a+v.sigma) * (M * eigenvectors_.row(v.x).transpose()) * eigenvectors_.row(v.x)
-				+ (a-v.sigma)/(1.0+a-v.sigma) * (M * eigenvectors_.row(v.x+V).transpose()) * eigenvectors_.row(v.x+V);
-		}
-
-	template <typename T>
-		void apply_displaced_vertex_on_the_left (const Vertex &v, T &M) {
-			cached_mat.noalias() = M.transpose() * v.data.V;
-			cached_mat.col(0) *= v.data.mat(0);
-			cached_mat.col(1) *= v.data.mat(1);
-			M += v.data.U * cached_mat.transpose();
-		}
-
-	template <typename T>
-		void apply_displaced_vertex_on_the_right (const Vertex &v, T &M) {
-			cached_mat.noalias() = M * v.data.U;
-			cached_mat.col(0) *= v.data.mat(0);
-			cached_mat.col(1) *= v.data.mat(1);
-			M += cached_mat * v.data.V.transpose();
-		}
-
-	template <typename T>
-		void apply_displaced_inverse_on_the_left (const Vertex &v, T &M) {
-			cached_mat.noalias() = M.transpose() * v.data.V;
-			cached_mat.col(0) *= v.data.inv(0);
-			cached_mat.col(1) *= v.data.inv(1);
-			M -= v.data.U * cached_mat.transpose();
-		}
-
-	template <typename T>
-		void apply_displaced_inverse_on_the_right (const Vertex &v, T &M) {
-			cached_mat.noalias() = M * v.data.U;
-			cached_mat.col(0) *= v.data.inv(0);
-			cached_mat.col(1) *= v.data.inv(1);
-			M -= cached_mat * v.data.V.transpose();
-		}
-
-	void matrixU (const Vertex &v, MatrixType &ret) const {
-		ret.resize(N, 2);
-		ret.col(0) = (a+v.sigma) * eigenvectors_.row(v.x).transpose();
-		ret.col(1) = (a-v.sigma) * eigenvectors_.row(v.x+V).transpose();
+	void apply_vertex_on_the_left (const Vertex &v, T &M) {
+		M += (a+v.sigma) * eigenvectors_.row(v.x).transpose() * (eigenvectors_.row(v.x) * M)
+			+ (a-v.sigma) * eigenvectors_.row(v.x+V).transpose() * (eigenvectors_.row(v.x+V) * M);
 	}
 
-	void matrixV (const Vertex &v, MatrixType &ret) const {
-		ret.resize(N, 2);
-		ret.col(0) = eigenvectors_.row(v.x).transpose();
-		ret.col(1) = eigenvectors_.row(v.x+V).transpose();
+	template <typename T>
+	void apply_vertex_on_the_right (const Vertex &v, T &M) {
+		M += (a+v.sigma) * (M * eigenvectors_.row(v.x).transpose()) * eigenvectors_.row(v.x)
+			+ (a-v.sigma) * (M * eigenvectors_.row(v.x+V).transpose()) * eigenvectors_.row(v.x+V);
 	}
 
-	MatrixType matrixU (const Vertex &v) const {
-		MatrixType ret(N, 2);
-		matrixU(v, ret);
-		return ret;
+	template <typename T>
+	void apply_inverse_on_the_left (const Vertex &v, T &M) {
+		M -= (a+v.sigma)/(1.0+a+v.sigma) * eigenvectors_.row(v.x).transpose() * (eigenvectors_.row(v.x) * M)
+			+ (a-v.sigma)/(1.0+a-v.sigma) * eigenvectors_.row(v.x+V).transpose() * (eigenvectors_.row(v.x+V) * M);
 	}
 
-	MatrixType matrixV (const Vertex &v) const {
-		MatrixType ret(N, 2);
-		matrixV(v, ret);
-		return ret;
+	template <typename T>
+	void apply_inverse_on_the_right (const Vertex &v, T &M) {
+		M -= (a+v.sigma)/(1.0+a+v.sigma) * (M * eigenvectors_.row(v.x).transpose()) * eigenvectors_.row(v.x)
+			+ (a-v.sigma)/(1.0+a-v.sigma) * (M * eigenvectors_.row(v.x+V).transpose()) * eigenvectors_.row(v.x+V);
 	}
+
+	template <typename T>
+	void apply_displaced_vertex_on_the_left (const Vertex &v, T &M) {
+		cached_mat.noalias() = M.transpose() * v.data.V;
+		cached_mat.col(0) *= v.data.mat(0);
+		cached_mat.col(1) *= v.data.mat(1);
+		M += v.data.U * cached_mat.transpose();
+	}
+
+	template <typename T>
+	void apply_displaced_vertex_on_the_right (const Vertex &v, T &M) {
+		cached_mat.noalias() = M * v.data.U;
+		cached_mat.col(0) *= v.data.mat(0);
+		cached_mat.col(1) *= v.data.mat(1);
+		M += cached_mat * v.data.V.transpose();
+	}
+
+	template <typename T>
+	void apply_displaced_inverse_on_the_left (const Vertex &v, T &M) {
+		cached_mat.noalias() = M.transpose() * v.data.V;
+		cached_mat.col(0) *= v.data.inv(0);
+		cached_mat.col(1) *= v.data.inv(1);
+		M -= v.data.U * cached_mat.transpose();
+	}
+
+	template <typename T>
+	void apply_displaced_inverse_on_the_right (const Vertex &v, T &M) {
+		cached_mat.noalias() = M * v.data.U;
+		cached_mat.col(0) *= v.data.inv(0);
+		cached_mat.col(1) *= v.data.inv(1);
+		M -= cached_mat * v.data.V.transpose();
+	}
+
 
 	double scalarA () const { return a; }
 	double scalarB () const { return b; }
