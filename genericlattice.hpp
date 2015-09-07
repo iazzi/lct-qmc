@@ -20,8 +20,6 @@ class GenericLattice {
 
 	bool computed;
 
-	Eigen::VectorXd cached_exp;
-
 	public:
 
 	void setup (const Parameters &p) {
@@ -60,31 +58,6 @@ class GenericLattice {
 	size_t volume () const { return V; }
 	size_t states () const { return V; }
 	size_t dimension () const { return V; }
-
-	template <typename T>
-		void propagate (double t, T& M) {
-			cached_exp = eigenvalues_;
-			cached_exp *= -t;
-			cached_exp = cached_exp.array().exp();
-			M.array().colwise() *= cached_exp.array();
-			//M.applyOnTheLeft(cached_exp.matrix().asDiagonal());
-			//M.array().colwise() *= (-t*eigenvalues_.array()).exp(); // this causes allocation!
-		}
-
-	template <typename T>
-		void propagate_on_the_right (double t, T& M) {
-			cached_exp = eigenvalues_;
-			cached_exp *= -t;
-			cached_exp = cached_exp.array().exp();
-			M.array().rowwise() *= cached_exp.array();
-			//M.applyOnTheRight(cached_exp.matrix().asDiagonal());
-			//M.array().colwise() *= (-t*eigenvalues_.array()).exp(); // this causes allocation!
-		}
-
-	template <typename T>
-		double kinetic_energy (const T &M) {
-			return (eigenvalues_.array() * M.diagonal().array()).sum();
-		}
 
 	GenericLattice (): V(1), computed(false) { compute(); }
 	GenericLattice (const GenericLattice &l): V(l.V), H(l.H), computed(false) { compute(); }
