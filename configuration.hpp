@@ -111,8 +111,8 @@ class Configuration {
 			std::cerr << "propagate " << (M1-M2).norm() << std::endl;
 			Vertex v = model.interaction().generate(0.0, 0.2);
 			M1 = M2 = Eigen::MatrixXd::Identity(model.interaction().dimension(), model.interaction().dimension());
-			model.interaction().apply_vertex_on_the_left(v, M1);
-			model.interaction().apply_vertex_on_the_right(v, M2);
+			model.interaction().apply_displaced_vertex_on_the_left(v, M1);
+			model.interaction().apply_displaced_vertex_on_the_right(v, M2);
 			std::cerr << "vertex " << (M1-M2).norm() << std::endl;
 			M = Eigen::MatrixXd::Identity(model.interaction().dimension(), model.interaction().dimension());
 			slices[index+1].apply_matrix(M);
