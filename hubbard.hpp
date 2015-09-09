@@ -8,6 +8,7 @@
 
 // FIXME
 #include <iostream>
+#include <fstream>
 
 typedef Eigen::Matrix<double, Eigen::Dynamic, 2> HubbardVertexMatrix;
 

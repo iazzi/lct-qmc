@@ -32,8 +32,8 @@ setup_batch: setup_batch.o simulation.o mpfr.o
 zerotemp: zerotemp.o zerotemperature.hpp
 
 generic.o: generic.cpp lctsimulation.hpp configuration.hpp parameters.hpp \
-	 svd.hpp slice.hpp genericlattice.hpp model.hpp hubbard.hpp \
-	  spin_one_half.hpp measurements.hpp
+	svd.hpp slice.hpp hubbard.hpp measurements.hpp
+
 
 parallel:
 	$(MAKE) all MYCXXFLAGS="-O3 -march=native -DNDEBUG -DEIGEN_NO_DEBUG -fopenmp $(MYCXXFLAGS)" MYLDFLAGS="-fopenmp -lfftw3_threads"

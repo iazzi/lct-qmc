@@ -2,11 +2,8 @@
 #define LCTSIMULATION
 
 #include "configuration.hpp"
-#include "genericlattice.hpp"
 #include "slice.hpp"
-#include "model.hpp"
 #include "hubbard.hpp"
-#include "spin_one_half.hpp"
 
 #include <random>
 
