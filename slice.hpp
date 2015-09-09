@@ -89,6 +89,18 @@ class Slice {
 			I->propagate(-beta, vt);
 		}
 
+		void matrixUV (const Vertex &v, MatrixType &u, MatrixType &vt) {
+			u = v.data.U * v.data.mat.asDiagonal();
+			vtt = v.data.V.transpose();
+			for (auto w = verts.upper_bound(v);w!=verts.end();w++) {
+				I->apply_displaced_vertex_on_the_left(*w, u);
+				I->apply_displaced_inverse_on_the_right(*w, vtt);
+			}
+			vt = vtt.transpose();
+			I->propagate(beta, u);
+			I->propagate(-beta, vt);
+		}
+
 		void inverseU (const Vertex &v, MatrixType &u) {
 			u = -v.data.U * v.data.mat.asDiagonal();
 			for (auto w = verts.upper_bound(v);w!=verts.end();w++) {
@@ -104,6 +116,19 @@ class Slice {
 				I->apply_displaced_inverse_on_the_right(*w, vtt);
 			}
 			vt = vtt.transpose();
+			I->propagate(-beta, vt);
+		}
+
+		void inverseUV (const Vertex &v, MatrixType &u, MatrixType &vt) {
+			u = -v.data.U * v.data.mat.asDiagonal();
+			vtt = v.data.V.transpose();
+			I->apply_displaced_inverse_on_the_right(v, vtt);
+			for (auto w = verts.upper_bound(v);w!=verts.end();w++) {
+				I->apply_displaced_vertex_on_the_left(*w, u);
+				I->apply_displaced_inverse_on_the_right(*w, vtt);
+			}
+			vt = vtt.transpose();
+			I->propagate(beta, u);
 			I->propagate(-beta, vt);
 		}
 
@@ -126,6 +151,18 @@ class Slice {
 			vt = vtt.transpose();
 		}
 
+		void matrixUV_right (const Vertex &v, MatrixType &u, MatrixType &vt) {
+			u = v.data.U * v.data.mat.asDiagonal();
+			vtt = v.data.V.transpose();
+			auto w = verts.lower_bound(v);
+			for (;w!=verts.begin();) {
+				w--;
+				I->apply_displaced_inverse_on_the_left(*w, u);
+				I->apply_displaced_vertex_on_the_right(*w, vtt);
+			}
+			vt = vtt.transpose();
+		}
+
 		void inverseU_right (const Vertex &v, MatrixType &u) {
 			u = -v.data.U * v.data.mat.asDiagonal();
 			I->apply_displaced_inverse_on_the_left(v, u);
@@ -141,6 +178,19 @@ class Slice {
 			auto w = verts.lower_bound(v);
 			for (;w!=verts.begin();) {
 				w--;
+				I->apply_displaced_vertex_on_the_right(*w, vtt);
+			}
+			vt = vtt.transpose();
+		}
+
+		void inverseUV_right (const Vertex &v, MatrixType &u, MatrixType &vt) {
+			u = -v.data.U * v.data.mat.asDiagonal();
+			vtt = v.data.V.transpose();
+			I->apply_displaced_inverse_on_the_left(v, u);
+			auto w = verts.lower_bound(v);
+			for (;w!=verts.begin();) {
+				w--;
+				I->apply_displaced_inverse_on_the_left(*w, u);
 				I->apply_displaced_vertex_on_the_right(*w, vtt);
 			}
 			vt = vtt.transpose();

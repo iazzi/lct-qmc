@@ -50,7 +50,7 @@ class Configuration {
 		//Eigen::FullPivLU<Eigen::MatrixXd> lu;
 		Eigen::PartialPivLU<Eigen::MatrixXd> lu;
 	public:
-		Configuration (const Model &m) : model(m), index(0) {}
+		//Configuration (const Model &m) : model(m), index(0) {}
 		Configuration (const Parameters &p) : model(p), index(0) {}
 
 		void setup (const Parameters &p) {
@@ -361,8 +361,7 @@ class Configuration {
 
 		double insert_probability (const Vertex &v) {
 			cache.v = v;
-			slices[index].matrixU(v, cache.u);
-			slices[index].matrixVt(v, cache.vt);
+			slices[index].matrixUV(v, cache.u, cache.vt);
 			cache.matrix = Eigen::Matrix2d::Identity();
 			cache.matrix.noalias() += cache.vt.transpose() * G_matrix * cache.u;
 			cache.probability = cache.matrix.determinant();
@@ -371,8 +370,7 @@ class Configuration {
 
 		double remove_probability (const Vertex &v) {
 			cache.v = v;
-			slices[index].inverseU(v, cache.u);
-			slices[index].inverseVt(v, cache.vt);
+			slices[index].inverseUV(v, cache.u, cache.vt);
 			cache.matrix = Eigen::Matrix2d::Identity();
 			cache.matrix.noalias() += cache.vt.transpose() * G_matrix * cache.u;
 			cache.probability = cache.matrix.determinant();
@@ -381,8 +379,7 @@ class Configuration {
 
 		double insert_probability_right (const Vertex &v) {
 			cache.v = v;
-			slices[index].matrixU_right(v, cache.u);
-			slices[index].matrixVt_right(v, cache.vt);
+			slices[index].matrixUV_right(v, cache.u, cache.vt);
 			cache.matrix = Eigen::Matrix2d::Identity();
 			cache.matrix.noalias() += cache.vt.transpose() * G_matrix * cache.u;
 			cache.probability = cache.matrix.determinant();
@@ -391,8 +388,7 @@ class Configuration {
 
 		double remove_probability_right (const Vertex &v) {
 			cache.v = v;
-			slices[index].inverseU_right(v, cache.u);
-			slices[index].inverseVt_right(v, cache.vt);
+			slices[index].inverseUV_right(v, cache.u, cache.vt);
 			cache.matrix = Eigen::Matrix2d::Identity();
 			cache.matrix.noalias() += cache.vt.transpose() * G_matrix * cache.u;
 			cache.probability = cache.matrix.determinant();
