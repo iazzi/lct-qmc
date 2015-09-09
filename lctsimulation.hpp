@@ -23,8 +23,8 @@ class LCTSimulation {
 	std::mt19937_64 generator;
 	std::uniform_real_distribution<double> d;
 	std::exponential_distribution<double> trial;
-	typedef HubbardInteraction<> Interaction;
-	Configuration<Model<SpinOneHalf<GenericLattice>, Interaction>> conf;
+	typedef HubbardInteraction<true> Interaction;
+	Configuration<Interaction> conf;
 	double p1; // probability at the start of the simulation (absolute value)
 	double pr; // probability ration of the current configuration wrt p1 (absolute values)
 	double ps; // sign of the current configuration
