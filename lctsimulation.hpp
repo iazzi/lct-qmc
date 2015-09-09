@@ -23,7 +23,8 @@ class LCTSimulation {
 	std::mt19937_64 generator;
 	std::uniform_real_distribution<double> d;
 	std::exponential_distribution<double> trial;
-	Configuration<Model<SpinOneHalf<GenericLattice>, HubbardInteraction>> conf;
+	typedef HubbardInteraction<> Interaction;
+	Configuration<Model<SpinOneHalf<GenericLattice>, Interaction>> conf;
 	double p1; // probability at the start of the simulation (absolute value)
 	double pr; // probability ration of the current configuration wrt p1 (absolute values)
 	double ps; // sign of the current configuration
@@ -58,7 +59,7 @@ class LCTSimulation {
 		}
 
 	void update_left (bool check = false) {
-		HubbardInteraction::Vertex v;
+		Interaction::Vertex v;
 		double dp = 0.0, s = 1.0;
 		if (d(generator)<0.5) {
 			v = conf.get_vertex(d(generator)*conf.slice_size());
@@ -97,7 +98,7 @@ class LCTSimulation {
 	}
 
 	void update_right (bool check = false) {
-		HubbardInteraction::Vertex v;
+		Interaction::Vertex v;
 		double dp = 0.0, s = 1.0;
 		if (d(generator)<0.5) {
 			v = conf.get_vertex(d(generator)*conf.slice_size());
@@ -142,7 +143,7 @@ class LCTSimulation {
 	}
 
 	void sweep (bool check = false) {
-		HubbardInteraction::Vertex v;
+		Interaction::Vertex v;
 		if (is_direction_right_to_left()) {
 			for (size_t j=0;j<conf.volume();j++) {
 				update_right(check);

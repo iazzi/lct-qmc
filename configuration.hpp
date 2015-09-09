@@ -50,7 +50,7 @@ class Configuration {
 		//Eigen::FullPivLU<Eigen::MatrixXd> lu;
 		Eigen::PartialPivLU<Eigen::MatrixXd> lu;
 	public:
-		Configuration (const Model &m) : model(m), index(0) {}
+		//Configuration (const Model &m) : model(m), index(0) {}
 		Configuration (const Parameters &p) : model(p), index(0) {}
 
 		void setup (const Parameters &p) {
