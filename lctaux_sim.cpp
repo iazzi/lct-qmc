@@ -34,7 +34,6 @@ void lctaux_sim::define_parameters(parameters_type & parameters) {
         .define<double>("beta", "inverse temperature of the system")
         .define<double>("U", 0., "local Hubbard interaction")
         .define<std::string>("H", "path to file containing the edge matrix")
-        .define<std::string>("V", "number of vertices")
         ;
 }
 
