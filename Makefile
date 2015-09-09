@@ -3,7 +3,7 @@ CXXFLAGS=$(MYCXXFLAGS) -std=c++11 `pkg-config --cflags eigen3` -Wall
 LDFLAGS=$(MYLDFLAGS) `pkg-config --libs eigen3`
 LDLIBS=$(MYLDLIBS) `pkg-config --libs eigen3` -llua
 
-all: generic
+all: main test_params setup_batch process_gf v3ct generic
 
 process_gf: process_gf.o
 
@@ -32,8 +32,8 @@ setup_batch: setup_batch.o simulation.o mpfr.o
 zerotemp: zerotemp.o zerotemperature.hpp
 
 generic.o: generic.cpp lctsimulation.hpp configuration.hpp parameters.hpp \
-	 svd.hpp slice.hpp genericlattice.hpp model.hpp hubbard.hpp \
-	  spin_one_half.hpp measurements.hpp
+	svd.hpp slice.hpp hubbard.hpp measurements.hpp
+
 
 parallel:
 	$(MAKE) all MYCXXFLAGS="-O3 -march=native -DNDEBUG -DEIGEN_NO_DEBUG -fopenmp $(MYCXXFLAGS)" MYLDFLAGS="-fopenmp -lfftw3_threads"
