@@ -61,6 +61,7 @@ inline std::ostream &operator<< (std::ostream &f, HubbardVertex v) {
 //
 template <bool UseSpinBlocks = false>
 class HubbardInteraction {
+	Eigen::MatrixXd H;
 	Eigen::VectorXd eigenvalues_;
 	Eigen::MatrixXd eigenvectors_;
 	double U;
@@ -90,6 +91,37 @@ class HubbardInteraction {
 	//}
 
 	inline void setup (const Parameters &p) {
+		if (p.contains("H")) {
+			std::string fn = p.getString("H");
+			std::ifstream in(fn);
+			in >> V;
+			H.resize(V, V);
+			for (size_t x=0;x<V;x++) {
+				for (size_t y=0;y<V;y++) {
+					double z;
+					in >> z;
+					H(x, y) = z;
+				}
+			}
+			Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> solver(H);
+			if (UseSpinBlocks) {
+				eigenvectors_ = Eigen::MatrixXd::Zero(2*V, 2*V);
+				eigenvectors_.block(0, 0, V, V) = solver.eigenvectors();
+				eigenvectors_.block(V, V, V, V) = solver.eigenvectors();
+				eigenvalues_.setZero(2*V);
+				eigenvalues_.head(V) = solver.eigenvalues();
+				eigenvalues_.tail(V) = solver.eigenvalues();
+				V = V;
+			} else {
+				eigenvalues_ = solver.eigenvalues();
+				eigenvectors_ = solver.eigenvectors();
+				V /= 2;
+			}
+		} else {
+		}
+		N = 2*V;
+		I = V;
+		random_site = std::uniform_int_distribution<size_t>(0, I-1);
 		U = p.getNumber("U", 4.0);
 		K = p.getNumber("K", 6.0);
 		a = 1.0*U/2.0/K;
