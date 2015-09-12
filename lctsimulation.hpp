@@ -230,6 +230,9 @@ class LCTSimulation {
 	void set_sweep_direction (sweep_direction_type d) { sweep_direction_ = d; }
 	void set_direction_left_to_right () { sweep_direction_ = left_to_right; }
 	void set_direction_right_to_left () { sweep_direction_ = right_to_left; }
+
+	Configuration<Interaction> & configuration () { return conf; }
+	const Configuration<Interaction> & configuration () const { return conf; }
 };
 
 #endif // LCTSIMULATION
