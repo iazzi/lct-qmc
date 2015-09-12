@@ -420,6 +420,8 @@ class Configuration {
 		size_t vertices () const { return size(); }
 		void show_verts () const { for (const auto &s : slices) std::cerr << s.size() << std::endl; }
 		void advance (int n) { set_index(2*M+index+n); }
+		Slice<Interaction> & slice (size_t i) { return slices[i]; }
+		const Slice<Interaction> & slice (size_t i) const { return slices[i]; }
 
 		size_t volume () const { return model.interaction().volume(); }
 		double inverse_temperature () const { return beta; }
