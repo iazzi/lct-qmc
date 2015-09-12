@@ -24,11 +24,11 @@ public:
         virtual void measure();
         virtual double fraction_completed() const;
 
-        // using alps::mcbase::save;
-        // virtual void save(alps::hdf5::archive & ar) const;
-        //
-        // using alps::mcbase::load;
-        // virtual void load(alps::hdf5::archive & ar);
+         using alps::mcbase::save;
+         virtual void save(alps::hdf5::archive & ar) const;
+
+	 using alps::mcbase::load;
+	 virtual void load(alps::hdf5::archive & ar);
 
     private:
         

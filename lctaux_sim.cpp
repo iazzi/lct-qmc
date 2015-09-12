@@ -6,6 +6,8 @@
 #include <boost/lambda/lambda.hpp>
 #include <boost/lexical_cast.hpp>
 
+#include "type_save.hpp"
+
 using namespace std;
 using namespace Eigen;
 
@@ -85,11 +87,17 @@ double lctaux_sim::fraction_completed() const {
     return (sweeps_ < thermalization_sweeps_ ? 0. : ( sweeps_ - thermalization_sweeps_ ) / double(total_sweeps_));
 }
 
-// void lctaux_sim::save(alps::hdf5::archive & ar) const {
-//     mcbase::save(ar);
-//     ar["checkpoint/sweeps"] << sweeps;
-//     ar["checkpoint/spins"] << spins;
-// }
+void lctaux_sim::save(alps::hdf5::archive & ar) const {
+	mcbase::save(ar);
+	//ar["checkpoint/sweeps"] << sweeps;
+	alps::hdf5::save(ar, "checkpoint/configuration", configuration());
+}
+
+void lctaux_sim::load(alps::hdf5::archive & ar) {
+	mcbase::load(ar);
+	//ar["checkpoint/sweeps"] << sweeps;
+	alps::hdf5::load(ar, "checkpoint/configuration", configuration());
+}
 //
 // void lctaux_sim::load(alps::hdf5::archive & ar) {
 //     mcbase::load(ar);
