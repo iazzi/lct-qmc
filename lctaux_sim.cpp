@@ -28,15 +28,16 @@ Parameters convert_parameters(alps::parameters_type<lctaux_sim>::type const & pa
 
 
 void lctaux_sim::define_parameters(parameters_type & parameters) {
-    alps::mcbase::define_parameters(parameters);
-    alps::define_convenience_parameters(parameters)
-        .description("LCT-AUX Hubbard Model")
-        .define<int>("sweeps", 1000, "maximum number of sweeps")
-        .define<int>("thermalization", "number of sweeps for thermalization")
-        .define<double>("beta", "inverse temperature of the system")
-        .define<double>("U", 0., "local Hubbard interaction")
-        .define<std::string>("H", "path to file containing the edge matrix")
-        ;
+	if (parameters.is_restored()) { return; }
+	alps::mcbase::define_parameters(parameters);
+	alps::define_convenience_parameters(parameters)
+		.description("LCT-AUX Hubbard Model")
+		.define<int>("sweeps", 1000, "maximum number of sweeps")
+		.define<int>("thermalization", "number of sweeps for thermalization")
+		.define<double>("beta", "inverse temperature of the system")
+		.define<double>("U", 0., "local Hubbard interaction")
+		.define<std::string>("H", "path to file containing the edge matrix")
+		;
 }
 
 
