@@ -36,6 +36,14 @@ namespace alps {
 				load(ar, p, c.slice(i));
 			}
 		}
+
+		template <typename T>
+		void save (archive & ar, std::string const & p, Eigen::Array<T, Eigen::Dynamic, Eigen::Dynamic> const & a) {
+		}
+
+		template <typename T>
+		void load (archive & ar, std::string const & p, Eigen::Array<T, Eigen::Dynamic, Eigen::Dynamic> & a) {
+		}
 	}
 }
 
