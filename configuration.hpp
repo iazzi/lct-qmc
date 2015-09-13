@@ -51,7 +51,8 @@ class Configuration {
 		Eigen::PartialPivLU<Eigen::MatrixXd> lu;
 	public:
 		//Configuration (const Model &m) : model(m), index(0) {}
-		Configuration (const Parameters &p) : model(p), index(0) {}
+		explicit Configuration (const Parameters &p) : model(p), index(0) {}
+		Configuration () = delete;
 
 		void setup (const Parameters &p) {
 			beta = p.getNumber("beta", 1.0);
