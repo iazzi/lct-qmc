@@ -401,6 +401,11 @@ class Configuration {
 			gf = full_propagator.bottomLeftCorner(N, N);
 		}
 
+		void gf_tau (Eigen::ArrayXXd &gf) const {
+			size_t N = B.S.size();
+			gf = full_propagator.bottomLeftCorner(N, N);
+		}
+
 		void gf_tau (Eigen::MatrixXd &gf, double t) {
 			size_t N = B.S.size();
 			gf = full_propagator.bottomLeftCorner(N, N);
