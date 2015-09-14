@@ -221,6 +221,9 @@ class LCTSimulation {
 		return conf.interaction_energy(cache);
 	}
 
+	int time_position () const { return conf.current_slice() + (is_direction_left_to_right()?0:1); }
+	void response_function (Eigen::MatrixXd &gf) const { return conf.gf_tau(gf); }
+
 	size_t volume () const { return conf.volume(); }
 	size_t full_sweep_size () const { return 2*conf.slice_number(); }
 

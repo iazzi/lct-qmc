@@ -396,6 +396,11 @@ class Configuration {
 			return cache.probability;
 		}
 
+		void gf_tau (Eigen::MatrixXd &gf) const {
+			size_t N = B.S.size();
+			gf = full_propagator.bottomLeftCorner(N, N);
+		}
+
 		void gf_tau (Eigen::MatrixXd &gf, double t) {
 			size_t N = B.S.size();
 			gf = full_propagator.bottomLeftCorner(N, N);
