@@ -2,6 +2,7 @@
 #define HUBBARD_HPP
 
 #include "parameters.hpp"
+#include "modelbase.hpp"
 
 #include <Eigen/Dense>
 #include <random>
@@ -61,7 +62,7 @@ inline std::ostream &operator<< (std::ostream &f, HubbardVertex v) {
 // The MatrixType type contains
 //
 template <bool UseSpinBlocks = false>
-class HubbardInteraction {
+class HubbardInteraction : ModelBase {
 	Eigen::MatrixXd H;
 	Eigen::VectorXd eigenvalues_;
 	Eigen::MatrixXd eigenvectors_;

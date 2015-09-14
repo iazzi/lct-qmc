@@ -396,6 +396,16 @@ class Configuration {
 			return cache.probability;
 		}
 
+		void gf_tau (Eigen::MatrixXd &gf) const {
+			size_t N = B.S.size();
+			gf = full_propagator.bottomLeftCorner(N, N);
+		}
+
+		void gf_tau (Eigen::ArrayXXd &gf) const {
+			size_t N = B.S.size();
+			gf = full_propagator.bottomLeftCorner(N, N);
+		}
+
 		void gf_tau (Eigen::MatrixXd &gf, double t) {
 			size_t N = B.S.size();
 			gf = full_propagator.bottomLeftCorner(N, N);
@@ -544,6 +554,8 @@ class Configuration {
 			//if (ret>1.0e-6) throw -1;
 			return ret;
 		}
+
+		const Eigen::MatrixXd & eigenvectors () const { return model.eigenvectors(); }
 };
 
 #endif // CONFIGURATION_HPP

@@ -39,7 +39,9 @@ class Measurements {
 		Verts.add(sim.vertices());
 		//const int D = 4;
 		//int i = conf.current_slice();
-		//gf.resize(D*conf.slice_number());
+		if (gf.size()!=sim.configuration().slice_number()+1) gf.resize(sim.configuration().slice_number()+1);
+		sim.response_function(cache);
+		gf[sim.time_position()].add(sign*cache);
 		//double dt = (conf.slice_end()-conf.slice_start())/D;
 		//for (int j=0;j<D;j++) {
 			//conf.gf_tau(cache, j*dt);
@@ -49,6 +51,11 @@ class Measurements {
 	void write_G (std::ostream &out) {
 		for (size_t i=0;i<gf.size();i++) {
 			out << gf[i].mean() << endl << endl;
+		}
+	}
+	void write_G (std::ostream &out, const Eigen::MatrixXd &U) {
+		for (size_t i=0;i<gf.size();i++) {
+			out << (U*gf[i].mean().matrix()*U.transpose()) << endl << endl;
 		}
 	}
 };
@@ -81,9 +88,16 @@ int main (int argc, char **argv) {
 	}
 	//double p2 = sim.exact_probability();
 	cerr << endl << measurements.Kin << endl << measurements.Int << endl << measurements.Sign << endl;
+	cerr << endl << measurements.Dens.mean().matrix().trace() << endl << endl;
 	std::cerr << "dp = " << sim.exact_probability()-sim.probability() << ' ' << sim.probability() << endl << endl;
 	ofstream out("gf.dat");
-	measurements.write_G(out);
+	Eigen::MatrixXd ev = sim.configuration().eigenvectors();
+	measurements.write_G(out, ev);
+	ofstream out0("gf0.dat");
+	measurements.write_G(out0);
+	ofstream dens("dens.dat");
+	dens << measurements.Dens.mean() << endl << endl;
+	dens << (ev*measurements.Dens.mean().matrix()*ev.transpose()) << endl << endl;
 	return 0;
 }
 
