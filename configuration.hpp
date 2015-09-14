@@ -554,6 +554,8 @@ class Configuration {
 			//if (ret>1.0e-6) throw -1;
 			return ret;
 		}
+
+		const Eigen::MatrixXd & eigenvectors () const { return model.eigenvectors(); }
 };
 
 #endif // CONFIGURATION_HPP
