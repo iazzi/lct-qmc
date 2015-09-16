@@ -120,14 +120,14 @@ inline void load (alps::hdf5::archive & ar, std::string const& p, Slice<M> & s) 
 	}
 }
 
-// template <typename M>
-inline void save (alps::hdf5::archive & ar, std::string const& p, Configuration<HubbardInteraction<true> > const & c) {
+template <typename M>
+inline void save (alps::hdf5::archive & ar, std::string const& p, Configuration<M> const & c) {
 	for (size_t i=0;i<c.slice_number();i++) {
         ar[p+"/"+std::to_string(i)] << c.slice(i);
 	}
 }
-// template <typename M>
-inline void load (alps::hdf5::archive & ar, std::string const& p, Configuration<HubbardInteraction<true> > & c) {
+template <typename M>
+inline void load (alps::hdf5::archive & ar, std::string const& p, Configuration<M> & c) {
 	for (size_t i=0;i<c.slice_number();i++) {
         ar[p+"/"+std::to_string(i)] >> c.slice(i);
 	}
