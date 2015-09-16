@@ -216,6 +216,10 @@ class LCTSimulation {
 		return conf.green_function();
 	}
 
+	Eigen::ArrayXd local_density (const Eigen::MatrixXd& cache) const {
+		return conf.local_density(cache);
+	}
+
 	double kinetic_energy (const Eigen::MatrixXd& cache) const {
 		return conf.kinetic_energy(cache);
 	}

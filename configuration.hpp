@@ -439,6 +439,7 @@ class Configuration {
 
 		// observables
 
+		Eigen::ArrayXd local_density (const Eigen::MatrixXd& cache) const { return model.local_density(cache); }
 		double kinetic_energy (const Eigen::MatrixXd& cache) const { return model.interaction().kinetic_energy(cache); }
 		double interaction_energy (const Eigen::MatrixXd& cache) const { return model.interaction().interaction_energy(cache); }
 		const Eigen::MatrixXd & green_function () const { return G_matrix; }
