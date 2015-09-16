@@ -1,5 +1,6 @@
 #pragma once
 
+#include "type_save.hpp"
 #include "lctsimulation.hpp"
 
 #include <alps/mc/mcbase.hpp>

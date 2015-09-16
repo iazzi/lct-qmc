@@ -1,8 +1,96 @@
 #ifndef TYPE_SAVE_HPP
 #define TYPE_SAVE_HPP
 
+#include <Eigen/Dense>
+
 #include "slice.hpp"
 #include "hubbard.hpp"
+#include "configuration.hpp"
+
+#include <alps/hdf5/archive.hpp>
+#include <alps/numeric/vector_functions.hpp>
+#include <alps/numeric/inf.hpp>
+
+namespace alps {
+	namespace numeric {
+		inline Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> sin (Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> x) {
+			return x.sin();
+		}
+
+		inline Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> cos (Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> x) {
+			return x.cos();
+		}
+
+		inline Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> tan (Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> x) {
+			return x.tan();
+		}
+
+		inline Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> sinh (Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> x) {
+			return x.sinh();
+		}
+
+		inline Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> cosh (Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> x) {
+			return x.cosh();
+		}
+
+		inline Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> tanh (Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> x) {
+			return x.tanh();
+		}
+
+		inline Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> asin (Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> x) {
+			return x.asin();
+		}
+
+		inline Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> acos (Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> x) {
+			return x.acos();
+		}
+
+		inline Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> atan (Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> x) {
+			return x.atan();
+		}
+
+		inline Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> abs (Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> x) {
+			return x.abs();
+		}
+
+		inline Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> exp (Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> x) {
+			return x.exp();
+		}
+
+		inline Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> sqrt (Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> x) {
+			return x.sqrt();
+		}
+
+		inline Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> log (Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> x) {
+			return x.log();
+		}
+
+		inline Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> sq (Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> x) {
+			return Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic>(x*x);
+		}
+
+		template <typename Derived>
+		inline Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> sq (Eigen::EigenBase<Derived> const & x) {
+			return Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic>(x*x);
+		}
+
+		inline Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> pow (Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> x, double y) {
+			return x.pow(y);
+		}
+
+		inline Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> cbrt (Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> x) {
+			return x.pow(1.0/3.0);
+		}
+
+		template <> struct invert<Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic>> {
+			Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> operator() (Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> x) { return x.inverse(); }
+		};
+
+		template <> struct inf<Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic>> {
+			operator Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> () const { return Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic>(); }
+		};
+	}
+}
 
 namespace alps {
 	namespace hdf5 {
@@ -38,12 +126,23 @@ namespace alps {
 		}
 
 		template <typename T>
-		void save (archive & ar, std::string const & p, Eigen::Array<T, Eigen::Dynamic, Eigen::Dynamic> const & a) {
+		void save (archive & ar, std::string const & p, Eigen::ArrayBase<T> const & a) {
 		}
 
 		template <typename T>
-		void load (archive & ar, std::string const & p, Eigen::Array<T, Eigen::Dynamic, Eigen::Dynamic> & a) {
+		void load (archive & ar, std::string const & p, Eigen::ArrayBase<T> & a) {
 		}
+
+		template <> void save<Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic>> (archive & ar, std::string const & p, Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> const & a, std::vector<std::size_t> size, std::vector<std::size_t> chunk, std::vector<std::size_t> offset) {
+		}
+
+		template <> void load<Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic>> (archive & ar, std::string const & p, Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> & , std::vector<std::size_t> chunk, std::vector<std::size_t> offset) {
+		}
+
+		template<> struct scalar_type<Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> > {
+			typedef double type;
+		};
+
 	}
 }
 
