@@ -92,39 +92,50 @@ namespace alps {
 	}
 }
 
+
+inline void save (alps::hdf5::archive & ar, std::string const& p, HubbardVertex const & v) {
+    ar[p+"/x"] << v.x;
+    ar[p+"/t"] << v.tau;
+    ar[p+"/s"] << v.sigma;
+}
+inline void load (alps::hdf5::archive & ar, std::string const& p, HubbardVertex & v) {
+    ar[p+"/x"] >> v.x;
+    ar[p+"/t"] >> v.tau;
+    ar[p+"/s"] >> v.sigma;
+}
+
+template <typename M>
+inline void save (alps::hdf5::archive & ar, std::string const& p, Slice<M> const & s) {
+	for (size_t i=0;i<s.size();i++) {
+        ar[p+"/"+std::to_string(i)] << s.get_vertex(i);
+	}
+}
+template <typename M>
+inline void load (alps::hdf5::archive & ar, std::string const& p, Slice<M> & s) {
+    std::vector<std::string> ch = ar.list_children(p);
+    for (size_t i=0;i<ch.size();i++) {
+        typename Slice<M>::Vertex v;
+        ar[p+"/"+ch[i]] >> v;
+        s.insert(v);
+	}
+}
+
+// template <typename M>
+inline void save (alps::hdf5::archive & ar, std::string const& p, Configuration<HubbardInteraction<true> > const & c) {
+	for (size_t i=0;i<c.slice_number();i++) {
+        ar[p+"/"+std::to_string(i)] << c.slice(i);
+	}
+}
+// template <typename M>
+inline void load (alps::hdf5::archive & ar, std::string const& p, Configuration<HubbardInteraction<true> > & c) {
+	for (size_t i=0;i<c.slice_number();i++) {
+        ar[p+"/"+std::to_string(i)] >> c.slice(i);
+	}
+}
+
+
 namespace alps {
 	namespace hdf5 {
-		inline void save (archive & ar, std::string const & p, HubbardVertex const & v) {
-			save(ar, p+"/x", v.x);
-			save(ar, p+"/t", v.tau);
-			save(ar, p+"/s", v.sigma);
-		}
-		inline void load (archive & ar, std::string const & p, HubbardVertex & v) {
-			load(ar, p+"/x", v.x);
-			load(ar, p+"/t", v.tau);
-			load(ar, p+"/s", v.sigma);
-		}
-
-		template <typename M>
-		inline void save (archive & ar, std::string const & p, Slice<M> const & s) {
-		}
-		template <typename M>
-		inline void load (archive & ar, std::string const & p, Slice<M> & s) {
-		}
-
-		template <typename M>
-		inline void save (archive & ar, std::string const & p, Configuration<M> const & c) {
-			for (size_t i=0;i<c.slice_number();i++) {
-				save(ar, p, c.slice(i));
-			}
-		}
-		template <typename M>
-		inline void load (archive & ar, std::string const & p, Configuration<M> & c) {
-			for (size_t i=0;i<c.slice_number();i++) {
-				load(ar, p, c.slice(i));
-			}
-		}
-
 		template <typename T>
 		inline void save (archive & ar, std::string const & p, Eigen::ArrayBase<T> const & a) {
 		}
