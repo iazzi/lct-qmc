@@ -94,49 +94,49 @@ namespace alps {
 
 namespace alps {
 	namespace hdf5 {
-		void save (archive & ar, std::string const & p, HubbardVertex const & v) {
+		inline void save (archive & ar, std::string const & p, HubbardVertex const & v) {
 			save(ar, p+"/x", v.x);
 			save(ar, p+"/t", v.tau);
 			save(ar, p+"/s", v.sigma);
 		}
-		void load (archive & ar, std::string const & p, HubbardVertex & v) {
+		inline void load (archive & ar, std::string const & p, HubbardVertex & v) {
 			load(ar, p+"/x", v.x);
 			load(ar, p+"/t", v.tau);
 			load(ar, p+"/s", v.sigma);
 		}
 
 		template <typename M>
-		void save (archive & ar, std::string const & p, Slice<M> const & s) {
+		inline void save (archive & ar, std::string const & p, Slice<M> const & s) {
 		}
 		template <typename M>
-		void load (archive & ar, std::string const & p, Slice<M> & s) {
+		inline void load (archive & ar, std::string const & p, Slice<M> & s) {
 		}
 
 		template <typename M>
-		void save (archive & ar, std::string const & p, Configuration<M> const & c) {
+		inline void save (archive & ar, std::string const & p, Configuration<M> const & c) {
 			for (size_t i=0;i<c.slice_number();i++) {
 				save(ar, p, c.slice(i));
 			}
 		}
 		template <typename M>
-		void load (archive & ar, std::string const & p, Configuration<M> & c) {
+		inline void load (archive & ar, std::string const & p, Configuration<M> & c) {
 			for (size_t i=0;i<c.slice_number();i++) {
 				load(ar, p, c.slice(i));
 			}
 		}
 
 		template <typename T>
-		void save (archive & ar, std::string const & p, Eigen::ArrayBase<T> const & a) {
+		inline void save (archive & ar, std::string const & p, Eigen::ArrayBase<T> const & a) {
 		}
 
 		template <typename T>
-		void load (archive & ar, std::string const & p, Eigen::ArrayBase<T> & a) {
+		inline void load (archive & ar, std::string const & p, Eigen::ArrayBase<T> & a) {
 		}
 
-		template <> void save<Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic>> (archive & ar, std::string const & p, Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> const & a, std::vector<std::size_t> size, std::vector<std::size_t> chunk, std::vector<std::size_t> offset) {
+		template <> inline void save<Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic>> (archive & ar, std::string const & p, Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> const & a, std::vector<std::size_t> size, std::vector<std::size_t> chunk, std::vector<std::size_t> offset) {
 		}
 
-		template <> void load<Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic>> (archive & ar, std::string const & p, Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> & , std::vector<std::size_t> chunk, std::vector<std::size_t> offset) {
+		template <> inline void load<Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic>> (archive & ar, std::string const & p, Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> & , std::vector<std::size_t> chunk, std::vector<std::size_t> offset) {
 		}
 
 		template<> struct scalar_type<Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> > {
