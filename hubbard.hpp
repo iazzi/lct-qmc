@@ -260,8 +260,13 @@ class HubbardInteraction : ModelBase {
 	}
 
 	template <typename T>
+	Eigen::ArrayXd local_density (const T &M) const {
+		return (eigenvectors_ * M * eigenvectors_.transpose()).diagonal();
+	}
+
+	template <typename T>
 	double interaction_energy (const T &M) const {
-		Eigen::ArrayXd d = (eigenvectors_ * M * eigenvectors_.transpose()).diagonal();
+		Eigen::ArrayXd d = local_density(M);
 		return U * (d.head(V)*d.tail(V)).sum();
 	}
 
