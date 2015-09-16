@@ -36,14 +36,14 @@ int main(int argc, char *argv[]) {
         broadcast(comm, parameters, 0); // all slaves get parameters from the master
         
         if (parameters.help_requested(std::cerr)) return EXIT_FAILURE; // Stop if help requested
-        // std::string checkpoint_file=alps::remove_extensions(parameters.get_origin_name())
-        //     + ".clone" + boost::lexical_cast<std::string>(comm.rank()) + ".h5";
+        std::string checkpoint_file=alps::remove_extensions(parameters["checkpoint"])
+            + ".clone" + boost::lexical_cast<std::string>(comm.rank()) + ".h5";
 
         alps::mcmpiadapter<mysim> sim(parameters, comm, alps::check_schedule(parameters["Tmin"],
                                                                                  parameters["Tmax"]));
 
-        // if (parameters.is_restored())
-        //     sim.load(checkpoint_file);
+        if (parameters.is_restored())
+            sim.load(checkpoint_file);
 
         // TODO: how do we handle signels in mpi context? do we want to handle these in the callback or in the simulation?
         // do not use stop_callback_mpi: we do not want an bcast after every sweep!
@@ -52,7 +52,7 @@ int main(int argc, char *argv[]) {
         //  on the mpi call.
         sim.run(alps::stop_callback(comm, parameters["timelimit"]));
 
-        // sim.save(checkpoint_file);
+        sim.save(checkpoint_file);
 
         using alps::collect_results;
         alps::results_type<mysim>::type results = collect_results(sim);

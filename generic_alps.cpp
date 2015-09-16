@@ -21,7 +21,10 @@ int main(int argc, const char *argv[]) {
         typedef alps::parameters_type<mysim>::type params_type;
         params_type parameters(argc, argv, "/parameters"); // reads from HDF5 if need be
         
-        mysim::define_parameters(parameters);
+        // if parameters are restored from the archive, all definitions are already there
+        if (!parameters.is_restored()) {
+            mysim::define_parameters(parameters);
+        }
         if (parameters.help_requested(std::cerr)) return 1; // Stop if help requested.
 
         if (parameters["outputfile"].as<std::string>().empty()) {
@@ -29,9 +32,19 @@ int main(int argc, const char *argv[]) {
         }
 
         mysim sim(parameters);
+        
+        // If needed, restore the last checkpoint
+        std::string checkpoint_file = parameters["checkpoint"];
+        if (parameters.is_restored()) {
+            std::cout << "Restoring checkpoint from " << checkpoint_file << std::endl;
+            sim.load(checkpoint_file);
+        }
+        
+        // Run the simulation
         sim.run(alps::stop_callback(int(parameters["timelimit"])));
         
-        // sim.save(checkpoint_file);
+        std::cout << "Checkpointing simulation..." << std::endl;
+        sim.save(checkpoint_file);
 
         using alps::collect_results;
         alps::results_type<mysim>::type results = collect_results(sim);
