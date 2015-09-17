@@ -19,9 +19,9 @@ struct HubbardVertexUpdateData {
 };
 
 struct HubbardVertex {
+	HubbardVertexUpdateData data;
 	double sigma;
 	double tau;
-	HubbardVertexUpdateData data;
 	int x;
 	struct Compare {
 		bool operator() (const HubbardVertex& a, const HubbardVertex& b) {
@@ -31,10 +31,33 @@ struct HubbardVertex {
 		}
 	};
 	bool operator== (const HubbardVertex &w) const { return x==w.x && sigma==w.sigma && tau==w.tau; }
-	HubbardVertex (int y, double s, double t) : sigma(s), tau(t), x(y) {}
-	HubbardVertex (const HubbardVertex &v) : sigma(v.sigma), tau(v.tau), data(v.data), x(v.x) {}
-	HubbardVertex (double t) : sigma(0.0), tau(t), x(0) {}
 	HubbardVertex () : sigma(0.0), tau(0.0), x(0) {}
+	HubbardVertex (double t) : sigma(0.0), tau(t), x(0) {}
+	HubbardVertex (int y, double s, double t) : sigma(s), tau(t), x(y) {}
+	HubbardVertex (const HubbardVertex &v) : data(v.data), sigma(v.sigma), tau(v.tau), x(v.x) {}
+	HubbardVertex (HubbardVertex &&v) : sigma(v.sigma), tau(v.tau), x(v.x) {
+		data.U.swap(v.data.U);
+		data.V.swap(v.data.V);
+		data.mat = v.data.mat;
+		data.inv = v.data.inv;
+	}
+	HubbardVertex& operator= (const HubbardVertex &v) {
+		sigma = v.sigma;
+		tau = v.tau;
+		x = v.x;
+		data = v.data;
+		return *this;
+	}
+	HubbardVertex& operator= (HubbardVertex &&v) {
+		sigma = v.sigma;
+		tau = v.tau;
+		x = v.x;
+		data.U.swap(v.data.U);
+		data.V.swap(v.data.V);
+		data.mat = v.data.mat;
+		data.inv = v.data.inv;
+		return *this;
+	}
 };
 
 inline std::ostream &operator<< (std::ostream &f, HubbardVertex v) {
