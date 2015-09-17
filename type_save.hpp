@@ -116,6 +116,7 @@ inline void load (alps::hdf5::archive & ar, std::string const& p, Slice<M> & s) 
     for (size_t i=0;i<ch.size();i++) {
         typename Slice<M>::Vertex v;
         ar[p+"/"+ch[i]] >> v;
+	s.prepare(v);
         s.insert(v);
 	}
 }

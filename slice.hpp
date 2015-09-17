@@ -28,6 +28,7 @@ class Slice {
 
 		size_t size () const { return verts.size(); }
 		void insert (const Vertex &v) { verts.insert(v); }
+		void prepare (Vertex &v) const { I->prepare(v); }
 		size_t remove (const Vertex &v) { return verts.erase(v); }
 		void clear () { verts.clear(); }
 
