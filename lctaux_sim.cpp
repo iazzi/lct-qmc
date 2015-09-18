@@ -96,13 +96,15 @@ double lctaux_sim::fraction_completed() const {
 
 void lctaux_sim::save(alps::hdf5::archive & ar) const {
 	mcbase::save(ar);
-	//ar["checkpoint/sweeps"] << sweeps;
+	ar["checkpoint/sweeps"] << sweeps_;
+	ar["checkpoint/iteration"] << iteration_;
 	ar["checkpoint/configuration"] << configuration();
 }
 
 void lctaux_sim::load(alps::hdf5::archive & ar) {
 	mcbase::load(ar);
-	//ar["checkpoint/sweeps"] << sweeps;
+	ar["checkpoint/sweeps"] >> sweeps_;
+	ar["checkpoint/iteration"] >> iteration_;
 	ar["checkpoint/configuration"] >> configuration();
 }
 //
