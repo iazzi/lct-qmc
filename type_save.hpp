@@ -107,30 +107,31 @@ inline void load (alps::hdf5::archive & ar, std::string const& p, HubbardVertex 
 template <typename M>
 inline void save (alps::hdf5::archive & ar, std::string const& p, Slice<M> const & s) {
 	for (size_t i=0;i<s.size();i++) {
-        ar[p+"/"+std::to_string(i)] << s.get_vertex(i);
+		ar[p+"/"+std::to_string(i)] << s.get_vertex(i);
 	}
 }
 template <typename M>
 inline void load (alps::hdf5::archive & ar, std::string const& p, Slice<M> & s) {
-    std::vector<std::string> ch = ar.list_children(p);
-    for (size_t i=0;i<ch.size();i++) {
-        typename Slice<M>::Vertex v;
-        ar[p+"/"+ch[i]] >> v;
-	s.prepare(v);
-        s.insert(v);
+	s.clear();
+	std::vector<std::string> ch = ar.list_children(p);
+	for (size_t i=0;i<ch.size();i++) {
+		typename Slice<M>::Vertex v;
+		ar[p+"/"+ch[i]] >> v;
+		s.prepare(v);
+		s.insert(v);
 	}
 }
 
 template <typename M>
 inline void save (alps::hdf5::archive & ar, std::string const& p, Configuration<M> const & c) {
 	for (size_t i=0;i<c.slice_number();i++) {
-        ar[p+"/"+std::to_string(i)] << c.slice(i);
+		ar[p+"/"+std::to_string(i)] << c.slice(i);
 	}
 }
 template <typename M>
 inline void load (alps::hdf5::archive & ar, std::string const& p, Configuration<M> & c) {
 	for (size_t i=0;i<c.slice_number();i++) {
-        ar[p+"/"+std::to_string(i)] >> c.slice(i);
+		ar[p+"/"+std::to_string(i)] >> c.slice(i);
 	}
 }
 
