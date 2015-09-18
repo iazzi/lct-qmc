@@ -11,6 +11,8 @@
 #include <alps/numeric/vector_functions.hpp>
 #include <alps/numeric/inf.hpp>
 
+//#include <iostream>
+
 namespace alps {
 	namespace numeric {
 		inline Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> sin (Eigen::Array<double, Eigen::Dynamic, Eigen::Dynamic> x) {
@@ -106,6 +108,7 @@ inline void load (alps::hdf5::archive & ar, std::string const& p, HubbardVertex 
 
 template <typename M>
 inline void save (alps::hdf5::archive & ar, std::string const& p, Slice<M> const & s) {
+	ar[p+"/size"] << s.size();
 	for (size_t i=0;i<s.size();i++) {
 		ar[p+"/"+std::to_string(i)] << s.get_vertex(i);
 	}
@@ -113,10 +116,11 @@ inline void save (alps::hdf5::archive & ar, std::string const& p, Slice<M> const
 template <typename M>
 inline void load (alps::hdf5::archive & ar, std::string const& p, Slice<M> & s) {
 	s.clear();
-	std::vector<std::string> ch = ar.list_children(p);
-	for (size_t i=0;i<ch.size();i++) {
+	size_t size;
+	ar[p+"/size"] >> size;
+	for (size_t i=0;i<size;i++) {
 		typename Slice<M>::Vertex v;
-		ar[p+"/"+ch[i]] >> v;
+		ar[p+"/"+std::to_string(i)] >> v;
 		s.prepare(v);
 		s.insert(v);
 	}
@@ -125,6 +129,7 @@ inline void load (alps::hdf5::archive & ar, std::string const& p, Slice<M> & s) 
 template <typename M>
 inline void save (alps::hdf5::archive & ar, std::string const& p, Configuration<M> const & c) {
 	for (size_t i=0;i<c.slice_number();i++) {
+		//std::cerr << i << ' ' << c.slice(i).size() << std::endl;
 		ar[p+"/"+std::to_string(i)] << c.slice(i);
 	}
 }
@@ -132,6 +137,7 @@ template <typename M>
 inline void load (alps::hdf5::archive & ar, std::string const& p, Configuration<M> & c) {
 	for (size_t i=0;i<c.slice_number();i++) {
 		ar[p+"/"+std::to_string(i)] >> c.slice(i);
+		//std::cerr << i << ' ' << c.slice(i).size() << std::endl;
 	}
 }
 
