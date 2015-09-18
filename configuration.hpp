@@ -557,6 +557,11 @@ class Configuration {
 		}
 
 		const Eigen::MatrixXd & eigenvectors () const { return model.eigenvectors(); }
+		void print (std::ostream &out) const {
+			for (const auto &s : slices) {
+				s.print(out);
+			}
+		}
 };
 
 #endif // CONFIGURATION_HPP
