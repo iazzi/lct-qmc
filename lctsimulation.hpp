@@ -44,14 +44,19 @@ class LCTSimulation {
 				}
 				//std::cerr << i << " -> " << conf.slice_size() << std::endl;
 			}
-			conf.start();
-			conf.start();
-			conf.compute_B();
-			p1 = 0.0, ps = 0.0, pr = 0.0;
-			std::tie(p1, ps) = conf.probability();
-			conf.set_index(0);
-			conf.compute_propagators_2_right();
+			reset();
 		}
+
+	void reset () {
+		conf.start();
+		conf.start();
+		conf.compute_B();
+		p1 = 0.0, ps = 0.0, pr = 0.0;
+		std::tie(p1, ps) = conf.probability();
+		std::cerr << p1 << ' ' << ps << std::endl;
+		conf.set_index(0);
+		conf.compute_propagators_2_right();
+	}
 
 	void update_left (bool check = false) {
 		Interaction::Vertex v;
