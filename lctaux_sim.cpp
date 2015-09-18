@@ -106,6 +106,7 @@ void lctaux_sim::load(alps::hdf5::archive & ar) {
 	ar["checkpoint/sweeps"] >> sweeps_;
 	ar["checkpoint/iteration"] >> iteration_;
 	ar["checkpoint/configuration"] >> configuration();
+	reset();
 }
 //
 // void lctaux_sim::load(alps::hdf5::archive & ar) {
@@ -119,3 +120,7 @@ void lctaux_sim::load(alps::hdf5::archive & ar) {
 //     ar["checkpoint/sweeps"] >> sweeps;
 //     ar["checkpoint/spins"] >> spins;
 // }
+
+void lctaux_sim::print (std::ostream &out) const {
+	configuration().print(out);
+}

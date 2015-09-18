@@ -31,6 +31,8 @@ public:
 	 using alps::mcbase::load;
 	 virtual void load(alps::hdf5::archive & ar);
 
+	 void print (std::ostream &out) const;
+
     private:
         
         double p1_, pr_, ps_;
