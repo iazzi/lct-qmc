@@ -8,6 +8,7 @@
 
 //FIXME
 #include <iostream>
+#include <fstream>
 
 template <typename Interaction>
 class Slice {
@@ -220,6 +221,11 @@ class Slice {
 			MatrixType vt;
 			inverseVt(v, vt);
 			return vt;
+		}
+
+		void print (std::ostream &out) const {
+			for (const auto &v : verts) out << v << ' ';
+			out << '\n';
 		}
 };
 
