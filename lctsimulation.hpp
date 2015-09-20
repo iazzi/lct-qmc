@@ -15,9 +15,11 @@ class LCTSimulation {
 		left_to_right = 1
 	} sweep_direction_type;
 
+	protected:
+	std::mt19937_64 generator;
+
 	private:
 
-	std::mt19937_64 generator;
 	std::uniform_real_distribution<double> d;
 	std::exponential_distribution<double> trial;
 	typedef HubbardInteraction<true> Interaction;

@@ -99,6 +99,11 @@ void lctaux_sim::save(alps::hdf5::archive & ar) const {
 	ar["checkpoint/sweeps"] << sweeps_;
 	ar["checkpoint/iteration"] << iteration_;
 	ar["checkpoint/configuration"] << configuration();
+	ar["checkpoint/current_slice"] << configuration().current_slice();
+	ar["checkpoint/left_to_right"] << (is_direction_left_to_right()?true:false);
+	std::ostringstream seed;
+	seed << generator;
+	ar["checkpoint/generator"] << seed.str();
 }
 
 void lctaux_sim::load(alps::hdf5::archive & ar) {
@@ -107,6 +112,22 @@ void lctaux_sim::load(alps::hdf5::archive & ar) {
 	ar["checkpoint/iteration"] >> iteration_;
 	ar["checkpoint/configuration"] >> configuration();
 	reset();
+	int cs;
+	ar["checkpoint/current_slice"] >> cs;
+	configuration().set_slice(cs);
+	bool L2R;
+	ar["checkpoint/left_to_right"] >> L2R;
+	if (L2R) {
+		set_direction_left_to_right();
+		configuration().compute_propagators_2_right();
+	} else {
+		set_direction_right_to_left();
+		configuration().compute_propagators_2_right();
+	}
+	std::string s;
+	ar["checkpoint/generator"] >> s;
+	std::istringstream seed(s);
+	seed >> generator;
 }
 //
 // void lctaux_sim::load(alps::hdf5::archive & ar) {
