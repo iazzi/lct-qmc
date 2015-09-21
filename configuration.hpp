@@ -59,21 +59,21 @@ class Configuration {
 			mu = p.getNumber("mu", 0.0);
 			M = p.getInteger("slices", 4*beta);
 			dtau = beta/M;
-			slices.resize(M, Slice<Interaction>(&model.interaction(), dtau));
+			slices.resize(M, Slice<Interaction>(&model, dtau));
 			right_side.resize(M+1);
 			left_side.resize(M+1);
 			//for (size_t i=0;i<M;i++) {
 				//slices[i].setup(dtau);
 			//}
 			// use block information
-			blocks.resize(model.interaction().blocks());
+			blocks.resize(model.blocks());
 			size_t I = p.getInteger("sites", 0);
-			if (I>0) model.interaction().set_interactive_sites(I);
+			if (I>0) model.set_interactive_sites(I);
 		}
 
 		void compute_right_side (size_t j) {
 			if (j==0) {
-				B.setIdentity(model.interaction().dimension());
+				B.setIdentity(model.dimension());
 			} else {
 				B = right_side[j-1];
 				slices[j-1].apply_matrix(B.U);
@@ -85,7 +85,7 @@ class Configuration {
 
 		void compute_left_side (size_t j) {
 			if (j==M) {
-				B.setIdentity(model.interaction().dimension());
+				B.setIdentity(model.dimension());
 			} else {
 				B = left_side[j+1];
 				slices[j].apply_on_the_right(B.Vt);
@@ -278,9 +278,9 @@ class Configuration {
 		}
 
 		void decompose_U () {
-			for (size_t i=0;i<model.interaction().blocks();i++) {
-				size_t a = model.interaction().block_start(i);
-				size_t b = model.interaction().block_size(i);
+			for (size_t i=0;i<model.blocks();i++) {
+				size_t a = model.block_start(i);
+				size_t b = model.block_size(i);
 				blocks[i].Vt = B.Vt.block(a, a, b, b);
 				blocks[i].S = B.S.segment(a, b);
 				blocks[i].U = B.U.block(a, a, b, b);
@@ -293,9 +293,9 @@ class Configuration {
 		}
 
 		void decompose_Vt () {
-			for (size_t i=0;i<model.interaction().blocks();i++) {
-				size_t a = model.interaction().block_start(i);
-				size_t b = model.interaction().block_size(i);
+			for (size_t i=0;i<model.blocks();i++) {
+				size_t a = model.block_start(i);
+				size_t b = model.block_size(i);
 				blocks[i].Vt = B.Vt.block(a, a, b, b);
 				blocks[i].S = B.S.segment(a, b);
 				blocks[i].U = B.U.block(a, a, b, b);
@@ -308,7 +308,7 @@ class Configuration {
 		}
 
 		void compute_B () {
-			B.setIdentity(model.interaction().dimension());
+			B.setIdentity(model.dimension());
 			for (size_t i=0;i<M;i++) {
 				slices[(i+index+1)%M].apply_matrix(B.U);
 				decompose_U();
@@ -322,9 +322,9 @@ class Configuration {
 			//G.invertInPlace(); // B^-1
 			//G.add_identity(std::exp(-beta*mu)); // 1+exp(-beta*mu)*B^-1
 			//G.invertInPlace(); // 1/(1+exp(-beta*mu)*B^-1) = B/(1+B)
-			for (size_t i=0;i<model.interaction().blocks();i++) {
-				size_t a = model.interaction().block_start(i);
-				size_t b = model.interaction().block_size(i);
+			for (size_t i=0;i<model.blocks();i++) {
+				size_t a = model.block_start(i);
+				size_t b = model.block_size(i);
 				blocks[i].Vt = B.Vt.block(a, a, b, b);
 				blocks[i].S = B.S.segment(a, b);
 				blocks[i].U = B.U.block(a, a, b, b);
@@ -340,9 +340,9 @@ class Configuration {
 		void compute_G_alt () {
 			G_matrix.resize(B.S.size(), B.S.size());
 			G = B; // B
-			for (size_t i=0;i<model.interaction().blocks();i++) {
-				size_t a = model.interaction().block_start(i);
-				size_t b = model.interaction().block_size(i);
+			for (size_t i=0;i<model.blocks();i++) {
+				size_t a = model.block_start(i);
+				size_t b = model.block_size(i);
 				blocks[i].Vt = B.Vt.block(a, a, b, b);
 				blocks[i].S = B.S.segment(a, b);
 				blocks[i].U = B.U.block(a, a, b, b);
@@ -422,10 +422,10 @@ class Configuration {
 		size_t current_slice () const { return index; }
 
 		Vertex get_vertex (size_t i) const { return slices[index].get_vertex(i); }
-		Vertex generate_vertex (std::mt19937_64 &generator) { return model.interaction().generate(0.0, slice_end()-slice_start(), generator); }
+		Vertex generate_vertex (std::mt19937_64 &generator) { return model.generate(0.0, slice_end()-slice_start(), generator); }
 
-		double insert_factor () { return +log(beta/slice_number()) -log(slice_size()+1) +model.interaction().combinatorial_factor(); }
-		double remove_factor () { return -log(beta/slice_number()) +log(slice_size()+0) -model.interaction().combinatorial_factor(); }
+		double insert_factor () { return +log(beta/slice_number()) -log(slice_size()+1) +model.combinatorial_factor(); }
+		double remove_factor () { return -log(beta/slice_number()) +log(slice_size()+0) -model.combinatorial_factor(); }
 
 		size_t size () const { size_t ret = 0; for (const auto &s : slices) ret += s.size(); return ret; }
 		size_t vertices () const { return size(); }
@@ -434,21 +434,21 @@ class Configuration {
 		Slice<Interaction> & slice (size_t i) { return slices[i]; }
 		const Slice<Interaction> & slice (size_t i) const { return slices[i]; }
 
-		size_t volume () const { return model.interaction().volume(); }
+		size_t volume () const { return model.volume(); }
 		double inverse_temperature () const { return beta; }
 
 		// observables
 
 		Eigen::ArrayXd local_density (const Eigen::MatrixXd& cache) const { return model.local_density(cache); }
-		double kinetic_energy (const Eigen::MatrixXd& cache) const { return model.interaction().kinetic_energy(cache); }
-		double interaction_energy (const Eigen::MatrixXd& cache) const { return model.interaction().interaction_energy(cache); }
+		double kinetic_energy (const Eigen::MatrixXd& cache) const { return model.kinetic_energy(cache); }
+		double interaction_energy (const Eigen::MatrixXd& cache) const { return model.interaction_energy(cache); }
 		const Eigen::MatrixXd & green_function () const { return G_matrix; }
 
 		// CHECKS go below this
 
 		void check_all_det (int block) {
-			size_t a = model.interaction().block_start(block);
-			size_t b = model.interaction().block_size(block);
+			size_t a = model.block_start(block);
+			size_t b = model.block_size(block);
 			for (size_t i=0;i<M;i++) {
 				double A = 0.0, B = 0.0;
 				for (size_t j=0;j<M;j++) {
@@ -519,20 +519,20 @@ class Configuration {
 
 		void check_propagation_from_right () {
 			Eigen::MatrixXd M, M1, M2;
-			M1 = Eigen::MatrixXd::Identity(model.interaction().dimension(), model.interaction().dimension());
-			model.interaction().propagate(0.023, M1);
-			M2 = Eigen::MatrixXd::Identity(model.interaction().dimension(), model.interaction().dimension());
-			model.interaction().propagate_on_the_right(0.023, M2);
+			M1 = Eigen::MatrixXd::Identity(model.dimension(), model.dimension());
+			model.propagate(0.023, M1);
+			M2 = Eigen::MatrixXd::Identity(model.dimension(), model.dimension());
+			model.propagate_on_the_right(0.023, M2);
 			std::cerr << "propagate " << (M1-M2).norm() << std::endl;
-			Vertex v = model.interaction().generate(0.0, 0.2);
-			M1 = M2 = Eigen::MatrixXd::Identity(model.interaction().dimension(), model.interaction().dimension());
-			model.interaction().apply_displaced_vertex_on_the_left(v, M1);
-			model.interaction().apply_displaced_vertex_on_the_right(v, M2);
+			Vertex v = model.generate(0.0, 0.2);
+			M1 = M2 = Eigen::MatrixXd::Identity(model.dimension(), model.dimension());
+			model.apply_displaced_vertex_on_the_left(v, M1);
+			model.apply_displaced_vertex_on_the_right(v, M2);
 			std::cerr << "vertex " << (M1-M2).norm() << std::endl;
-			M = Eigen::MatrixXd::Identity(model.interaction().dimension(), model.interaction().dimension());
+			M = Eigen::MatrixXd::Identity(model.dimension(), model.dimension());
 			slices[index+1].apply_matrix(M);
 			std::cerr << "from right " << (M-slices[index+1].matrix()).norm() << std::endl;
-			M = Eigen::MatrixXd::Identity(model.interaction().dimension(), model.interaction().dimension());
+			M = Eigen::MatrixXd::Identity(model.dimension(), model.dimension());
 			slices[index+1].apply_on_the_right(M);
 			std::cerr << "from right " << (M-slices[index+1].matrix()).norm() << std::endl;
 		}
@@ -541,7 +541,7 @@ class Configuration {
 			double ret = 0.0;
 			size_t old_index = index;
 			set_index(M-1);
-			B.setIdentity(model.interaction().dimension());
+			B.setIdentity(model.dimension());
 			for (size_t i=0;i<M;i++) {
 				slices[(i+index+1)%M].apply_matrix(B.U);
 				decompose_U();
