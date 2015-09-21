@@ -290,6 +290,7 @@ class HubbardInteraction : ModelBase {
 
 	Eigen::VectorXd eigenvalues () const { return eigenvalues_; }
 	Eigen::MatrixXd eigenvectors () const { return eigenvectors_; }
+	Eigen::MatrixXd hamiltonian () const { return H; }
 
 	template <typename T>
 	void propagate (double t, T& M) {

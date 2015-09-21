@@ -556,6 +556,7 @@ class Configuration {
 		}
 
 		const Eigen::MatrixXd & eigenvectors () const { return model.eigenvectors(); }
+		Eigen::MatrixXd hamiltonian () const { return model.hamiltonian(); }
 		void print (std::ostream &out) const {
 			for (const auto &s : slices) {
 				s.print(out);
