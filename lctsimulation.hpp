@@ -246,6 +246,8 @@ class LCTSimulation {
 
 	Configuration<Interaction> & configuration () { return conf; }
 	const Configuration<Interaction> & configuration () const { return conf; }
+
+	Eigen::MatrixXd hamiltonian () { return conf.hamiltonian(); }
 };
 
 #endif // LCTSIMULATION
