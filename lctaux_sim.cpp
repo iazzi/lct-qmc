@@ -53,6 +53,7 @@ lctaux_sim::lctaux_sim(parameters_type const & parms, std::size_t seed_offset)
         << alps::accumulators::FullBinningAccumulator<double>("Sign")
         << alps::accumulators::FullBinningAccumulator<std::vector<double> >("Local density") // TODO: missing hdf5 save/load
         << alps::accumulators::FullBinningAccumulator<double>("Density")
+        << alps::accumulators::FullBinningAccumulator<double>("Magnetization")
         << alps::accumulators::FullBinningAccumulator<double>("Kinetic Energy")
         << alps::accumulators::FullBinningAccumulator<double>("Interaction Energy")
         << alps::accumulators::FullBinningAccumulator<double>("Vertices")
@@ -80,6 +81,7 @@ void lctaux_sim::measure() {
         using alps::numeric::operator*;
         measurements["Sign"] << current_sign;
         measurements["Density"] << current_sign*cache.trace()/volume();
+        measurements["Magnetization"] << current_sign*(cache.diagonal().head(volume())-cache.diagonal().tail(volume())).array().sum()/volume();
         measurements["Kinetic Energy"] << current_sign*kinetic_energy(cache)/volume();
         measurements["Interaction Energy"] << current_sign*interaction_energy(cache)/volume();
         measurements["Vertices"] << vertices();
