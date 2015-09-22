@@ -89,17 +89,19 @@ struct SVDHelper {
 	}
 
 	bool check_info (int info) {
+		bool ret;
 		if (info == 0) {
 			//std::cerr << "reserving working space " << work[0] << std::endl;
 			reserve(work[0]);
-			return true;
+			ret = true;
 		} else if (info<0) {
 			std::cerr << "mydgesvd: error at argument " << -info << std::endl;
-			return false;
+			ret = false;
 		} else {
 			std::cerr << "DBDSQR iteration failed at superdiagonal " << info << std::endl;
-			return false;
+			ret = false;
 		}
+		return ret;
 	}
 
 	// this leaves a state that is inconsistent with the rest of the class since one of V and U cannot be multiplied by S
@@ -168,8 +170,8 @@ struct SVDHelper {
 		other.resize(inner, inner);
 		reserve(5*inner+outer);
 		mydgesvd("O", "S", M, N, U.data(), M, S.data(), U.data(), M, other.data(), inner, work.data(), work.size(), info);
-		return check_info(info);
 		Vt.applyOnTheLeft(other);
+		return check_info(info);
 	}
 
 	// this will only work if M<=N
