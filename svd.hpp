@@ -88,19 +88,22 @@ struct SVDHelper {
 		if (work.size()<N) work.resize(N);
 	}
 
-	void check_info (int info) {
+	bool check_info (int info) {
 		if (info == 0) {
 			//std::cerr << "reserving working space " << work[0] << std::endl;
 			reserve(work[0]);
+			return true;
 		} else if (info<0) {
 			std::cerr << "mydgesvd: error at argument " << -info << std::endl;
+			return false;
 		} else {
 			std::cerr << "DBDSQR iteration failed at superdiagonal " << info << std::endl;
+			return false;
 		}
 	}
 
 	// this leaves a state that is inconsistent with the rest of the class since one of V and U cannot be multiplied by S
-	void fullSVD (const Matrix &A) {
+	bool fullSVD (const Matrix &A) {
 		const int M = A.rows();
 		const int N = A.cols();
 		const int inner = M<N?M:N;
@@ -112,10 +115,10 @@ struct SVDHelper {
 		Vt.resize(N, N);
 		reserve(5*inner+outer);
 		mydgesvd("A", "A", M, N, B.data(), M, S.data(), U.data(), M, Vt.data(), N, work.data(), work.size(), info);
-		check_info(info);
+		return check_info(info);
 	}
 
-	void thinSVD (const Matrix &A) {
+	bool thinSVD (const Matrix &A) {
 		const int M = A.rows();
 		const int N = A.cols();
 		const int inner = M<N?M:N;
@@ -127,10 +130,10 @@ struct SVDHelper {
 		Vt.resize(inner, N);
 		reserve(5*inner+outer);
 		mydgesvd("S", "S", M, N, B.data(), M, S.data(), U.data(), M, Vt.data(), inner, work.data(), work.size(), info);
-		check_info(info);
+		return check_info(info);
 	}
 
-	void inPlaceSVD (const Matrix &A) {
+	bool inPlaceSVD (const Matrix &A) {
 		const int M = A.rows();
 		const int N = A.cols();
 		int info = 0;
@@ -151,11 +154,11 @@ struct SVDHelper {
 			reserve(5*inner+outer);
 			mydgesvd("S", "O", M, N, Vt.data(), M, S.data(), U.data(), M, Vt.data(), inner, work.data(), work.size(), info);
 		}
-		check_info(info);
+		return check_info(info);
 	}
 
 	// this will only work if M>=N
-	void absorbU () {
+	bool absorbU () {
 		const int M = U.rows();
 		const int N = U.cols();
 		int info = 0;
@@ -165,16 +168,16 @@ struct SVDHelper {
 		other.resize(inner, inner);
 		reserve(5*inner+outer);
 		mydgesvd("O", "S", M, N, U.data(), M, S.data(), U.data(), M, other.data(), inner, work.data(), work.size(), info);
-		check_info(info);
+		return check_info(info);
 		Vt.applyOnTheLeft(other);
 	}
 
 	// this will only work if M<=N
-	void absorbVt () {
+	bool absorbVt () {
 		transposeInPlace();
-		absorbU();
+		bool ret = absorbU();
 		transposeInPlace();
-		return;
+		return ret;
 		const int M = Vt.rows();
 		const int N = Vt.cols();
 		int info = 0;
@@ -186,18 +189,18 @@ struct SVDHelper {
 		reserve(5*inner+outer);
 		if (M<=N) {
 			mydgesvd("S", "O", M, N, Vt.data(), M, S.data(), other.data(), M, Vt.data(), inner, work.data(), work.size(), info);
-			check_info(info);
+			return check_info(info);
 			U.applyOnTheRight(other);
 		} else {
 			mydgesvd("O", "S", M, N, Vt.data(), M, S.data(), Vt.data(), M, other.data(), inner, work.data(), work.size(), info);
-			check_info(info);
+			return check_info(info);
 			U.applyOnTheRight(Vt);
 			Vt = other;
 		}
 	}
 
 	// TODO size constraints!
-	void rank1_update (const Vector &u, const Vector &v, double lambda = 1.0) {
+	bool rank1_update (const Vector &u, const Vector &v, double lambda = 1.0) {
 		const int N = S.size();
 		int info = 0;
 		Matrix A = U;
@@ -205,7 +208,7 @@ struct SVDHelper {
 		other = lambda * (U.transpose()*u) * (v.transpose() * Vt.transpose());
 		other.diagonal() += S;
 		mydgesvd("A", "A", N, N, other.data(), N, S.data(), U.data(), N, Vt.data(), N, work.data(), work.size(), info);
-		check_info(info);
+		return check_info(info);
 		U.applyOnTheLeft(A);
 		Vt.applyOnTheRight(B);
 	}
