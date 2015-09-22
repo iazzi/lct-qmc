@@ -63,7 +63,7 @@ class LCTSimulation {
 	void update_left (bool check = false) {
 		Interaction::Vertex v;
 		double dp = 0.0, s = 1.0;
-		if (d(generator)<0.5) {
+		if (d(generator)<0.5) { if (conf.slice_size()>0) {
 			v = conf.get_vertex(d(generator)*conf.slice_size());
 			dp = conf.remove_probability(v);
 			s = dp>0.0?1.0:-1.0;
@@ -76,7 +76,7 @@ class LCTSimulation {
 			} else {
 				//cerr << "remove rejected" << endl;
 			}
-		} else {
+		} } else {
 			v = conf.generate_vertex(generator);
 			dp = conf.insert_probability(v);
 			s = dp>0.0?1.0:-1.0;
@@ -102,7 +102,7 @@ class LCTSimulation {
 	void update_right (bool check = false) {
 		Interaction::Vertex v;
 		double dp = 0.0, s = 1.0;
-		if (d(generator)<0.5) {
+		if (d(generator)<0.5) { if (conf.slice_size()>0) {
 			v = conf.get_vertex(d(generator)*conf.slice_size());
 			dp = conf.remove_probability_right(v);
 			s = dp>0.0?1.0:-1.0;
@@ -115,7 +115,7 @@ class LCTSimulation {
 			} else {
 				//cerr << "remove rejected" << endl;
 			}
-		} else {
+		} } else {
 			v = conf.generate_vertex(generator);
 			dp = conf.insert_probability_right(v);
 			s = dp>0.0?1.0:-1.0;
