@@ -2,11 +2,8 @@
 #define LCTSIMULATION
 
 #include "configuration.hpp"
-#include "genericlattice.hpp"
 #include "slice.hpp"
-#include "model.hpp"
 #include "hubbard.hpp"
-#include "spin_one_half.hpp"
 
 #include <random>
 
@@ -18,12 +15,15 @@ class LCTSimulation {
 		left_to_right = 1
 	} sweep_direction_type;
 
+	protected:
+	std::mt19937_64 generator;
+
 	private:
 
-	std::mt19937_64 generator;
 	std::uniform_real_distribution<double> d;
 	std::exponential_distribution<double> trial;
-	Configuration<Model<SpinOneHalf<GenericLattice>, HubbardInteraction>> conf;
+	typedef HubbardInteraction<true> Interaction;
+	Configuration<Interaction> conf;
 	double p1; // probability at the start of the simulation (absolute value)
 	double pr; // probability ration of the current configuration wrt p1 (absolute values)
 	double ps; // sign of the current configuration
@@ -33,7 +33,8 @@ class LCTSimulation {
 
 	public:
 
-	LCTSimulation (Parameters params) :
+	LCTSimulation (Parameters params, size_t seed_offset=0) :
+		generator(params.getInteger("SEED",42)+seed_offset),
 		conf(params),
 		sweep_direction_(right_to_left),
 		updates_(0) {
@@ -45,21 +46,22 @@ class LCTSimulation {
 				}
 				//std::cerr << i << " -> " << conf.slice_size() << std::endl;
 			}
-			conf.set_index(0);
-			conf.compute_right_side(0);
-			conf.start();
-			conf.start();
-			conf.compute_B();
-			conf.compute_G();
-			conf.save_G();
-			p1 = 0.0, ps = 0.0, pr = 0.0;
-			std::tie(p1, ps) = conf.probability();
-			conf.set_index(0);
-			conf.compute_propagators_2_right();
+			reset();
 		}
 
+	void reset () {
+		conf.start();
+		conf.start();
+		conf.compute_B();
+		p1 = 0.0, ps = 0.0, pr = 0.0;
+		std::tie(p1, ps) = conf.probability();
+		std::cerr << p1 << ' ' << ps << std::endl;
+		conf.set_index(0);
+		conf.compute_propagators_2_right();
+	}
+
 	void update_left (bool check = false) {
-		HubbardInteraction::Vertex v;
+		Interaction::Vertex v;
 		double dp = 0.0, s = 1.0;
 		if (d(generator)<0.5) {
 			v = conf.get_vertex(d(generator)*conf.slice_size());
@@ -89,8 +91,8 @@ class LCTSimulation {
 			}
 		}
 		if (check) {
-			conf.compute_B();
-			double p2 = conf.probability().first;
+			//conf.compute_B();
+			//double p2 = conf.probability().first;
 			//std::cerr << "v = " << v.x << ',' << v.tau << " dp = " << p1+pr-p2 << ' ' << p2-p1 << ' ' << pr << std::endl << endl;
 		}
 		//conf.compute_right_side(conf.current_slice()+1);
@@ -98,7 +100,7 @@ class LCTSimulation {
 	}
 
 	void update_right (bool check = false) {
-		HubbardInteraction::Vertex v;
+		Interaction::Vertex v;
 		double dp = 0.0, s = 1.0;
 		if (d(generator)<0.5) {
 			v = conf.get_vertex(d(generator)*conf.slice_size());
@@ -128,8 +130,8 @@ class LCTSimulation {
 			}
 		}
 		if (check) {
-			conf.compute_B();
-			double p2 = conf.probability().first;
+			//conf.compute_B();
+			//double p2 = conf.probability().first;
 			//std::cerr << "v = " << v.x << ',' << v.tau << " dp = " << p1+pr-p2 << ' ' << p2-p1 << ' ' << pr << std::endl << endl;
 		}
 		//conf.compute_right_side(conf.current_slice()+1);
@@ -143,7 +145,7 @@ class LCTSimulation {
 	}
 
 	void sweep (bool check = false) {
-		HubbardInteraction::Vertex v;
+		Interaction::Vertex v;
 		if (is_direction_right_to_left()) {
 			for (size_t j=0;j<conf.volume();j++) {
 				update_right(check);
@@ -216,6 +218,10 @@ class LCTSimulation {
 		return conf.green_function();
 	}
 
+	Eigen::ArrayXd local_density (const Eigen::MatrixXd& cache) const {
+		return conf.local_density(cache);
+	}
+
 	double kinetic_energy (const Eigen::MatrixXd& cache) const {
 		return conf.kinetic_energy(cache);
 	}
@@ -223,6 +229,10 @@ class LCTSimulation {
 	double interaction_energy (const Eigen::MatrixXd& cache) const {
 		return conf.interaction_energy(cache);
 	}
+
+	int time_position () const { return conf.current_slice() + (is_direction_left_to_right()?1:0); }
+	void response_function (Eigen::MatrixXd &gf) const { return conf.gf_tau(gf); }
+	void response_function (Eigen::ArrayXXd &gf) const { return conf.gf_tau(gf); }
 
 	size_t volume () const { return conf.volume(); }
 	size_t full_sweep_size () const { return 2*conf.slice_number(); }
@@ -233,6 +243,11 @@ class LCTSimulation {
 	void set_sweep_direction (sweep_direction_type d) { sweep_direction_ = d; }
 	void set_direction_left_to_right () { sweep_direction_ = left_to_right; }
 	void set_direction_right_to_left () { sweep_direction_ = right_to_left; }
+
+	Configuration<Interaction> & configuration () { return conf; }
+	const Configuration<Interaction> & configuration () const { return conf; }
+
+	Eigen::MatrixXd hamiltonian () { return conf.hamiltonian(); }
 };
 
 #endif // LCTSIMULATION

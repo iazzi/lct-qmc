@@ -8,16 +8,14 @@
 
 //FIXME
 #include <iostream>
+#include <fstream>
 
-template <typename Model>
+template <typename Interaction>
 class Slice {
 	public:
-		typedef typename Model::Lattice Lattice;
-		typedef typename Model::Interaction Interaction;
 		typedef typename Interaction::Vertex Vertex;
 		typedef typename Interaction::MatrixType MatrixType;
 	private:
-		Lattice *L;
 		Interaction *I;
 
 		std::set<Vertex, typename Vertex::Compare> verts;
@@ -25,19 +23,14 @@ class Slice {
 		size_t N;
 		double beta;
 
-		Eigen::MatrixXd matrix_;
-		Eigen::MatrixXd matrix_inv_;
-
 	public:
-		Slice (Model &m) : L(&m.lattice()), I(&m.interaction()), N(m.interaction().dimension()), beta(1.0) {}
-		Slice (const Slice &s) : L(s.L), I(s.I), N(s.N), beta(s.beta) {}
-
-		void setup (double b) {
-			beta = b;
-		}
+		Slice (Interaction *i, double b = 1.0) : I(i), N(i->dimension()), beta(b) {}
+		Slice (const Slice &s) : I(s.I), N(s.N), beta(s.beta) {}
 
 		size_t size () const { return verts.size(); }
 		void insert (const Vertex &v) { verts.insert(v); }
+		void insert (Vertex &&v) { verts.insert(std::move(v)); }
+		void prepare (Vertex &v) const { I->prepare(v); }
 		size_t remove (const Vertex &v) { return verts.erase(v); }
 		void clear () { verts.clear(); }
 
@@ -47,77 +40,23 @@ class Slice {
 			return *iter;
 		}
 
-		Eigen::MatrixXd matrix () {
-			matrix_.setIdentity(N, N);
-			apply_matrix(matrix_);
-			return matrix_;
-		}
-
-		Eigen::MatrixXd inverse () {
-			matrix_inv_.setIdentity(N, N);
-			double t0 = beta;
-			for (auto v=verts.rbegin();v!=verts.rend();v++) {
-				if (v->tau<t0) L->propagate(v->tau-t0, matrix_inv_);
-				t0 = v->tau;
-				I->apply_inverse_on_the_left(*v, matrix_inv_);
-			}
-			if (0.0<t0) L->propagate(-t0, matrix_inv_);
-			return matrix_inv_;
-		}
-
 		// apply the slice with forward propagators and direct vertices
 		template <typename T>
 		void apply_matrix (T &A) {
-			double t0 = 0.0;
-			for (auto v : verts) {
-				if (v.tau>t0) L->propagate(v.tau-t0, A);
-				t0 = v.tau;
-				I->apply_vertex_on_the_left(v, A);
+			for (auto v=verts.begin();v!=verts.end();v++) {
+				I->apply_displaced_vertex_on_the_left(*v, A);
 			}
-			if (beta>t0) L->propagate(beta-t0, A);
+			I->propagate(beta, A);
 		}
-
-		// TODO: apply_matrix_on_the_right(T &A)
-
-		// apply the slice with forward propagators and direct vertices
-		//template <typename T>
-		//void apply_matrix (T &A, double tau) {
-			//double t0 = 0.0;
-			//for (auto v : verts) {
-				//if (v.tau>=tau) break;
-				//if (v.tau>t0) L->propagate(v.tau-t0, A);
-				//t0 = v.tau;
-				//I->apply_vertex_on_the_left(v, A);
-			//}
-			//if (tau>t0) L->propagate(tau-t0, A);
-		//}
 
 		// apply the slice with forward propagators and direct vertices
 		template <typename T>
 		void apply_on_the_right (T &A) {
-			double t0 = beta;
+			I->propagate_on_the_right(beta, A);
 			for (auto v=verts.rbegin();v!=verts.rend();v++) {
-				//if (v.tau>=tau) break;
-				if (v->tau<t0) L->propagate_on_the_right(t0-v->tau, A);
-				t0 = v->tau;
-				I->apply_vertex_on_the_right(*v, A);
+				I->apply_displaced_vertex_on_the_right(*v, A);
 			}
-			if (t0>0.0) L->propagate_on_the_right(t0, A);
 		}
-
-		// apply the inverse slice (with backward propagators and inverse vertices)
-		template <typename T>
-		void apply_inverse (T &A) {
-			double t0 = beta;
-			for (auto v=verts.rbegin();v!=verts.rend();v++) {
-				if (v->tau<t0) L->propagate(v->tau-t0, A);
-				t0 = v->tau;
-				I->apply_inverse_on_the_left(*v, A);
-			}
-			if (0.0<t0) L->propagate(-t0, A);
-		}
-
-		// TODO: apply_inverse_on_the_right(T &A)
 
 		double log_abs_det () {
 			double ret = 0.0;
@@ -135,133 +74,158 @@ class Slice {
 			return ret;
 		}
 
-		void matrixU (const Vertex v, MatrixType &u) {
-			I->matrixU(v, u);
-			double t0 = v.tau;
+		void matrixU (const Vertex &v, MatrixType &u) {
+			u = v.data.U * v.data.mat.asDiagonal();
 			for (auto w = verts.upper_bound(v);w!=verts.end();w++) {
-				if (w->tau>t0) L->propagate(w->tau-t0, u);
-				t0 = w->tau;
-				I->apply_vertex_on_the_left(*w, u);
+				I->apply_displaced_vertex_on_the_left(*w, u);
 			}
-			if (beta>t0) L->propagate(beta-t0, u);
+			I->propagate(beta, u);
 		}
 
-		void matrixVt (const Vertex v, MatrixType &vt) {
-			I->matrixV(v, vt);
-			double t0 = v.tau;
+		Eigen::Matrix<double, 2, Eigen::Dynamic> vtt;
+		void matrixVt (const Vertex &v, MatrixType &vt) {
+			vtt = v.data.V.transpose();
 			for (auto w = verts.upper_bound(v);w!=verts.end();w++) {
-				if (w->tau>t0) L->propagate(t0-w->tau, vt);
-				t0 = w->tau;
-				I->apply_inverse_on_the_left(*w, vt);
+				I->apply_displaced_inverse_on_the_right(*w, vtt);
 			}
-			if (beta>t0) L->propagate(t0-beta, vt);
+			vt = vtt.transpose();
+			I->propagate(-beta, vt);
 		}
 
-		void inverseU (const Vertex v, MatrixType &u) {
-			I->matrixU(v, u);
-			u = -u;
-			double t0 = v.tau;
+		void matrixUV (const Vertex &v, MatrixType &u, MatrixType &vt) {
+			u = v.data.U * v.data.mat.asDiagonal();
+			vtt = v.data.V.transpose();
 			for (auto w = verts.upper_bound(v);w!=verts.end();w++) {
-				if (w->tau>t0) L->propagate(w->tau-t0, u);
-				t0 = w->tau;
-				I->apply_vertex_on_the_left(*w, u);
+				I->apply_displaced_vertex_on_the_left(*w, u);
+				I->apply_displaced_inverse_on_the_right(*w, vtt);
 			}
-			if (beta>t0) L->propagate(beta-t0, u);
+			vt = vtt.transpose();
+			I->propagate(beta, u);
+			I->propagate(-beta, vt);
 		}
 
-		void inverseVt (const Vertex v, MatrixType &vt) {
-			I->matrixV(v, vt);
-			I->apply_inverse_on_the_left(v, vt);
-			double t0 = v.tau;
+		void inverseU (const Vertex &v, MatrixType &u) {
+			u = -v.data.U * v.data.mat.asDiagonal();
 			for (auto w = verts.upper_bound(v);w!=verts.end();w++) {
-				if (w->tau>t0) L->propagate(t0-w->tau, vt);
-				t0 = w->tau;
-				I->apply_inverse_on_the_left(*w, vt);
+				I->apply_displaced_vertex_on_the_left(*w, u);
 			}
-			if (beta>t0) L->propagate(t0-beta, vt);
+			I->propagate(beta, u);
 		}
 
-		void matrixU_right (const Vertex v, MatrixType &u) {
-			I->matrixU(v, u);
-			double t0 = v.tau;
+		void inverseVt (const Vertex &v, MatrixType &vt) {
+			vtt = v.data.V.transpose();
+			I->apply_displaced_inverse_on_the_right(v, vtt);
+			for (auto w = verts.upper_bound(v);w!=verts.end();w++) {
+				I->apply_displaced_inverse_on_the_right(*w, vtt);
+			}
+			vt = vtt.transpose();
+			I->propagate(-beta, vt);
+		}
+
+		void inverseUV (const Vertex &v, MatrixType &u, MatrixType &vt) {
+			u = -v.data.U * v.data.mat.asDiagonal();
+			vtt = v.data.V.transpose();
+			I->apply_displaced_inverse_on_the_right(v, vtt);
+			for (auto w = verts.upper_bound(v);w!=verts.end();w++) {
+				I->apply_displaced_vertex_on_the_left(*w, u);
+				I->apply_displaced_inverse_on_the_right(*w, vtt);
+			}
+			vt = vtt.transpose();
+			I->propagate(beta, u);
+			I->propagate(-beta, vt);
+		}
+
+		void matrixU_right (const Vertex &v, MatrixType &u) {
+			u = v.data.U * v.data.mat.asDiagonal();
 			auto w = verts.lower_bound(v);
 			for (;w!=verts.begin();) {
 				w--;
-				if (w->tau<t0) L->propagate(w->tau-t0, u);
-				t0 = w->tau;
-				I->apply_inverse_on_the_left(*w, u);
+				I->apply_displaced_inverse_on_the_left(*w, u);
 			}
-			if (t0>0.0) L->propagate(-t0, u);
-			//std::cerr << (u-inverse()*matrixU(v)).norm() << std::endl;
 		}
 
-		void matrixVt_right (const Vertex v, MatrixType &vt) {
-			I->matrixV(v, vt);
-			double t0 = v.tau;
+		void matrixVt_right (const Vertex &v, MatrixType &vt) {
+			vtt = v.data.V.transpose();
 			auto w = verts.lower_bound(v);
 			for (;w!=verts.begin();) {
 				w--;
-				if (w->tau<t0) L->propagate(t0-w->tau, vt);
-				t0 = w->tau;
-				I->apply_vertex_on_the_left(*w, vt);
+				I->apply_displaced_vertex_on_the_right(*w, vtt);
 			}
-			if (t0>0.0) L->propagate(t0, vt);
-			//std::cerr << (vt-matrix().transpose()*matrixVt(v)).norm() << std::endl;
+			vt = vtt.transpose();
 		}
 
-		void inverseU_right (const Vertex v, MatrixType &u) {
-			I->matrixU(v, u);
-			u = -u;
-			I->apply_inverse_on_the_left(v, u);
-			double t0 = v.tau;
+		void matrixUV_right (const Vertex &v, MatrixType &u, MatrixType &vt) {
+			u = v.data.U * v.data.mat.asDiagonal();
+			vtt = v.data.V.transpose();
 			auto w = verts.lower_bound(v);
 			for (;w!=verts.begin();) {
 				w--;
-				if (w->tau<t0) L->propagate(w->tau-t0, u);
-				t0 = w->tau;
-				I->apply_inverse_on_the_left(*w, u);
+				I->apply_displaced_inverse_on_the_left(*w, u);
+				I->apply_displaced_vertex_on_the_right(*w, vtt);
 			}
-			if (t0>0.0) L->propagate(-t0, u);
-			//std::cerr << (u-inverse()*inverseU(v)).norm() << std::endl;
+			vt = vtt.transpose();
 		}
 
-		void inverseVt_right (const Vertex v, MatrixType &vt) {
-			I->matrixV(v, vt);
-			//I->apply_inverse_on_the_left(v, vt);
-			double t0 = v.tau;
+		void inverseU_right (const Vertex &v, MatrixType &u) {
+			u = -v.data.U * v.data.mat.asDiagonal();
+			I->apply_displaced_inverse_on_the_left(v, u);
 			auto w = verts.lower_bound(v);
 			for (;w!=verts.begin();) {
 				w--;
-				if (w->tau<t0) L->propagate(t0-w->tau, vt);
-				t0 = w->tau;
-				I->apply_vertex_on_the_left(*w, vt);
+				I->apply_displaced_inverse_on_the_left(*w, u);
 			}
-			if (t0>0.0) L->propagate(t0, vt);
-			//std::cerr << (vt-matrix().transpose()*inverseVt(v)).norm() << std::endl;
 		}
 
-		MatrixType matrixU (const Vertex v) {
+		void inverseVt_right (const Vertex &v, MatrixType &vt) {
+			vtt = v.data.V.transpose();
+			auto w = verts.lower_bound(v);
+			for (;w!=verts.begin();) {
+				w--;
+				I->apply_displaced_vertex_on_the_right(*w, vtt);
+			}
+			vt = vtt.transpose();
+		}
+
+		void inverseUV_right (const Vertex &v, MatrixType &u, MatrixType &vt) {
+			u = -v.data.U * v.data.mat.asDiagonal();
+			vtt = v.data.V.transpose();
+			I->apply_displaced_inverse_on_the_left(v, u);
+			auto w = verts.lower_bound(v);
+			for (;w!=verts.begin();) {
+				w--;
+				I->apply_displaced_inverse_on_the_left(*w, u);
+				I->apply_displaced_vertex_on_the_right(*w, vtt);
+			}
+			vt = vtt.transpose();
+		}
+
+		MatrixType matrixU (const Vertex &v) {
 			MatrixType u;
 			matrixU(v, u);
 			return u;
 		}
 
-		MatrixType matrixVt (const Vertex v) {
+		MatrixType matrixVt (const Vertex &v) {
 			MatrixType vt;
 			matrixVt(v, vt);
 			return vt;
 		}
 
-		MatrixType inverseU (const Vertex v) {
+		MatrixType inverseU (const Vertex &v) {
 			MatrixType u;
 			inverseU(v, u);
 			return u;
 		}
 
-		MatrixType inverseVt (const Vertex v) {
+		MatrixType inverseVt (const Vertex &v) {
 			MatrixType vt;
 			inverseVt(v, vt);
 			return vt;
+		}
+
+		void print (std::ostream &out) const {
+			for (const auto &v : verts) out << v << ' ';
+			out << '\n';
 		}
 };
 
