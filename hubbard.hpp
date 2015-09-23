@@ -85,10 +85,7 @@ inline std::ostream &operator<< (std::ostream &f, HubbardVertex v) {
 // The MatrixType type contains
 //
 template <bool UseSpinBlocks = false>
-class HubbardInteraction : ModelBase {
-	Eigen::MatrixXd H;
-	Eigen::VectorXd eigenvalues_;
-	Eigen::MatrixXd eigenvectors_;
+class HubbardInteraction : public ModelBase {
 	double U;
 	double K;
 	size_t N;
@@ -292,10 +289,6 @@ class HubbardInteraction : ModelBase {
 		Eigen::ArrayXd d = local_density(M);
 		return U * (d.head(V)*d.tail(V)).sum();
 	}
-
-	Eigen::VectorXd eigenvalues () const { return eigenvalues_; }
-	Eigen::MatrixXd eigenvectors () const { return eigenvectors_; }
-	Eigen::MatrixXd hamiltonian () const { return H; }
 
 	template <typename T>
 	void propagate (double t, T& M) {
