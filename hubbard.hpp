@@ -305,10 +305,6 @@ class HubbardInteraction : public ModelBase {
 		cached_vec = cached_vec.array().exp();
 		M.array().rowwise() *= cached_vec.transpose().array(); // (-t*eigenvalues_.array()).exp(); // this causes allocation!
 	}
-
-	typedef HubbardInteraction Interaction;
-	HubbardInteraction& interaction () { return *this; }
-	const HubbardInteraction& interaction () const { return *this; }
 };
 
 template <> template <>
