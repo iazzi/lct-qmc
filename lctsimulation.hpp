@@ -44,8 +44,6 @@ class LCTSimulation {
 				}
 				//std::cerr << i << " -> " << conf.slice_size() << std::endl;
 			}
-			conf.set_index(0);
-			conf.compute_right_side(0);
 			conf.start();
 			conf.start();
 			conf.compute_B();
