@@ -15,12 +15,11 @@
 template <typename Model>
 class Configuration {
 	public:
-		typedef typename Model::Interaction Interaction;
-		typedef typename Model::Interaction::MatrixType MatrixType;
-		typedef typename Interaction::Vertex Vertex;
+		typedef typename Model::MatrixType MatrixType;
+		typedef typename Model::Vertex Vertex;
 
 	private:
-		std::vector<Slice<Interaction>> slices;
+		std::vector<Slice<Model>> slices;
 		std::vector<SVDHelper> right_side;
 		std::vector<SVDHelper> left_side;
 
@@ -59,7 +58,7 @@ class Configuration {
 			mu = p.getNumber("mu", 0.0);
 			M = p.getInteger("slices", 4*beta);
 			dtau = beta/M;
-			slices.resize(M, Slice<Interaction>(&model, dtau));
+			slices.resize(M, Slice<Model>(&model, dtau));
 			right_side.resize(M+1);
 			left_side.resize(M+1);
 			//for (size_t i=0;i<M;i++) {
@@ -431,8 +430,8 @@ class Configuration {
 		size_t vertices () const { return size(); }
 		void show_verts () const { for (const auto &s : slices) std::cerr << s.size() << std::endl; }
 		void advance (int n) { set_index(2*M+index+n); }
-		Slice<Interaction> & slice (size_t i) { return slices[i]; }
-		const Slice<Interaction> & slice (size_t i) const { return slices[i]; }
+		Slice<Model> & slice (size_t i) { return slices[i]; }
+		const Slice<Model> & slice (size_t i) const { return slices[i]; }
 
 		size_t volume () const { return model.volume(); }
 		double inverse_temperature () const { return beta; }
