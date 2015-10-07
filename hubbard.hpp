@@ -16,6 +16,25 @@ typedef Eigen::Matrix<double, Eigen::Dynamic, 2> HubbardVertexMatrix;
 struct HubbardVertexUpdateData {
 	HubbardVertexMatrix U, V;
 	Eigen::Vector2d mat, inv;
+	HubbardVertexUpdateData () noexcept {}
+	~HubbardVertexUpdateData () noexcept {}
+	HubbardVertexUpdateData (const HubbardVertexUpdateData &d) noexcept : U(d.U), V(d.V), mat(d.mat), inv(d.inv) {}
+	HubbardVertexUpdateData (HubbardVertexUpdateData &&d) noexcept : mat(d.mat), inv(d.inv) {
+		U.swap(d.U);
+		V.swap(d.V);
+	}
+	HubbardVertexUpdateData &operator= (const HubbardVertexUpdateData &d) noexcept {
+		U = d.U;
+		V = d.V;
+		mat = d.mat;
+		inv = d.inv;
+	}
+	HubbardVertexUpdateData &operator= (HubbardVertexUpdateData &&d) noexcept {
+		U.swap(d.U);
+		V.swap(d.V);
+		mat = d.mat;
+		inv = d.inv;
+	}
 };
 
 struct HubbardVertex {
