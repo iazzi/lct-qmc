@@ -53,28 +53,20 @@ struct HubbardVertex {
 	HubbardVertex () : sigma(0.0), tau(0.0), x(0) {}
 	HubbardVertex (double t) : sigma(0.0), tau(t), x(0) {}
 	HubbardVertex (int y, double s, double t) : sigma(s), tau(t), x(y) {}
-	HubbardVertex (const HubbardVertex &v) : data(v.data), sigma(v.sigma), tau(v.tau), x(v.x) {}
-	HubbardVertex (HubbardVertex &&v) : sigma(v.sigma), tau(v.tau), x(v.x) {
-		data.U.swap(v.data.U);
-		data.V.swap(v.data.V);
-		data.mat = v.data.mat;
-		data.inv = v.data.inv;
-	}
-	HubbardVertex& operator= (const HubbardVertex &v) {
+	HubbardVertex (const HubbardVertex &v) noexcept : data(v.data), sigma(v.sigma), tau(v.tau), x(v.x) {}
+	HubbardVertex (HubbardVertex &&v) noexcept: data(std::move(v.data)), sigma(v.sigma), tau(v.tau), x(v.x) {}
+	HubbardVertex& operator= (const HubbardVertex &v) noexcept {
 		sigma = v.sigma;
 		tau = v.tau;
 		x = v.x;
 		data = v.data;
 		return *this;
 	}
-	HubbardVertex& operator= (HubbardVertex &&v) {
+	HubbardVertex& operator= (HubbardVertex &&v) noexcept {
 		sigma = v.sigma;
 		tau = v.tau;
 		x = v.x;
-		data.U.swap(v.data.U);
-		data.V.swap(v.data.V);
-		data.mat = v.data.mat;
-		data.inv = v.data.inv;
+		data = std::move(v.data);
 		return *this;
 	}
 };
