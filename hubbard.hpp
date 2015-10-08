@@ -16,6 +16,25 @@ typedef Eigen::Matrix<double, Eigen::Dynamic, 2> HubbardVertexMatrix;
 struct HubbardVertexUpdateData {
 	HubbardVertexMatrix U, V;
 	Eigen::Vector2d mat, inv;
+	HubbardVertexUpdateData () noexcept {}
+	~HubbardVertexUpdateData () noexcept {}
+	HubbardVertexUpdateData (const HubbardVertexUpdateData &d) noexcept : U(d.U), V(d.V), mat(d.mat), inv(d.inv) {}
+	HubbardVertexUpdateData (HubbardVertexUpdateData &&d) noexcept : mat(d.mat), inv(d.inv) {
+		U.swap(d.U);
+		V.swap(d.V);
+	}
+	HubbardVertexUpdateData &operator= (const HubbardVertexUpdateData &d) noexcept {
+		U = d.U;
+		V = d.V;
+		mat = d.mat;
+		inv = d.inv;
+	}
+	HubbardVertexUpdateData &operator= (HubbardVertexUpdateData &&d) noexcept {
+		U.swap(d.U);
+		V.swap(d.V);
+		mat = d.mat;
+		inv = d.inv;
+	}
 };
 
 struct HubbardVertex {
@@ -34,28 +53,20 @@ struct HubbardVertex {
 	HubbardVertex () : sigma(0.0), tau(0.0), x(0) {}
 	HubbardVertex (double t) : sigma(0.0), tau(t), x(0) {}
 	HubbardVertex (int y, double s, double t) : sigma(s), tau(t), x(y) {}
-	HubbardVertex (const HubbardVertex &v) : data(v.data), sigma(v.sigma), tau(v.tau), x(v.x) {}
-	HubbardVertex (HubbardVertex &&v) : sigma(v.sigma), tau(v.tau), x(v.x) {
-		data.U.swap(v.data.U);
-		data.V.swap(v.data.V);
-		data.mat = v.data.mat;
-		data.inv = v.data.inv;
-	}
-	HubbardVertex& operator= (const HubbardVertex &v) {
+	HubbardVertex (const HubbardVertex &v) noexcept : data(v.data), sigma(v.sigma), tau(v.tau), x(v.x) {}
+	HubbardVertex (HubbardVertex &&v) noexcept: data(std::move(v.data)), sigma(v.sigma), tau(v.tau), x(v.x) {}
+	HubbardVertex& operator= (const HubbardVertex &v) noexcept {
 		sigma = v.sigma;
 		tau = v.tau;
 		x = v.x;
 		data = v.data;
 		return *this;
 	}
-	HubbardVertex& operator= (HubbardVertex &&v) {
+	HubbardVertex& operator= (HubbardVertex &&v) noexcept {
 		sigma = v.sigma;
 		tau = v.tau;
 		x = v.x;
-		data.U.swap(v.data.U);
-		data.V.swap(v.data.V);
-		data.mat = v.data.mat;
-		data.inv = v.data.inv;
+		data = std::move(v.data);
 		return *this;
 	}
 };
@@ -305,10 +316,6 @@ class HubbardInteraction : public ModelBase {
 		cached_vec = cached_vec.array().exp();
 		M.array().rowwise() *= cached_vec.transpose().array(); // (-t*eigenvalues_.array()).exp(); // this causes allocation!
 	}
-
-	typedef HubbardInteraction Interaction;
-	HubbardInteraction& interaction () { return *this; }
-	const HubbardInteraction& interaction () const { return *this; }
 };
 
 template <> template <>
